@@ -1,0 +1,3 @@
+﻿import test from 'node:test';import assert from 'node:assert/strict';import {readFile} from 'node:fs/promises';
+test('frontend exposes required controls',async()=>{const html=await readFile(new URL('../src/index.html',import.meta.url),'utf8');for(const id of ['connect','disconnect','test','protocol','scanMode','ipMode','obfuscation','transport','logs','copyLogs','clearLogs'])assert.match(html,new RegExp(`id="${id}"`));});
+test('frontend contains no remote scripts',async()=>{const html=await readFile(new URL('../src/index.html',import.meta.url),'utf8');assert.doesNotMatch(html,/src="https?:/);});

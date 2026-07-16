@@ -1,0 +1,18 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/*.exe
+.npm-cache/
+.env
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Never commit Aether identity or credential material.
+aether*.toml
+*-secondary.toml
+*-lastconn.toml
+*.pem
+*.key

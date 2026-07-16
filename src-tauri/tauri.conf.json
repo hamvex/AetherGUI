@@ -1,0 +1,62 @@
+{
+    "$schema":  "https://schema.tauri.app/config/2",
+    "productName":  "AetherGUI",
+    "version":  "1.1.1",
+    "identifier":  "io.github.hamvex.aether-gui",
+    "build":  {
+                  "frontendDist":  "../dist",
+                  "devUrl":  "http://localhost:1420",
+                  "beforeDevCommand":  "node scripts/dev-server.mjs",
+                  "beforeBuildCommand":  "node scripts/build-frontend.mjs \u0026\u0026 node scripts/prepare-sidecar.mjs"
+              },
+    "app":  {
+                "windows":  [
+                                {
+                                    "label":  "main",
+                                    "title":  "AetherGUI",
+                                    "width":  1100,
+                                    "height":  760,
+                                    "minWidth":  820,
+                                    "minHeight":  620,
+                                    "center":  true,
+                                    "resizable":  true
+                                }
+                            ],
+                "security":  {
+                                 "csp":  "default-src \u0027self\u0027; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; script-src \u0027self\u0027"
+                             },
+                "withGlobalTauri":  true
+            },
+    "bundle":  {
+                   "active":  true,
+                   "targets":  [
+                                   "nsis",
+                                   "msi"
+                               ],
+                   "publisher":  "hamvex",
+                   "category":  "Utility",
+                   "shortDescription":  "Independent Windows desktop frontend for Aether",
+                   "longDescription":  "Connect to Aether\u0027s MASQUE, WireGuard, or WARP-in-WARP tunnels without using a terminal.",
+                   "externalBin":  [
+                                       "binaries/aether"
+                                   ],
+                   "icon":  [
+                                "icons/32x32.png",
+                                "icons/128x128.png",
+                                "icons/icon.ico"
+                            ],
+                   "windows":  {
+                                   "webviewInstallMode":  {
+                                                              "type":  "embedBootstrapper"
+                                                          },
+                                   "nsis":  {
+                                                "displayLanguageSelector":  true,
+                                                "installMode":  "currentUser",
+                                                "installerHooks":  "./windows/hooks.nsh"
+                                            },
+                                   "wix":  {
+                                               "language":  "en-US"
+                                           }
+                               }
+               }
+}

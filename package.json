@@ -1,0 +1,19 @@
+{
+    "name":  "@hamvex/aether-gui",
+    "private":  true,
+    "version":  "1.1.1",
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "tauri dev",
+                    "build":  "tauri build",
+                    "test":  "node tests/frontend.test.mjs",
+                    "tauri":  "tauri",
+                    "fetch:core":  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-aether.ps1"
+                },
+    "devDependencies":  {
+                            "@tauri-apps/cli":  "^2.8.0"
+                        },
+    "dependencies":  {
+                         "@tauri-apps/api":  "^2.8.0"
+                     }
+}
