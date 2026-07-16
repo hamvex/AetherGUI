@@ -101,6 +101,7 @@ pub fn run() {
     let process = Arc::new(ProcessManager::default());
     let setup_process = process.clone();
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_window(app)
         }))
@@ -116,7 +117,7 @@ pub fn run() {
             connection_test
         ])
         .setup(move |app| {
-            let show = MenuItem::with_id(app, "show", "Show Aether", true, None::<&str>)?;
+            let show = MenuItem::with_id(app, "show", "Show Firstham AetherGui", true, None::<&str>)?;
             let connect = MenuItem::with_id(app, "connect", "Connect", true, None::<&str>)?;
             let disconnect =
                 MenuItem::with_id(app, "disconnect", "Disconnect", true, None::<&str>)?;
@@ -129,7 +130,7 @@ pub fn run() {
                         .cloned()
                         .expect("application icon"),
                 )
-                .tooltip("Aether — Disconnected")
+                .tooltip("Firstham AetherGui — Disconnected")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
@@ -175,5 +176,5 @@ pub fn run() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running Aether GUI");
+        .expect("error while running Firstham AetherGui");
 }

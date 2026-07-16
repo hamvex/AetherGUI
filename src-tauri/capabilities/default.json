@@ -1,1 +1,1 @@
-{"$schema":"../gen/schemas/desktop-schema.json","identifier":"default","description":"Permissions for the Aether main window","windows":["main"],"permissions":["core:default"]}
+{"$schema":"../gen/schemas/desktop-schema.json","identifier":"default","description":"Permissions for the Firstham AetherGui main window","windows":["main"],"permissions":["core:default",{"identifier":"opener:allow-open-url","allow":[{"url":"https://t.me/hamvex"},{"url":"https://github.com/CluvexStudio/Aether"},{"url":"https://github.com/hamvex/AetherGUI/releases"}]}]}

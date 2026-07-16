@@ -1,6 +1,6 @@
-# رابط گرافیکی مستقل Aether
+# Firstham AetherGui
 
-یک رابط دسکتاپ مستقل برای ویندوز بر پایهٔ Tauri که هستهٔ رسمی [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) را به‌صورت sidecar مخفی و کنترل‌شده اجرا می‌کند. این repository فورک Aether نیست و منطق شبکه، اسکن، تونل و مبهم‌سازی را دوباره پیاده‌سازی نمی‌کند.
+Firstham AetherGui یک رابط دسکتاپ مستقل و ساده برای ویندوز بر پایهٔ Tauri است که هستهٔ رسمی [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) را به‌صورت sidecar مخفی و کنترل‌شده اجرا می‌کند. این repository فورک Aether نیست و منطق شبکه، اسکن، تونل و مبهم‌سازی را دوباره پیاده‌سازی نمی‌کند.
 
 [English](README.md)
 

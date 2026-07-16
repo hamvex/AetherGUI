@@ -1,6 +1,6 @@
-# AetherGUI
+# Firstham AetherGui
 
-Independent, native-feeling Windows desktop frontend for [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether). It keeps the networking core separate and runs the official Aether executable as a hidden, supervised sidecar.
+Firstham AetherGui is an independent, beginner-friendly Windows desktop frontend for [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether). It keeps the networking core separate and runs the official Aether executable as a hidden, supervised sidecar.
 
 [فارسی](README.fa.md)
 
@@ -19,6 +19,11 @@ For installation, settings, troubleshooting, v2rayN, and Proxifier instructions,
 - Local settings persistence, reset to defaults and non-loopback safety acknowledgement
 - System tray actions and clean child-process shutdown
 - Single-instance protection
+- Modern white and blue Windows interface
+- Persistent five-step first-launch welcome wizard
+- Searchable built-in English documentation and setup guide
+- In-app v2rayN and Proxifier instructions with traffic-flow diagrams
+- Scoped About page with upstream attribution and Telegram link
 
 ## Download
 
