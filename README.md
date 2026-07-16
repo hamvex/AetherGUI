@@ -24,6 +24,10 @@ For installation, settings, troubleshooting, v2rayN, and Proxifier instructions,
 - Searchable built-in English documentation and setup guide
 - In-app v2rayN and Proxifier instructions with traffic-flow diagrams
 - Scoped About page with upstream attribution and Telegram link
+- Compact connection-first layout with separate diagnostics
+- Complete English and Persian localization with remembered language selection
+- Full RTL mirroring and a bundled Vazirmatn Persian font
+- Localized tray menu, onboarding, tooltips, statuses, and built-in documentation
 
 ## Download
 

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8,210 +8,127 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-  <div class="app-shell">
+  <div class="shell">
     <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true"><span>F</span><i>A</i></div>
-        <div><h1>Firstham</h1><p>AetherGui</p></div>
-      </div>
-      <nav aria-label="Main navigation">
-        <button class="nav-item active" data-view="dashboard" aria-current="page"><span class="nav-icon">⌂</span><span>Connection</span></button>
-        <button class="nav-item" data-view="help"><span class="nav-icon">?</span><span>User guide</span></button>
-        <button class="nav-item" data-view="about"><span class="nav-icon">ⓘ</span><span>About</span></button>
+      <div class="brand"><div class="brand-mark"><span>F</span><i>A</i></div><div><h1>Firstham</h1><p>AetherGui</p></div></div>
+      <nav aria-label="Main navigation" data-i18n-aria="nav.main">
+        <button class="nav-item active" data-view="dashboard" aria-current="page"><span class="nav-icon">⌂</span><span data-i18n="nav.connection">Connection</span></button>
+        <button class="nav-item" data-view="diagnostics"><span class="nav-icon">⌁</span><span data-i18n="nav.diagnostics">Diagnostics</span></button>
+        <button class="nav-item" data-view="help"><span class="nav-icon">?</span><span data-i18n="nav.guide">User guide</span></button>
+        <button class="nav-item" data-view="about"><span class="nav-icon">ⓘ</span><span data-i18n="nav.about">About</span></button>
       </nav>
-      <div class="sidebar-status">
-        <span id="sidebar-dot" class="state-dot disconnected"></span>
-        <div><small>Current status</small><strong id="sidebar-state">Disconnected</strong></div>
+      <div class="sidebar-bottom">
+        <div class="language-setting"><label for="language" data-i18n="language.label">Language</label><select id="language" data-i18n-aria="language.label" aria-label="Language"><option value="en">English</option><option value="fa">فارسی</option></select></div>
+        <button id="showTour" class="quiet-link"><span>↻</span><span data-i18n="nav.tour">Welcome tour</span></button>
+        <div class="mini-status"><span id="sidebar-dot" class="state-dot disconnected"></span><span id="sidebar-state" data-i18n="status.disconnected">Disconnected</span></div>
+        <small class="version">v1.4.0</small>
       </div>
-      <button id="showTour" class="tour-link">↻ Show welcome tour</button>
-      <p class="sidebar-version">Version 1.3.0</p>
     </aside>
 
     <main class="content">
       <section id="view-dashboard" class="view active" aria-labelledby="dashboard-title">
-        <header class="page-header">
-          <div><p class="eyebrow">CONNECTION CENTER</p><h2 id="dashboard-title">Connect with confidence</h2><p>Choose a profile, connect, and use the local SOCKS5 proxy in your apps.</p></div>
-          <div id="status" class="status disconnected"><span></span><b>Disconnected</b></div>
-        </header>
+        <header class="page-header"><div><h2 id="dashboard-title" data-i18n="dashboard.title">Connection</h2><p data-i18n="dashboard.subtitle">Start Aether and use its local proxy in your applications.</p></div><div id="status" class="status-pill disconnected"><span></span><b data-i18n="status.disconnected">Disconnected</b></div></header>
 
-        <section class="connection-card">
-          <div class="connection-summary">
-            <div class="connection-symbol"><span id="connection-symbol">↗</span></div>
-            <div><p class="section-kicker">AETHER CONNECTION</p><h3 id="status-title">Ready to connect</h3><p id="status-message">Recommended settings are already selected. Press Connect to begin.</p></div>
+        <section class="connect-panel panel">
+          <div class="connect-main">
+            <div id="state-icon" class="state-icon">↗</div>
+            <div class="state-copy"><p class="overline" data-i18n="connection.label">AETHER CONNECTION</p><h3 id="status-title" data-i18n="connection.readyTitle">Ready to connect</h3><p id="status-message" data-i18n="connection.readyMessage">Recommended settings are selected.</p></div>
+            <div class="connection-actions"><button id="connect" class="primary" data-i18n="actions.connect">Connect</button><button id="disconnect" class="danger-subtle hidden" data-i18n="actions.disconnect">Disconnect</button><button id="test" class="secondary hidden" data-i18n="actions.verify">Verify</button></div>
           </div>
-          <div class="metrics">
-            <div><label>Active endpoint</label><strong id="endpoint">Not selected</strong></div>
-            <div><label>Local SOCKS5</label><strong id="socks-display">127.0.0.1:1819</strong></div>
-            <div><label>Connected time</label><strong id="elapsed">00:00:00</strong></div>
-          </div>
-          <div class="actions">
-            <button id="connect" class="primary"><span>●</span> Connect</button>
-            <button id="disconnect" class="secondary" disabled>Disconnect</button>
-            <button id="test" class="secondary" disabled>Verify connection</button>
+          <div class="connection-facts">
+            <div><span data-i18n="facts.endpoint">Endpoint</span><strong id="endpoint" data-i18n="facts.notSelected">Not selected</strong></div>
+            <div><span data-i18n="facts.proxy">SOCKS5 proxy</span><strong id="socks-display">127.0.0.1:1819</strong></div>
+            <div><span data-i18n="facts.elapsed">Elapsed</span><strong id="elapsed">00:00:00</strong></div>
           </div>
         </section>
 
-        <div class="dashboard-grid">
-          <section class="panel settings-panel">
-            <div class="panel-heading"><div><p class="section-kicker">CONNECTION PROFILE</p><h3>Simple settings</h3><p>Recommended choices are marked for beginners.</p></div><button id="reset" class="ghost">Reset defaults</button></div>
+        <section class="proxy-strip panel">
+          <div><span class="proxy-icon">⇄</span><div><b data-i18n="proxy.title">Local proxy</b><p data-i18n="proxy.description">Use these SOCKS5 details in v2rayN, Proxifier, or another application.</p></div></div>
+          <code>127.0.0.1</code><span class="colon">:</span><code>1819</code><button id="copyProxy" class="secondary small" data-i18n="actions.copy">Copy</button>
+        </section>
 
-            <div class="field">
-              <div class="field-label"><label>Protocol</label><span class="recommended">Recommended: MASQUE</span><button class="info" data-tooltip="The tunnel technology Aether uses to reach the internet." aria-label="Protocol help">?</button></div>
+        <section class="settings-panel panel">
+          <div class="section-heading"><div><h3 data-i18n="settings.title">Connection profile</h3><p data-i18n="settings.subtitle">Three choices are usually all you need.</p></div><button id="reset" class="text-button" data-i18n="actions.reset">Reset defaults</button></div>
+          <div class="quick-settings">
+            <div class="field protocol-field">
+              <div class="label-row"><label data-i18n="settings.protocol">Protocol</label><span class="recommend" data-i18n="recommended.masque">Recommended: MASQUE</span><button class="info" data-i18n-tooltip="tooltip.protocol" aria-label="Protocol information">?</button></div>
               <div class="segmented" id="protocol"><button data-value="masque" class="active">MASQUE</button><button data-value="wg">WireGuard</button><button data-value="gool">gool</button></div>
-              <p class="field-help">MASQUE is the best starting point. WireGuard and gool can help on networks with different filtering behavior.</p>
             </div>
-
-            <div class="two">
-              <div class="field">
-                <div class="field-label"><label for="scanMode">Scan mode</label><button class="info" data-tooltip="Controls how quickly and thoroughly Aether searches for a working endpoint." aria-label="Scan mode help">?</button></div>
-                <select id="scanMode"><option value="turbo">Turbo — fastest</option><option value="balanced" selected>Balanced — recommended</option><option value="thorough">Thorough — wider search</option><option value="stealth">Stealth — conservative</option></select>
-                <p class="field-help">Balanced is recommended for most users.</p>
-              </div>
-              <div class="field">
-                <div class="field-label"><label for="ipMode">IP scan</label><button class="info" data-tooltip="Selects which IP address families Aether will scan." aria-label="IP scan help">?</button></div>
-                <select id="ipMode"><option value="v4">IPv4 — recommended</option><option value="v6">IPv6 only</option><option value="both">IPv4 + IPv6</option></select>
-                <p class="field-help">Use IPv4 unless your network has reliable IPv6.</p>
-              </div>
-            </div>
-
             <div class="field">
-              <div class="field-label"><label for="obfuscation">Obfuscation profile</label><button class="info" data-tooltip="Changes traffic patterns to improve reliability on filtered networks. Available profiles depend on the selected protocol." aria-label="Obfuscation help">?</button></div>
-              <select id="obfuscation"></select>
-              <p class="field-help" id="obfuscation-help">Firewall is the recommended MASQUE profile.</p>
+              <div class="label-row"><label for="scanMode" data-i18n="settings.scan">Scan mode</label><button class="info" data-i18n-tooltip="tooltip.scan" aria-label="Scan mode information">?</button></div>
+              <select id="scanMode"></select>
             </div>
-
             <div class="field" id="transport-field">
-              <div class="field-label"><label>MASQUE transport</label><span class="recommended">Recommended: HTTP/3</span><button class="info" data-tooltip="HTTP/3 uses QUIC over UDP. HTTP/2 uses TCP and may work when UDP is blocked." aria-label="Transport help">?</button></div>
-              <div class="segmented" id="transport"><button data-value="h3" class="active">HTTP/3 · QUIC</button><button data-value="h2">HTTP/2 · TCP</button></div>
-              <p class="field-help">Try HTTP/2 if HTTP/3 cannot connect or your network limits UDP.</p>
+              <div class="label-row"><label data-i18n="settings.transport">MASQUE transport</label><button class="info" data-i18n-tooltip="tooltip.transport" aria-label="Transport information">?</button></div>
+              <div class="segmented" id="transport"><button data-value="h3" class="active">HTTP/3</button><button data-value="h2">HTTP/2</button></div>
             </div>
+          </div>
+          <p id="profileHint" class="profile-hint"><span>✓</span><span data-i18n="settings.recommendedHint">MASQUE, Balanced, and HTTP/3 are recommended for most users.</span></p>
 
-            <details class="advanced-card">
-              <summary><span><b>Advanced Settings</b><small>Custom addresses, timeouts, and configuration files</small></span><span class="chevron">⌄</span></summary>
-              <div class="advanced">
-                <div class="field">
-                  <div class="field-label"><label for="socksAddress">SOCKS5 listen address</label><span class="recommended">127.0.0.1:1819</span><button class="info" data-tooltip="The local address other applications use to send traffic through Aether." aria-label="SOCKS address help">?</button></div>
-                  <input id="socksAddress" value="127.0.0.1:1819" spellcheck="false">
-                  <p class="field-help">Keep this on localhost unless you understand the network exposure risk.</p>
+          <details class="advanced" id="advancedSettings">
+            <summary><span><b data-i18n="advanced.title">Advanced Settings</b><small data-i18n="advanced.subtitle">Network details, safety, and configuration files</small></span><span class="chevron">⌄</span></summary>
+            <div class="advanced-content">
+              <div class="advanced-group">
+                <h4 data-i18n="advanced.network">Network</h4>
+                <div class="grid-2">
+                  <div class="field"><div class="label-row"><label for="ipMode" data-i18n="settings.ipMode">IP scan</label><button class="info" data-i18n-tooltip="tooltip.ipMode" aria-label="IP scan information">?</button></div><select id="ipMode"></select><small data-i18n="help.ipMode">IPv4 is the safest default.</small></div>
+                  <div class="field"><div class="label-row"><label for="obfuscation" data-i18n="settings.obfuscation">Obfuscation</label><button class="info" data-i18n-tooltip="tooltip.obfuscation" aria-label="Obfuscation information">?</button></div><select id="obfuscation"></select><small id="obfuscation-help"></small></div>
                 </div>
-                <label class="check risk"><input type="checkbox" id="allowRemote"><span><b>Allow a non-local listener</b><small>I understand this can expose the proxy to other devices on my network.</small></span></label>
-                <div class="field">
-                  <div class="field-label"><label for="peer">Custom endpoint</label><button class="info" data-tooltip="Skips automatic endpoint selection and connects to this IP address and port." aria-label="Custom endpoint help">?</button></div>
-                  <input id="peer" placeholder="Example: 162.159.192.1:443" spellcheck="false">
-                  <p class="field-help">Recommended: leave empty and let Aether scan automatically.</p>
+                <div class="grid-2">
+                  <div class="field"><div class="label-row"><label for="socksAddress" data-i18n="settings.socks">SOCKS5 listen address</label><button class="info" data-i18n-tooltip="tooltip.socks" aria-label="SOCKS information">?</button></div><input id="socksAddress" value="127.0.0.1:1819" spellcheck="false"><small data-i18n="help.socks">Keep this on localhost for normal use.</small></div>
+                  <div class="field"><div class="label-row"><label for="peer" data-i18n="settings.peer">Custom endpoint</label><button class="info" data-i18n-tooltip="tooltip.peer" aria-label="Endpoint information">?</button></div><input id="peer" data-i18n-placeholder="placeholder.peer" placeholder="Leave empty for automatic scan" spellcheck="false"><small data-i18n="help.peer">Recommended: leave empty.</small></div>
                 </div>
-                <div class="two">
-                  <div class="field" id="keepalive-field">
-                    <div class="field-label"><label for="keepalive">WireGuard keepalive</label><button class="info" data-tooltip="Seconds between WireGuard keepalive packets." aria-label="Keepalive help">?</button></div>
-                    <input id="keepalive" type="number" min="1" max="65535" value="5">
-                    <p class="field-help">Recommended: 5 seconds.</p>
-                  </div>
-                  <div class="field">
-                    <div class="field-label"><label for="stallTimeout">Stall timeout</label><button class="info" data-tooltip="How long the GUI waits before considering a connection attempt stuck." aria-label="Stall timeout help">?</button></div>
-                    <input id="stallTimeout" type="number" min="10" max="3600" value="90">
-                    <p class="field-help">Recommended: 90 seconds.</p>
-                  </div>
-                </div>
-                <label class="check"><input type="checkbox" id="watchdog" checked><span><b>Enable watchdog</b><small>Stops a stalled core process so it cannot remain unmanaged. Recommended: On.</small></span><button class="info" data-tooltip="The watchdog safely terminates Aether if a connection attempt stops making progress." aria-label="Watchdog help">?</button></label>
-                <label class="check"><input type="checkbox" id="quickReconnect" checked><span><b>Quick reconnect</b><small>Reuse the last verified endpoint when possible. Recommended: On.</small></span><button class="info" data-tooltip="Reduces reconnection time by trying the most recently verified endpoint first." aria-label="Quick reconnect help">?</button></label>
-                <div class="field"><div class="field-label"><label for="configPath">Base configuration file</label><button class="info" data-tooltip="Overrides Aether's default base configuration path." aria-label="Base config help">?</button></div><input id="configPath" placeholder="Use application default"><p class="field-help">Leave empty unless you already maintain an Aether configuration file.</p></div>
-                <div class="field"><div class="field-label"><label for="wgConfigPath">WireGuard configuration file</label><button class="info" data-tooltip="Optional protocol-specific WireGuard configuration path." aria-label="WireGuard config help">?</button></div><input id="wgConfigPath" placeholder="Optional override"><p class="field-help">Paths are saved; private keys are not stored by this GUI.</p></div>
-                <div class="field"><div class="field-label"><label for="masqueConfigPath">MASQUE configuration file</label><button class="info" data-tooltip="Optional protocol-specific MASQUE configuration path." aria-label="MASQUE config help">?</button></div><input id="masqueConfigPath" placeholder="Optional override"><p class="field-help">Recommended: leave empty for automatic configuration.</p></div>
+                <label class="check warning"><input type="checkbox" id="allowRemote"><span><b data-i18n="settings.allowRemote">Allow a non-local listener</b><small data-i18n="help.allowRemote">This can expose the proxy to other devices.</small></span></label>
               </div>
-            </details>
-          </section>
 
-          <aside class="right-column">
-            <section class="panel quick-help">
-              <div class="quick-help-icon">✓</div>
-              <div><h3>Beginner setup</h3><p>Use <b>MASQUE</b>, <b>Balanced</b>, <b>IPv4</b>, and <b>HTTP/3</b>. Then press Connect.</p><button class="link-button" data-go="help" data-anchor="setup-guide">Open setup guide →</button></div>
-            </section>
-            <section class="panel proxy-card">
-              <div class="panel-heading compact"><div><p class="section-kicker">LOCAL PROXY</p><h3>Use Aether in other apps</h3></div></div>
-              <div class="proxy-address"><div><small>HOST</small><b>127.0.0.1</b></div><div><small>PORT</small><b>1819</b></div></div>
-              <p>Configure applications as SOCKS5 and enable remote/proxy DNS when available.</p>
-              <div class="button-row"><button class="secondary small" data-go="help" data-anchor="v2rayn-guide">v2rayN guide</button><button class="secondary small" data-go="help" data-anchor="proxifier-guide">Proxifier guide</button></div>
-            </section>
-            <section class="panel logs" id="diagnostics">
-              <div class="panel-heading compact"><div><p class="section-kicker">DIAGNOSTICS</p><h3>Live logs</h3></div><div><button id="copyLogs" class="ghost small">Copy</button><button id="clearLogs" class="ghost small">Clear</button></div></div>
-              <pre id="logs" aria-live="polite">Waiting for Aether…</pre>
-              <div id="testResult" class="test-result hidden"><div class="panel-heading compact"><strong>Cloudflare trace result</strong><button id="closeTest" class="ghost small">Close</button></div><dl id="trace"></dl></div>
-            </section>
-          </aside>
-        </div>
-      </section>
+              <div class="advanced-group">
+                <h4 data-i18n="advanced.reliability">Reliability and safety</h4>
+                <div class="grid-2">
+                  <div class="field" id="keepalive-field"><div class="label-row"><label for="keepalive" data-i18n="settings.keepalive">WireGuard keepalive</label><button class="info" data-i18n-tooltip="tooltip.keepalive" aria-label="Keepalive information">?</button></div><div class="number-input"><input id="keepalive" type="number" min="1" max="65535" value="5"><span data-i18n="unit.seconds">seconds</span></div></div>
+                  <div class="field"><div class="label-row"><label for="stallTimeout" data-i18n="settings.timeout">Stall timeout</label><button class="info" data-i18n-tooltip="tooltip.timeout" aria-label="Timeout information">?</button></div><div class="number-input"><input id="stallTimeout" type="number" min="10" max="3600" value="90"><span data-i18n="unit.seconds">seconds</span></div></div>
+                </div>
+                <div class="toggle-list"><label class="check"><input type="checkbox" id="watchdog" checked><span><b data-i18n="settings.watchdog">Watchdog</b><small data-i18n="help.watchdog">Stop a core process that becomes stuck.</small></span></label><label class="check"><input type="checkbox" id="quickReconnect" checked><span><b data-i18n="settings.quickReconnect">Quick reconnect</b><small data-i18n="help.quickReconnect">Try the last verified endpoint first.</small></span></label></div>
+              </div>
 
-      <section id="view-help" class="view docs-view" aria-labelledby="help-title">
-        <header class="page-header docs-header"><div><p class="eyebrow">BUILT-IN DOCUMENTATION</p><h2 id="help-title">Firstham AetherGui user guide</h2><p>Everything you need to connect, configure your proxy, and solve common problems.</p></div><div class="search-box"><span>⌕</span><input id="docSearch" type="search" placeholder="Search the guide…" aria-label="Search documentation"></div></header>
-        <div class="docs-layout">
-          <nav class="docs-toc" aria-label="Guide contents">
-            <b>On this page</b>
-            <a href="#introduction">Introduction</a><a href="#how-it-works">How Aether works</a><a href="#app-sections">Application sections</a><a href="#setup-guide">Setup guide</a><a href="#protocols">Protocols</a><a href="#transport-guide">HTTP/2 vs HTTP/3</a><a href="#scan-guide">Scan modes</a><a href="#obfuscation-guide">Obfuscation</a><a href="#watchdog-guide">Watchdog</a><a href="#environment-guide">Environment variables</a><a href="#v2rayn-guide">v2rayN</a><a href="#proxifier-guide">Proxifier</a><a href="#verification-guide">Verify traffic</a><a href="#update-guide">Updates</a><a href="#faq">FAQ</a><a href="#troubleshooting">Troubleshooting</a>
-          </nav>
-          <article class="docs-content">
-            <section class="doc-section" id="introduction"><span class="doc-number">01</span><h3>Introduction to Aether</h3><p>Aether is a networking tool that discovers usable Cloudflare endpoints and creates a local SOCKS5 proxy through MASQUE, WireGuard, or gool. Firstham AetherGui is a Windows frontend for the official Aether core. It does not reimplement tunneling or scanning; it starts the bundled core safely, passes supported settings, displays its logs, and stops it cleanly.</p><div class="note"><b>Important</b><p>Aether creates a proxy, not a system-wide VPN by itself. Applications must be configured to use <code>127.0.0.1:1819</code>, or routed through a tool such as Proxifier or v2rayN.</p></div></section>
-
-            <section class="doc-section" id="how-it-works"><span class="doc-number">02</span><h3>How Aether works</h3><p>When you press Connect, the GUI validates your settings and starts the official Aether core as a hidden child process. Aether scans for a healthy endpoint, establishes the selected tunnel, then listens locally for SOCKS5 traffic.</p><div class="flow-diagram" aria-label="Aether traffic flow"><div><b>Your application</b><small>Browser, v2rayN, or Proxifier</small></div><i>→</i><div class="blue"><b>SOCKS5</b><small>127.0.0.1:1819</small></div><i>→</i><div><b>Aether tunnel</b><small>MASQUE / WireGuard / gool</small></div><i>→</i><div><b>Internet</b><small>Remote destination</small></div></div><p>DNS should also be resolved through the proxy when your client offers a “proxy DNS” or “remote DNS” option. This helps prevent requests from bypassing the selected route.</p></section>
-
-            <section class="doc-section" id="app-sections"><span class="doc-number">03</span><h3>Application sections and indicators</h3><div class="definition-grid"><div><b>Connection card</b><p>Shows state, endpoint, SOCKS5 address, elapsed time, and primary actions.</p></div><div><b>Simple settings</b><p>Contains protocol, scan, IP, obfuscation, and MASQUE transport choices.</p></div><div><b>Advanced Settings</b><p>Contains custom listener, endpoint, keepalive, watchdog, timeouts, and config paths.</p></div><div><b>Live logs</b><p>Shows core output. Copy it when reporting a problem; Clear only clears the display.</p></div><div><b>Verify connection</b><p>Sends an HTTPS request through the configured SOCKS5 proxy to Cloudflare trace.</p></div><div><b>System tray</b><p>Closing the window hides it. Use the tray menu to Connect, Disconnect, Show, or Exit.</p></div></div><h4>Connection states</h4><ul class="status-list"><li><span class="state-dot disconnected"></span><b>Disconnected</b> — no Aether process is serving the proxy.</li><li><span class="state-dot scanning"></span><b>Scanning</b> — Aether is searching for a usable endpoint.</li><li><span class="state-dot connecting"></span><b>Connecting</b> — a tunnel is being negotiated.</li><li><span class="state-dot connected"></span><b>Connected</b> — the local SOCKS5 proxy is ready.</li><li><span class="state-dot reconnecting"></span><b>Reconnecting</b> — Aether is restoring a lost tunnel.</li><li><span class="state-dot error"></span><b>Error</b> — review the message and Live logs.</li></ul></section>
-
-            <section class="doc-section" id="setup-guide"><span class="doc-number">04</span><h3>Complete first-time setup</h3><ol class="steps"><li><b>Install the application</b><p>Download the latest x64 Setup from GitHub Releases, run it, and complete the installer. The MSI and portable ZIP are alternatives.</p></li><li><b>Launch Firstham AetherGui</b><p>Open it from the Start Menu. Read the welcome tour; no terminal or Rust installation is required.</p></li><li><b>Keep the recommended profile</b><p>Select MASQUE, Balanced scan, IPv4, Firewall obfuscation, and HTTP/3.</p></li><li><b>Connect</b><p>Press Connect and wait for Connected. Scanning can take time depending on the network.</p></li><li><b>Verify the tunnel</b><p>Press Verify connection. A readable Cloudflare trace result confirms that the SOCKS5 request succeeded.</p></li><li><b>Configure your application</b><p>Use SOCKS5 host <code>127.0.0.1</code> and port <code>1819</code>. See the v2rayN and Proxifier guides below.</p></li></ol></section>
-
-            <section class="doc-section" id="protocols"><span class="doc-number">05</span><h3>MASQUE, WireGuard, and gool</h3><div class="compare-grid"><div class="featured"><span>RECOMMENDED</span><h4>MASQUE</h4><p>HTTP-based tunneling. HTTP/3 is fast on healthy UDP networks; HTTP/2 provides a TCP fallback. Start here.</p></div><div><h4>WireGuard</h4><p>A lightweight UDP tunnel. It can perform well when WireGuard traffic is usable on the current network.</p></div><div><h4>gool</h4><p>Aether's WARP-in-WARP mode. It is an alternative path for networks where the other protocol profiles are unreliable.</p></div></div><p>There is no universally best protocol. Filtering and routing differ by provider, location, and time. If the recommended MASQUE profile fails, try its HTTP/2 transport before switching protocol.</p></section>
-
-            <section class="doc-section" id="transport-guide"><span class="doc-number">06</span><h3>HTTP/2 versus HTTP/3</h3><table><thead><tr><th></th><th>HTTP/3 / QUIC</th><th>HTTP/2 / TCP</th></tr></thead><tbody><tr><th>Transport</th><td>UDP / QUIC</td><td>TCP</td></tr><tr><th>Recommended use</th><td>Default on healthy networks</td><td>When UDP is blocked or throttled</td></tr><tr><th>Typical behavior</th><td>Fast setup and good loss recovery</td><td>More compatible with TCP-only paths</td></tr><tr><th>Aether mapping</th><td><code>AETHER_MASQUE_HTTP2=0</code></td><td><code>AETHER_MASQUE_HTTP2=1</code></td></tr></tbody></table></section>
-
-            <section class="doc-section" id="scan-guide"><span class="doc-number">07</span><h3>Scan modes</h3><div class="definition-list"><div><b>Turbo</b><p>Prioritizes speed. Use on a good network when you want the quickest discovery.</p></div><div class="recommended-row"><b>Balanced</b><p>Recommended. A practical balance of discovery speed and coverage.</p></div><div><b>Thorough</b><p>Searches more widely and takes longer. Try it when Balanced finds no healthy endpoint.</p></div><div><b>Stealth</b><p>Uses a more conservative scanning pattern for sensitive networks.</p></div></div><p><b>IP scan:</b> IPv4 is the safest default. Choose IPv6 only with working native IPv6. Both increases coverage but can extend scan time.</p></section>
-
-            <section class="doc-section" id="obfuscation-guide"><span class="doc-number">08</span><h3>Obfuscation profiles</h3><p>Obfuscation changes observable traffic patterns. The GUI only shows profiles valid for the selected protocol.</p><ul><li><b>MASQUE:</b> Firewall (recommended), GFW, Off.</li><li><b>WireGuard and gool:</b> Balanced (recommended), Aggressive, Light, Off.</li></ul><p>Aggressive modes can add overhead. Start with the recommended profile and only increase obfuscation when simpler profiles fail.</p></section>
-
-            <section class="doc-section" id="watchdog-guide"><span class="doc-number">09</span><h3>Watchdog and process safety</h3><p>The GUI supervises the Aether child process. With Watchdog enabled, a connection attempt that stops making progress beyond the configured stall timeout is terminated. This prevents stuck or unmanaged background processes. Keep Watchdog enabled and use the default 90-second timeout unless your network regularly needs longer scans.</p><p>On Exit, the GUI stops its child process cleanly. Single-instance protection prevents multiple GUI copies from starting separate unmanaged cores.</p></section>
-
-            <section class="doc-section" id="environment-guide"><span class="doc-number">10</span><h3>Environment variables</h3><p>The GUI maps your selections to Aether's existing interface; it does not invent a separate networking format.</p><table><thead><tr><th>Variable</th><th>GUI setting</th></tr></thead><tbody><tr><td><code>AETHER_PROTOCOL</code></td><td>MASQUE, WireGuard, or gool</td></tr><tr><td><code>AETHER_SCAN</code></td><td>Turbo, Balanced, Thorough, or Stealth</td></tr><tr><td><code>AETHER_IP</code></td><td>IPv4, IPv6, or Both</td></tr><tr><td><code>AETHER_NOIZE</code></td><td>Protocol-specific obfuscation profile</td></tr><tr><td><code>AETHER_SOCKS</code></td><td>SOCKS5 listen address</td></tr><tr><td><code>AETHER_MASQUE_HTTP2</code></td><td>HTTP/3 = 0; HTTP/2 = 1</td></tr><tr><td><code>AETHER_PEER</code></td><td>Custom MASQUE endpoint</td></tr><tr><td><code>AETHER_WG_PEER</code></td><td>Custom WireGuard/gool endpoint</td></tr><tr><td><code>AETHER_WG_KEEPALIVE</code></td><td>WireGuard keepalive seconds</td></tr><tr><td><code>AETHER_QUICK_RECONNECT</code></td><td>Quick reconnect toggle</td></tr><tr><td><code>AETHER_CONFIG</code></td><td>Base configuration path</td></tr><tr><td><code>AETHER_WG_CONFIG</code></td><td>WireGuard configuration path</td></tr><tr><td><code>AETHER_MASQUE_CONFIG</code></td><td>MASQUE configuration path</td></tr></tbody></table><div class="note"><b>Security note</b><p>The GUI persists selections and paths, not private keys or credentials. It never executes a setting through a shell.</p></div></section>
-
-            <section class="doc-section" id="v2rayn-guide"><span class="doc-number">11</span><h3>Configure SOCKS5 in v2rayN</h3><p>Menu names vary slightly between v2rayN releases, but the values remain the same.</p><ol class="steps"><li><b>Connect Aether first</b><p>Wait until Firstham AetherGui shows Connected.</p></li><li><b>Add a SOCKS server</b><p>In v2rayN, choose the option to add a SOCKS server/profile.</p></li><li><b>Enter the proxy</b><p>Remarks: <code>Aether</code><br>Address: <code>127.0.0.1</code><br>Port: <code>1819</code><br>Username/Password: empty</p></li><li><b>Save and select it</b><p>Use the profile directly, or select its alias as a Front Proxy for another v2rayN node.</p></li><li><b>Avoid loops</b><p>If v2rayN TUN is enabled, create Direct/bypass rules for <code>aether-gui.exe</code> and <code>aether.exe</code>.</p></li></ol><div class="route-diagram"><b>Direct profile</b><span>Application</span><i>→</i><span>v2rayN</span><i>→</i><span class="blue">Aether SOCKS5</span><i>→</i><span>Internet</span></div><div class="route-diagram"><b>Front proxy</b><span>Application</span><i>→</i><span>v2rayN node</span><i>→</i><span class="blue">Aether front proxy</span><i>→</i><span>Internet</span></div><p>Do not make Aether both the input and output of the same route. That creates a proxy loop and stops traffic.</p></section>
-
-            <section class="doc-section" id="proxifier-guide"><span class="doc-number">12</span><h3>Configure SOCKS5 in Proxifier</h3><ol class="steps"><li><b>Add the proxy server</b><p>Open <b>Profile → Proxy Servers → Add</b>.</p></li><li><b>Enter Aether details</b><p>Address: <code>127.0.0.1</code><br>Port: <code>1819</code><br>Protocol: <b>SOCKS Version 5</b><br>Authentication: Off</p></li><li><b>Test it</b><p>Press Check while Aether is Connected, then save.</p></li><li><b>Create a Direct safety rule</b><p>In <b>Profile → Proxification Rules</b>, add a top rule for <code>aether-gui.exe; aether.exe</code> with Action <b>Direct</b>.</p></li><li><b>Create your app rule</b><p>Add the desired application executables below the Direct rule and choose the Aether proxy as Action. Keep the Localhost rule Direct.</p></li><li><b>Proxy DNS</b><p>Under <b>Profile → Name Resolution</b>, enable resolving hostnames through the proxy when appropriate.</p></li></ol><div class="proxifier-diagram"><div class="rule direct"><b>1 · Aether Direct</b><span>aether-gui.exe, aether.exe</span><em>DIRECT</em></div><div class="rule"><b>2 · Selected applications</b><span>browser.exe, app.exe</span><em>SOCKS5 127.0.0.1:1819</em></div><div class="rule muted"><b>3 · Default</b><span>Everything else</span><em>Your choice</em></div></div><p>Rule order matters: Proxifier applies the first matching rule. SOCKS5/Proxifier is primarily for TCP; UDP-only applications require a suitable TUN solution.</p></section>
-
-            <section class="doc-section" id="verification-guide"><span class="doc-number">13</span><h3>Verify traffic is passing through Aether</h3><ol><li>Confirm the application state is <b>Connected</b>.</li><li>Press <b>Verify connection</b>. A Cloudflare trace response confirms the GUI reached HTTPS through SOCKS5.</li><li>In v2rayN or Proxifier, open its connection/log view and confirm the target application matches the SOCKS rule.</li><li>Visit a reputable IP-check page from the proxied application and compare it with a direct connection.</li><li>Temporarily Disconnect Aether. The proxied application should stop reaching the network if it has no direct fallback.</li></ol><div class="warning"><b>Do not rely on only one signal.</b><p>A changed IP does not prove DNS is proxied. Enable remote/proxy DNS and review client logs as well.</p></div></section>
-
-            <section class="doc-section" id="update-guide"><span class="doc-number">14</span><h3>Updating the application</h3><ol><li>Open the About page and select <b>Check GitHub Releases</b>.</li><li>Compare the latest version with the version shown in the sidebar.</li><li>Disconnect and exit Firstham AetherGui from the tray.</li><li>Download and run the new Setup. It upgrades the current-user installation.</li><li>Launch it, confirm your settings, and run Verify connection.</li></ol><p>Only download releases from the official <code>hamvex/AetherGUI</code> repository. Published files are currently unsigned and may trigger SmartScreen.</p></section>
-
-            <section class="doc-section" id="faq"><span class="doc-number">15</span><h3>Frequently asked questions</h3><details open><summary>Is this a replacement for Aether?</summary><p>No. It is a Windows frontend that bundles and supervises the official Aether core.</p></details><details><summary>Is Aether a system-wide VPN?</summary><p>Not by itself. It exposes a SOCKS5 proxy. Configure each app, v2rayN, Proxifier, or another compatible routing tool.</p></details><details><summary>Which settings should I use first?</summary><p>MASQUE, Balanced, IPv4, Firewall, and HTTP/3. If it fails, try HTTP/2, then Thorough scan.</p></details><details><summary>Can I change port 1819?</summary><p>Yes, in Advanced Settings. Update every client to use the same new port.</p></details><details><summary>Why does closing the window not exit?</summary><p>The app minimizes to the system tray so a live proxy is not interrupted. Use Tray → Exit for full shutdown.</p></details><details><summary>Does the GUI store credentials?</summary><p>No credentials or private keys are stored in its settings. It persists configuration choices and file paths.</p></details></section>
-
-            <section class="doc-section" id="troubleshooting"><span class="doc-number">16</span><h3>Troubleshooting common issues</h3><div class="trouble-list"><div><b>Stuck on Scanning</b><p>Try Thorough mode, IPv4, remove a custom endpoint, and allow more time. Check whether another Aether instance is running.</p></div><div><b>HTTP/3 cannot connect</b><p>Switch MASQUE transport to HTTP/2. UDP or QUIC may be blocked or throttled.</p></div><div><b>Port 1819 is already in use</b><p>Exit other Aether instances or choose another localhost port and update your proxy client.</p></div><div><b>Connected, but an app has no internet</b><p>Confirm SOCKS5—not HTTP—is selected, verify host/port, enable proxy DNS, and inspect routing rules.</p></div><div><b>Proxifier loop or repeated failures</b><p>Move a Direct rule for aether-gui.exe and aether.exe above all proxy rules.</p></div><div><b>Connection test fails</b><p>Review Live logs, check firewall/antivirus outbound permissions, Disconnect, then try HTTP/2 or another protocol.</p></div><div><b>SmartScreen warning</b><p>The current binaries are unsigned. Download only from the official Release and verify SHA-256.</p></div><div><b>Need support</b><p>Copy Live logs, remove sensitive information, and include protocol, transport, scan mode, and Windows version in the report.</p></div></div></section>
-            <p id="noDocResults" class="no-results hidden">No guide sections match your search.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="view-about" class="view about-view" aria-labelledby="about-title">
-        <header class="page-header"><div><p class="eyebrow">ABOUT</p><h2 id="about-title">About Firstham AetherGui</h2><p>Project information, attribution, and community links.</p></div></header>
-        <section class="about-card panel">
-          <div class="about-logo"><span>F</span><i>A</i></div>
-          <p class="section-kicker">FIRSTHAM SOFTWARE</p><h3>Firstham AetherGui</h3><p class="about-lead">A beginner-friendly, independent Windows frontend for the official Aether networking core.</p>
-          <div class="about-meta"><div><small>APPLICATION VERSION</small><b>1.3.0</b></div><div><small>BUNDLED AETHER CORE</small><b>v1.2.0</b></div><div><small>PLATFORM</small><b>Windows x64</b></div></div>
-          <div class="attribution"><span>Based on</span><b>CluvexStudio / Aether</b><p>The Aether project remains the networking engine. Firstham AetherGui is an additional frontend and does not replace the original CLI.</p><button class="link-button" data-external="https://github.com/CluvexStudio/Aether">View upstream project →</button></div>
-          <div class="about-actions"><button id="joinTelegram" class="primary telegram" data-external="https://t.me/hamvex">Join Telegram Channel</button><button class="secondary" data-external="https://github.com/hamvex/AetherGUI/releases">Check GitHub Releases</button></div>
-          <p class="license">GNU Affero General Public License v3.0 · Telegram: <b>@hamvex</b></p>
+              <div class="advanced-group config-group">
+                <h4 data-i18n="advanced.files">Configuration files</h4>
+                <div class="field"><label for="configPath" data-i18n="settings.baseConfig">Base configuration</label><input id="configPath" data-i18n-placeholder="placeholder.defaultPath" placeholder="Use application default"></div>
+                <div class="grid-2"><div class="field"><label for="wgConfigPath" data-i18n="settings.wgConfig">WireGuard configuration</label><input id="wgConfigPath" data-i18n-placeholder="placeholder.optional" placeholder="Optional"></div><div class="field"><label for="masqueConfigPath" data-i18n="settings.masqueConfig">MASQUE configuration</label><input id="masqueConfigPath" data-i18n-placeholder="placeholder.optional" placeholder="Optional"></div></div>
+                <small data-i18n="help.configFiles">The GUI stores file paths, never keys or credentials.</small>
+              </div>
+            </div>
+          </details>
         </section>
+      </section>
+
+      <section id="view-diagnostics" class="view" aria-labelledby="diagnostics-title">
+        <header class="page-header"><div><h2 id="diagnostics-title" data-i18n="diagnostics.title">Diagnostics</h2><p data-i18n="diagnostics.subtitle">Verify the proxy or inspect Aether's live output.</p></div></header>
+        <section class="verify-panel panel"><div><div class="verify-icon">✓</div><div><h3 data-i18n="diagnostics.verifyTitle">Connection check</h3><p data-i18n="diagnostics.verifyDescription">Send an HTTPS request through the configured SOCKS5 proxy.</p></div></div><button id="diagnosticTest" class="primary" disabled data-i18n="actions.verifyConnection">Verify connection</button></section>
+        <section id="testResult" class="result-panel panel hidden"><div class="section-heading"><h3 data-i18n="diagnostics.result">Cloudflare trace result</h3><button id="closeTest" class="text-button" data-i18n="actions.close">Close</button></div><dl id="trace"></dl></section>
+        <section class="logs-panel panel"><div class="section-heading"><div><h3 data-i18n="diagnostics.logs">Live logs</h3><p data-i18n="diagnostics.logsHelp">Useful when a connection fails or stalls.</p></div><div><button id="copyLogs" class="secondary small" data-i18n="actions.copyLogs">Copy logs</button><button id="clearLogs" class="text-button" data-i18n="actions.clear">Clear</button></div></div><pre id="logs" aria-live="polite" data-i18n="diagnostics.waiting">Waiting for Aether…</pre></section>
+      </section>
+
+      <section id="view-help" class="view" aria-labelledby="help-title">
+        <header class="page-header docs-header"><div><h2 id="help-title" data-i18n="docs.title">User guide</h2><p data-i18n="docs.subtitle">Setup, concepts, proxy guides, and troubleshooting.</p></div><div class="search"><span>⌕</span><input id="docSearch" type="search" data-i18n-placeholder="docs.search" data-i18n-aria="docs.search" placeholder="Search documentation" aria-label="Search documentation"></div></header>
+        <div class="docs-layout"><nav id="docsNav" class="docs-nav" data-i18n-aria="docs.sections" aria-label="Documentation sections"></nav><article id="docsContent" class="docs-content"></article></div>
+        <p id="noDocResults" class="empty-state hidden" data-i18n="docs.noResults">No matching sections found.</p>
+      </section>
+
+      <section id="view-about" class="view" aria-labelledby="about-title">
+        <header class="page-header"><div><h2 id="about-title" data-i18n="about.title">About</h2><p data-i18n="about.subtitle">Application details and project links.</p></div></header>
+        <section class="about-panel panel"><div class="about-mark"><span>F</span><i>A</i></div><h3>Firstham AetherGui</h3><p class="about-lead" data-i18n="about.description">A compact Windows frontend for the official Aether networking core.</p><div class="about-facts"><div><span data-i18n="about.appVersion">Application</span><b>v1.4.0</b></div><div><span data-i18n="about.coreVersion">Aether core</span><b>v1.2.0</b></div><div><span data-i18n="about.platform">Platform</span><b>Windows x64</b></div></div><div class="attribution"><b data-i18n="about.basedOn">Based on CluvexStudio/Aether</b><p data-i18n="about.attribution">The original Aether project remains the networking engine. This GUI is an additional frontend and does not replace the CLI.</p><button class="text-button" data-external="https://github.com/CluvexStudio/Aether" data-i18n="about.viewUpstream">View upstream project</button></div><div class="about-actions"><button id="joinTelegram" class="primary" data-external="https://t.me/hamvex" data-i18n="about.telegram">Join Telegram Channel</button><button class="secondary" data-external="https://github.com/hamvex/AetherGUI/releases" data-i18n="about.releases">Check for updates</button></div><small>GNU AGPL v3.0 · @hamvex</small></section>
       </section>
     </main>
   </div>
 
   <div id="welcomeWizard" class="wizard hidden" role="dialog" aria-modal="true" aria-labelledby="wizard-title">
-    <div class="wizard-card">
-      <div class="wizard-top"><div class="brand-mark"><span>F</span><i>A</i></div><button id="closeWizard" class="icon-button" aria-label="Close welcome tour">×</button></div>
-      <div class="wizard-progress" aria-label="Welcome progress"><i class="active"></i><i></i><i></i><i></i><i></i></div>
-      <div class="wizard-slides">
-        <section class="wizard-slide active"><p class="eyebrow">WELCOME</p><h2 id="wizard-title">Welcome to Firstham AetherGui</h2><p>A simple Windows interface for Aether. This short tour explains the essentials—you do not need networking experience.</p><div class="wizard-visual tunnel"><span>Your apps</span><i>→</i><b>Aether</b><i>→</i><span>Internet</span></div></section>
-        <section class="wizard-slide"><p class="eyebrow">THE BASICS</p><h2>What are Aether and SOCKS5?</h2><p>Aether finds a working network endpoint and creates a secure tunnel. SOCKS5 is the local doorway other applications use to send traffic into that tunnel.</p><div class="wizard-code"><small>SOCKS5 PROXY</small><b>127.0.0.1</b><span>Port <strong>1819</strong></span></div></section>
-        <section class="wizard-slide"><p class="eyebrow">RECOMMENDED PROTOCOL</p><h2>Start with MASQUE</h2><p>MASQUE is the recommended protocol for beginners. Keep HTTP/3 selected first; switch to HTTP/2 if your network blocks or slows UDP.</p><div class="choice-demo selected"><span>✓</span><div><b>MASQUE · HTTP/3</b><small>Recommended starting point</small></div></div></section>
-        <section class="wizard-slide"><p class="eyebrow">RECOMMENDED SCAN</p><h2>Balanced works for most networks</h2><p>Balanced provides a sensible mix of speed and coverage. If it cannot find a healthy endpoint, try Thorough.</p><div class="choice-demo selected"><span>✓</span><div><b>Balanced scan</b><small>Good speed, dependable coverage</small></div></div></section>
-        <section class="wizard-slide"><p class="eyebrow">READY</p><h2>Connect in one click</h2><p>Press Connect, wait for the green Connected status, then use Verify connection. Configure other apps with the SOCKS5 address shown below.</p><div class="wizard-code"><small>HOST AND PORT</small><b>127.0.0.1:1819</b><span>Use SOCKS Version 5</span></div></section>
-      </div>
-      <div class="wizard-actions"><button id="wizardBack" class="secondary" disabled>Back</button><span id="wizardStep">1 of 5</span><button id="wizardNext" class="primary">Next</button></div>
-    </div>
+    <div class="wizard-card"><div class="wizard-top"><div class="brand-mark"><span>F</span><i>A</i></div><button id="closeWizard" class="icon-button" data-i18n-aria="actions.close" aria-label="Close">×</button></div><div class="wizard-progress"><i class="active"></i><i></i><i></i><i></i><i></i></div><div class="wizard-slides">
+      <section class="wizard-slide active"><p class="overline" data-i18n="wizard.welcomeLabel">WELCOME</p><h2 id="wizard-title" data-i18n="wizard.welcomeTitle">Welcome to Firstham AetherGui</h2><p data-i18n="wizard.welcomeText">A simple interface for Aether. Choose your language to begin.</p><div class="language-cards"><button id="wizardEnglish" data-language="en" class="selected"><b>English</b><small data-i18n="language.ltr">Left to right</small></button><button id="wizardPersian" data-language="fa"><b>فارسی</b><small data-i18n="language.rtl">Right to left</small></button></div></section>
+      <section class="wizard-slide"><p class="overline" data-i18n="wizard.basicsLabel">THE BASICS</p><h2 data-i18n="wizard.basicsTitle">Aether creates a local proxy</h2><p data-i18n="wizard.basicsText">Applications send traffic to Aether through SOCKS5, then Aether carries it through the selected tunnel.</p><div class="flow"><span data-i18n="wizard.apps">Your apps</span><i>→</i><b>127.0.0.1:1819</b><i>→</i><span>Aether</span></div></section>
+      <section class="wizard-slide"><p class="overline" data-i18n="wizard.protocolLabel">PROTOCOL</p><h2 data-i18n="wizard.protocolTitle">Start with MASQUE</h2><p data-i18n="wizard.protocolText">MASQUE with HTTP/3 is recommended. Switch to HTTP/2 if UDP is blocked or unreliable.</p><div class="wizard-choice"><span>✓</span><div><b>MASQUE · HTTP/3</b><small data-i18n="common.recommended">Recommended</small></div></div></section>
+      <section class="wizard-slide"><p class="overline" data-i18n="wizard.scanLabel">SCAN MODE</p><h2 data-i18n="wizard.scanTitle">Balanced is the best default</h2><p data-i18n="wizard.scanText">Balanced combines quick discovery with dependable coverage. Try Thorough only if it cannot find an endpoint.</p><div class="wizard-choice"><span>✓</span><div><b data-i18n="scan.balanced">Balanced</b><small data-i18n="common.recommended">Recommended</small></div></div></section>
+      <section class="wizard-slide"><p class="overline" data-i18n="wizard.readyLabel">READY</p><h2 data-i18n="wizard.readyTitle">Connect, then verify</h2><p data-i18n="wizard.readyText">Press Connect, wait for the green Connected state, then verify the proxy from Diagnostics.</p><div class="wizard-action-demo" data-i18n="actions.connect">Connect</div></section>
+    </div><div class="wizard-actions"><button id="wizardBack" class="secondary" disabled data-i18n="actions.back">Back</button><span id="wizardStep">1 / 5</span><button id="wizardNext" class="primary" data-i18n="actions.next">Next</button></div></div>
   </div>
   <div id="toast" role="alert"></div>
 </body>
