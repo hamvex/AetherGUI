@@ -4,6 +4,8 @@ Independent, native-feeling Windows desktop frontend for [CluvexStudio/Aether](h
 
 [فارسی](README.fa.md)
 
+For installation, settings, troubleshooting, v2rayN, and Proxifier instructions, see the [complete Persian guide](docs/GUIDE.fa.md).
+
 ## Features
 
 - Connect, disconnect, reconnect and clear state reporting

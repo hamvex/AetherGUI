@@ -4,6 +4,8 @@
 
 [English](README.md)
 
+برای نصب، تنظیمات، رفع اشکال و اتصال به v2rayN یا Proxifier، [راهنمای کامل فارسی](docs/GUIDE.fa.md) را بخوانید.
+
 ## امکانات
 
 - اتصال، قطع اتصال، reconnect و نمایش وضعیت دقیق
@@ -33,7 +35,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked
 npm run build
 ```
 
-اسکریپت `fetch:core` فایل رسمی Aether v1.1.1 را از GitHub Release دریافت و SHA-256 آن را پیش از استفاده بررسی می‌کند. خروجی installer در `src-tauri/target/release/bundle/` قرار می‌گیرد.
+اسکریپت `fetch:core` فایل رسمی Aether v1.2.0 را از GitHub Release دریافت و SHA-256 آن را پیش از استفاده بررسی می‌کند. خروجی installer در `src-tauri/target/release/bundle/` قرار می‌گیرد.
 
 ## مجوز
 

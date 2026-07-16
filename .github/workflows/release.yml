@@ -41,7 +41,7 @@ jobs:
           New-Item -ItemType Directory -Force release | Out-Null
           Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release/
           Copy-Item src-tauri/target/release/bundle/msi/*.msi release/
-          Compress-Archive -Path src-tauri/target/release/aether-gui.exe,src-tauri/binaries/aether-x86_64-pc-windows-msvc.exe -DestinationPath release/AetherGUI_1.1.1_x64-portable.zip
+          Compress-Archive -Path src-tauri/target/release/aether-gui.exe,src-tauri/binaries/aether-x86_64-pc-windows-msvc.exe -DestinationPath release/AetherGUI_1.2.0_x64-portable.zip
           Get-ChildItem release -File | ForEach-Object {
             $hash = Get-FileHash $_.FullName -Algorithm SHA256
             "$($hash.Hash.ToLower())  $($_.Name)" | Add-Content release/SHA256SUMS.txt
@@ -62,5 +62,5 @@ jobs:
           body: |
             Independent Windows GUI for Aether.
 
-            The bundled Aether core is downloaded from the official CluvexStudio/Aether v1.1.1 release and SHA-256 verified during the build.
+            The bundled Aether core is downloaded from the official CluvexStudio/Aether v1.2.0 release and SHA-256 verified during the build.
             Windows x64 only. Unsigned binaries may trigger a SmartScreen warning.
