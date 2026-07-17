@@ -34,7 +34,10 @@ async fn elapsed(state: tauri::State<'_, AppState>) -> Result<u64, String> {
 }
 #[tauri::command]
 async fn load_settings(app: AppHandle) -> Result<Settings, String> {
-    let path = settings_path(&app)?;
+    load_settings_value(&app)
+}
+fn load_settings_value(app: &AppHandle) -> Result<Settings, String> {
+    let path = settings_path(app)?;
     if !path.exists() {
         return Ok(Settings::default());
     }
@@ -75,6 +78,38 @@ async fn connection_test(settings: Settings) -> Result<String, String> {
         .await
         .map_err(display_err)
 }
+#[tauri::command]
+async fn set_language(app: AppHandle, language: String) -> Result<(), String> {
+    if !matches!(language.as_str(), "en" | "fa") {
+        return Err("Unsupported language".into());
+    }
+    let tray = app
+        .tray_by_id("main")
+        .ok_or_else(|| "Tray icon is not available".to_string())?;
+    tray.set_menu(Some(tray_menu(&app, &language).map_err(display_err)?))
+        .map_err(display_err)?;
+    tray.set_tooltip(Some(tray_tooltip(&language)))
+        .map_err(display_err)
+}
+fn tray_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<tauri::Wry>> {
+    let (show_text, connect_text, disconnect_text, quit_text) = if language == "fa" {
+        ("نمایش Firstham AetherGui", "اتصال", "قطع اتصال", "خروج")
+    } else {
+        ("Show Firstham AetherGui", "Connect", "Disconnect", "Exit")
+    };
+    let show = MenuItem::with_id(app, "show", show_text, true, None::<&str>)?;
+    let connect = MenuItem::with_id(app, "connect", connect_text, true, None::<&str>)?;
+    let disconnect = MenuItem::with_id(app, "disconnect", disconnect_text, true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", quit_text, true, None::<&str>)?;
+    Menu::with_items(app, &[&show, &connect, &disconnect, &quit])
+}
+fn tray_tooltip(language: &str) -> &'static str {
+    if language == "fa" {
+        "Firstham AetherGui — قطع"
+    } else {
+        "Firstham AetherGui — Disconnected"
+    }
+}
 fn settings_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(app
         .path()
@@ -114,15 +149,14 @@ pub fn run() {
             elapsed,
             load_settings,
             save_settings,
-            connection_test
+            connection_test,
+            set_language
         ])
         .setup(move |app| {
-            let show = MenuItem::with_id(app, "show", "Show Firstham AetherGui", true, None::<&str>)?;
-            let connect = MenuItem::with_id(app, "connect", "Connect", true, None::<&str>)?;
-            let disconnect =
-                MenuItem::with_id(app, "disconnect", "Disconnect", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Exit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&show, &connect, &disconnect, &quit])?;
+            let language = load_settings_value(app.handle())
+                .unwrap_or_default()
+                .language;
+            let menu = tray_menu(app.handle(), &language)?;
             let tray_process = setup_process.clone();
             TrayIconBuilder::with_id("main")
                 .icon(
@@ -130,7 +164,7 @@ pub fn run() {
                         .cloned()
                         .expect("application icon"),
                 )
-                .tooltip("Firstham AetherGui — Disconnected")
+                .tooltip(tray_tooltip(&language))
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id.as_ref() {

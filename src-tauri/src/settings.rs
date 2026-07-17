@@ -4,6 +4,7 @@ use std::{collections::HashMap, net::SocketAddr, path::Path};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
+    pub language: String,
     pub protocol: String,
     pub scan_mode: String,
     pub ip_mode: String,
@@ -24,6 +25,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            language: "en".into(),
             protocol: "masque".into(),
             scan_mode: "balanced".into(),
             ip_mode: "v4".into(),
@@ -45,6 +47,7 @@ impl Default for Settings {
 
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
+        one_of("language", &self.language, &["en", "fa"])?;
         one_of("protocol", &self.protocol, &["masque", "wg", "gool"])?;
         one_of(
             "scan mode",
@@ -200,6 +203,18 @@ mod tests {
         let json = serde_json::to_string(&settings).unwrap();
         assert_eq!(serde_json::from_str::<Settings>(&json).unwrap(), settings);
         assert!(!json.contains("private_key"));
+    }
+
+    #[test]
+    fn language_is_persisted_but_not_forwarded_to_core() {
+        let mut settings = Settings::default();
+        settings.language = "fa".into();
+        let json = serde_json::to_string(&settings).unwrap();
+        assert!(json.contains("\"language\":\"fa\""));
+        let env = settings.environment(Path::new("aether.toml")).unwrap();
+        assert!(!env.contains_key("AETHER_LANGUAGE"));
+        settings.language = "ar".into();
+        assert!(settings.validate().is_err());
     }
 
     #[test]
