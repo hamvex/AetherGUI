@@ -1,7 +1,9 @@
 mod process;
+pub mod routing;
 mod settings;
 
 use process::{emit_status, ProcessManager};
+use routing::{wait_for_socks, RoutingManager};
 use settings::Settings;
 use std::sync::Arc;
 use tauri::{
@@ -9,9 +11,11 @@ use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, Manager, WindowEvent,
 };
+use tauri_plugin_dialog::DialogExt;
 
 struct AppState {
     process: Arc<ProcessManager>,
+    routing: Arc<RoutingManager>,
 }
 
 #[tauri::command]
@@ -20,10 +24,27 @@ async fn connect(
     state: tauri::State<'_, AppState>,
     settings: Settings,
 ) -> Result<(), String> {
-    state.process.start(app, settings).await
+    state.process.start(app.clone(), settings.clone()).await?;
+    wait_for_socks(
+        &settings.socks_address,
+        std::time::Duration::from_secs(settings.stall_timeout),
+    )
+    .await?;
+    state.process.mark_connected().await;
+    if settings.connection_mode == "vpn" {
+        state.routing.start(app.clone(), &settings).await?;
+    }
+    let message = if settings.connection_mode == "vpn" {
+        "Aether and System-wide VPN Mode are ready"
+    } else {
+        "Aether SOCKS5 proxy is ready"
+    };
+    emit_status(&app, "connected", None, Some(message.into()));
+    Ok(())
 }
 #[tauri::command]
 async fn disconnect(app: AppHandle, state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.routing.stop(&app).await?;
     state.process.stop().await?;
     emit_status(&app, "disconnected", None, None);
     Ok(())
@@ -124,7 +145,8 @@ fn show_window(app: &AppHandle) {
         let _ = window.set_focus();
     }
 }
-async fn stop_and_exit(app: AppHandle, process: Arc<ProcessManager>) {
+async fn stop_and_exit(app: AppHandle, process: Arc<ProcessManager>, routing: Arc<RoutingManager>) {
+    let _ = routing.stop(&app).await;
     let _ = process.stop().await;
     app.exit(0);
 }
@@ -132,16 +154,73 @@ fn display_err(e: impl std::fmt::Display) -> String {
     e.to_string()
 }
 
+#[tauri::command]
+async fn repair_network(app: AppHandle) -> Result<(), String> {
+    let base = app
+        .path()
+        .app_local_data_dir()
+        .map_err(display_err)?
+        .join("routing");
+    let recovery = base.join("recovery.json");
+    if !recovery.exists() {
+        return Ok(());
+    }
+    let value: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&recovery).map_err(display_err)?)
+            .map_err(display_err)?;
+    let session = value
+        .get("sessionDir")
+        .and_then(|v| v.as_str())
+        .ok_or("Recovery snapshot is invalid")?;
+    let _ = session;
+    routing::repair_cli()
+}
+#[tauri::command]
+async fn recovery_status(app: AppHandle) -> Result<bool, String> {
+    Ok(app
+        .path()
+        .app_local_data_dir()
+        .map_err(display_err)?
+        .join("routing")
+        .join("recovery.json")
+        .exists())
+}
+
+#[tauri::command]
+async fn pick_applications(app: AppHandle) -> Result<Vec<String>, String> {
+    let files = app
+        .dialog()
+        .file()
+        .add_filter("Windows applications", &["exe"])
+        .blocking_pick_files()
+        .unwrap_or_default();
+    Ok(files
+        .into_iter()
+        .filter_map(|file| file.into_path().ok())
+        .filter(|path| {
+            path.is_absolute()
+                && path
+                    .extension()
+                    .is_some_and(|ext| ext.eq_ignore_ascii_case("exe"))
+        })
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect())
+}
+
 pub fn run() {
     let process = Arc::new(ProcessManager::default());
+    let routing = Arc::new(RoutingManager::default());
     let setup_process = process.clone();
+    let setup_routing = routing.clone();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_window(app)
         }))
         .manage(AppState {
             process: process.clone(),
+            routing: routing.clone(),
         })
         .invoke_handler(tauri::generate_handler![
             connect,
@@ -150,7 +229,10 @@ pub fn run() {
             load_settings,
             save_settings,
             connection_test,
-            set_language
+            set_language,
+            repair_network,
+            recovery_status,
+            pick_applications
         ])
         .setup(move |app| {
             let language = load_settings_value(app.handle())
@@ -158,6 +240,7 @@ pub fn run() {
                 .language;
             let menu = tray_menu(app.handle(), &language)?;
             let tray_process = setup_process.clone();
+            let tray_routing = setup_routing.clone();
             TrayIconBuilder::with_id("main")
                 .icon(
                     app.default_window_icon()
@@ -176,7 +259,9 @@ pub fn run() {
                     "disconnect" => {
                         let app = app.clone();
                         let p = tray_process.clone();
+                        let r = tray_routing.clone();
                         tauri::async_runtime::spawn(async move {
+                            let _ = r.stop(&app).await;
                             let _ = p.stop().await;
                             emit_status(&app, "disconnected", None, None);
                         });
@@ -184,7 +269,8 @@ pub fn run() {
                     "quit" => {
                         let app = app.clone();
                         let p = tray_process.clone();
-                        tauri::async_runtime::spawn(stop_and_exit(app, p));
+                        let r = tray_routing.clone();
+                        tauri::async_runtime::spawn(stop_and_exit(app, p, r));
                     }
                     _ => {}
                 })

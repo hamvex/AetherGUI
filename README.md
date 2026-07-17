@@ -8,6 +8,11 @@ For installation, settings, troubleshooting, v2rayN, and Proxifier instructions,
 
 ## Features
 
+- Standalone System-wide VPN Mode using an embedded, checksum-verified sing-box TUN engine
+- Full Tunnel, local-network bypass, and real process-path split tunneling
+- DNS leak protection, explicit IPv6 tunneling/blocking, optional Kill Switch, and crash recovery
+- Manual SOCKS5 mode remains available; v2rayN and Proxifier are not required
+
 - Connect, disconnect, reconnect and clear state reporting
 - MASQUE, WireGuard and gool / WARP-in-WARP
 - Turbo, Balanced, Thorough and Stealth scanning
@@ -49,6 +54,14 @@ This repository contains only the GUI. It does not fork or duplicate Aether's sc
 ## Development
 
 Requirements: Windows 10/11 x64, Node.js 20+, Rust stable with the MSVC target, Visual Studio C++ Build Tools and WebView2.
+
+### System-wide VPN implementation notes
+
+VPN Mode uses the bundled, hash-pinned sing-box 1.13.14 TUN engine with Aether's loopback SOCKS5 listener as its only proxy upstream. The GUI remains unelevated; a narrowly scoped copy of the same executable requests elevation only to create the adapter and apply routes. Split Include/Exclude uses sing-box's Windows process-path rules. DNS is intercepted and resolved through the Aether outbound; IPv6 is either tunneled or explicitly rejected.
+
+The Kill Switch is off by default. In this release it is session-scoped: the helper keeps strict TUN/WFP routing active while Aether's SOCKS listener is restarting, and removes it on an intentional disconnect or recovery. It is not a persistent boot-time firewall and therefore must not be treated as protection before the helper starts or after Windows forcibly terminates the routing engine. Use `FirsthamAetherGui.exe --repair-network` after an interrupted session.
+
+Automated tests validate configuration mapping, SOCKS5 handshakes, process lifecycle, recovery state, and sing-box configuration parsing. Live Wi-Fi/Ethernet switching, sleep/resume, reboot-while-connected, Windows 10, and Windows 11 still require the release checklist on physical test machines; CI cannot safely simulate those network transitions.
 
 ```powershell
 npm ci

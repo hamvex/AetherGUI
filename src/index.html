@@ -21,7 +21,7 @@
         <div class="language-setting"><label for="language" data-i18n="language.label">Language</label><select id="language" data-i18n-aria="language.label" aria-label="Language"><option value="en">English</option><option value="fa">فارسی</option></select></div>
         <button id="showTour" class="quiet-link"><span>↻</span><span data-i18n="nav.tour">Welcome tour</span></button>
         <div class="mini-status"><span id="sidebar-dot" class="state-dot disconnected"></span><span id="sidebar-state" data-i18n="status.disconnected">Disconnected</span></div>
-        <small class="version">v1.4.0</small>
+        <small class="version">v1.5.0</small>
       </div>
     </aside>
 
@@ -39,10 +39,19 @@
             <div><span data-i18n="facts.endpoint">Endpoint</span><strong id="endpoint" data-i18n="facts.notSelected">Not selected</strong></div>
             <div><span data-i18n="facts.proxy">SOCKS5 proxy</span><strong id="socks-display">127.0.0.1:1819</strong></div>
             <div><span data-i18n="facts.elapsed">Elapsed</span><strong id="elapsed">00:00:00</strong></div>
+            <div><span data-i18n="vpn.routingMode">Routing</span><strong id="routing-display" data-i18n="routing.bypassLocal">Bypass local networks</strong></div>
+            <div><span data-i18n="vpn.publicIp">Public IP</span><strong id="public-ip">—</strong></div>
+            <div><span data-i18n="vpn.traffic">Traffic</span><strong id="traffic-stats">—</strong></div>
           </div>
         </section>
 
-        <section class="proxy-strip panel">
+        <section class="vpn-strip panel">
+          <div><span class="proxy-icon">◎</span><div><b data-i18n="vpn.title">System-wide VPN Mode</b><p id="vpn-description" data-i18n="vpn.description">Route Windows traffic automatically through Aether.</p></div></div>
+          <div class="segmented compact" id="connectionMode"><button data-value="vpn" class="active" data-i18n="vpn.mode">VPN Mode</button><button data-value="manual" data-i18n="vpn.manualMode">Manual SOCKS5</button></div>
+          <select id="routingMode" aria-label="Routing mode"></select>
+        </section>
+
+        <section id="manualProxy" class="proxy-strip panel hidden">
           <div><span class="proxy-icon">⇄</span><div><b data-i18n="proxy.title">Local proxy</b><p data-i18n="proxy.description">Use these SOCKS5 details in v2rayN, Proxifier, or another application.</p></div></div>
           <code>127.0.0.1</code><span class="colon">:</span><code>1819</code><button id="copyProxy" class="secondary small" data-i18n="actions.copy">Copy</button>
         </section>
@@ -90,6 +99,14 @@
                 <div class="toggle-list"><label class="check"><input type="checkbox" id="watchdog" checked><span><b data-i18n="settings.watchdog">Watchdog</b><small data-i18n="help.watchdog">Stop a core process that becomes stuck.</small></span></label><label class="check"><input type="checkbox" id="quickReconnect" checked><span><b data-i18n="settings.quickReconnect">Quick reconnect</b><small data-i18n="help.quickReconnect">Try the last verified endpoint first.</small></span></label></div>
               </div>
 
+              <div class="advanced-group">
+                <h4 data-i18n="vpn.advanced">System-wide routing</h4>
+                <div class="toggle-list"><label class="check"><input type="checkbox" id="dnsLeakProtection" checked><span><b data-i18n="vpn.dnsLeak">DNS leak protection</b><small data-i18n="vpn.dnsHelp">Intercept DNS and resolve it through Aether.</small></span></label><label class="check warning"><input type="checkbox" id="killSwitch"><span><b data-i18n="vpn.killSwitch">Kill Switch</b><small data-i18n="vpn.killHelp">Keep TUN routing closed if the Aether SOCKS5 service fails.</small></span></label></div>
+                <div class="grid-2"><div class="field"><label for="ipv6Behavior" data-i18n="vpn.ipv6">IPv6 behavior</label><select id="ipv6Behavior"></select></div><div class="field"><label for="tunMtu" data-i18n="vpn.mtu">TUN MTU</label><input id="tunMtu" type="number" min="1280" max="9000" value="1500"></div></div>
+                <div class="field"><label for="splitApplications" data-i18n="vpn.splitApps">Split-tunnel applications</label><textarea id="splitApplications" rows="3" data-i18n-placeholder="vpn.splitPlaceholder" placeholder="One absolute .exe path per line"></textarea><div><button class="button secondary compact" id="addApplications" type="button" data-i18n="vpn.addApps">Add applications</button></div><small data-i18n="vpn.splitHelp">Used only by Include or Exclude selected applications.</small></div>
+                <div class="field"><label for="routeExclusions" data-i18n="vpn.exclusions">Additional route exclusions</label><textarea id="routeExclusions" rows="2" placeholder="203.0.113.0/24"></textarea></div>
+              </div>
+
               <div class="advanced-group config-group">
                 <h4 data-i18n="advanced.files">Configuration files</h4>
                 <div class="field"><label for="configPath" data-i18n="settings.baseConfig">Base configuration</label><input id="configPath" data-i18n-placeholder="placeholder.defaultPath" placeholder="Use application default"></div>
@@ -103,7 +120,7 @@
 
       <section id="view-diagnostics" class="view" aria-labelledby="diagnostics-title">
         <header class="page-header"><div><h2 id="diagnostics-title" data-i18n="diagnostics.title">Diagnostics</h2><p data-i18n="diagnostics.subtitle">Verify the proxy or inspect Aether's live output.</p></div></header>
-        <section class="verify-panel panel"><div><div class="verify-icon">✓</div><div><h3 data-i18n="diagnostics.verifyTitle">Connection check</h3><p data-i18n="diagnostics.verifyDescription">Send an HTTPS request through the configured SOCKS5 proxy.</p></div></div><button id="diagnosticTest" class="primary" disabled data-i18n="actions.verifyConnection">Verify connection</button></section>
+        <section class="verify-panel panel"><div><div class="verify-icon">✓</div><div><h3 data-i18n="diagnostics.verifyTitle">Network self-test</h3><p data-i18n="diagnostics.verifyDescription">Check SOCKS5, TUN routing, DNS, and public connectivity.</p></div></div><div><button id="repairNetwork" class="secondary" data-i18n="diagnostics.repair">Repair network</button><button id="diagnosticTest" class="primary" disabled data-i18n="diagnostics.selfTest">Run self-test</button></div></section>
         <section id="testResult" class="result-panel panel hidden"><div class="section-heading"><h3 data-i18n="diagnostics.result">Cloudflare trace result</h3><button id="closeTest" class="text-button" data-i18n="actions.close">Close</button></div><dl id="trace"></dl></section>
         <section class="logs-panel panel"><div class="section-heading"><div><h3 data-i18n="diagnostics.logs">Live logs</h3><p data-i18n="diagnostics.logsHelp">Useful when a connection fails or stalls.</p></div><div><button id="copyLogs" class="secondary small" data-i18n="actions.copyLogs">Copy logs</button><button id="clearLogs" class="text-button" data-i18n="actions.clear">Clear</button></div></div><pre id="logs" aria-live="polite" data-i18n="diagnostics.waiting">Waiting for Aether…</pre></section>
       </section>
@@ -116,7 +133,7 @@
 
       <section id="view-about" class="view" aria-labelledby="about-title">
         <header class="page-header"><div><h2 id="about-title" data-i18n="about.title">About</h2><p data-i18n="about.subtitle">Application details and project links.</p></div></header>
-        <section class="about-panel panel"><div class="about-mark"><span>F</span><i>A</i></div><h3>Firstham AetherGui</h3><p class="about-lead" data-i18n="about.description">A compact Windows frontend for the official Aether networking core.</p><div class="about-facts"><div><span data-i18n="about.appVersion">Application</span><b>v1.4.0</b></div><div><span data-i18n="about.coreVersion">Aether core</span><b>v1.2.0</b></div><div><span data-i18n="about.platform">Platform</span><b>Windows x64</b></div></div><div class="attribution"><b data-i18n="about.basedOn">Based on CluvexStudio/Aether</b><p data-i18n="about.attribution">The original Aether project remains the networking engine. This GUI is an additional frontend and does not replace the CLI.</p><button class="text-button" data-external="https://github.com/CluvexStudio/Aether" data-i18n="about.viewUpstream">View upstream project</button></div><div class="about-actions"><button id="joinTelegram" class="primary" data-external="https://t.me/hamvex" data-i18n="about.telegram">Join Telegram Channel</button><button class="secondary" data-external="https://github.com/hamvex/AetherGUI/releases" data-i18n="about.releases">Check for updates</button></div><small>GNU AGPL v3.0 · @hamvex</small></section>
+        <section class="about-panel panel"><div class="about-mark"><span>F</span><i>A</i></div><h3>Firstham AetherGui</h3><p class="about-lead" data-i18n="about.description">A compact Windows frontend for the official Aether networking core.</p><div class="about-facts"><div><span data-i18n="about.appVersion">Application</span><b>v1.5.0</b></div><div><span data-i18n="about.coreVersion">Aether core</span><b>v1.2.0</b></div><div><span data-i18n="about.platform">Platform</span><b>Windows x64</b></div></div><div class="attribution"><b data-i18n="about.basedOn">Based on CluvexStudio/Aether</b><p data-i18n="about.attribution">The original Aether project remains the networking engine. This GUI is an additional frontend and does not replace the CLI.</p><button class="text-button" data-external="https://github.com/CluvexStudio/Aether" data-i18n="about.viewUpstream">View upstream project</button></div><div class="about-actions"><button id="joinTelegram" class="primary" data-external="https://t.me/hamvex" data-i18n="about.telegram">Join Telegram Channel</button><button class="secondary" data-external="https://github.com/hamvex/AetherGUI/releases" data-i18n="about.releases">Check for updates</button></div><small>GNU AGPL v3.0 · @hamvex</small></section>
       </section>
     </main>
   </div>

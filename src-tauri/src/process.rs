@@ -171,7 +171,12 @@ where
 fn parse_status(app: &AppHandle, line: &str) -> bool {
     let lower = line.to_ascii_lowercase();
     if lower.contains("socks5 server listening") || lower.contains("socks5 listening") {
-        emit_status(app, "connected", None, None);
+        emit_status(
+            app,
+            "connecting",
+            None,
+            Some("SOCKS5 listener is ready; verifying the handshake".into()),
+        );
         true
     } else {
         if lower.contains("selected ") && (lower.contains("gateway") || lower.contains("endpoint"))
