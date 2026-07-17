@@ -10,7 +10,7 @@ const { invoke } = tauri.core;
 const { listen } = tauri.event;
 const { openUrl } = tauri.opener;
 const $ = id => document.getElementById(id);
-const defaults = {language:'en',protocol:'masque',scanMode:'balanced',ipMode:'v4',obfuscation:'firewall',masqueTransport:'h3',socksAddress:'127.0.0.1:1819',allowRemoteListener:false,peer:'',wgKeepalive:5,stallTimeout:90,watchdog:true,configPath:'',wgConfigPath:'',masqueConfigPath:'',quickReconnect:true};
+const defaults = {language:'en',connectionMode:'vpn',routingMode:'bypass-local',dnsLeakProtection:true,ipv6Behavior:'tunnel',killSwitch:false,tunMtu:1500,splitApplications:[],routeExclusions:[],protocol:'masque',scanMode:'balanced',ipMode:'v4',obfuscation:'firewall',masqueTransport:'h3',socksAddress:'127.0.0.1:1819',allowRemoteListener:false,peer:'',wgKeepalive:5,stallTimeout:90,watchdog:true,configPath:'',wgConfigPath:'',masqueConfigPath:'',quickReconnect:true};
 const wizardStorageKey = 'firstham-welcome-complete-v1';
 let settings = {...defaults};
 let state = 'disconnected';
@@ -32,6 +32,8 @@ function setOptions(element, options, selected) {
 function renderChoiceOptions() {
   setOptions($('scanMode'), [['turbo',t('scan.turbo')],['balanced',t('scan.balanced')],['thorough',t('scan.thorough')],['stealth',t('scan.stealth')]], settings.scanMode);
   setOptions($('ipMode'), [['v4',t('ip.v4')],['v6',t('ip.v6')],['both',t('ip.both')]], settings.ipMode);
+  setOptions($('routingMode'), [['full',t('routing.full')],['bypass-local',t('routing.bypassLocal')],['split-include',t('routing.splitInclude')],['split-exclude',t('routing.splitExclude')]], settings.routingMode);
+  setOptions($('ipv6Behavior'), [['tunnel',t('ipv6.tunnel')],['block',t('ipv6.block')]], settings.ipv6Behavior);
   syncProtocol();
 }
 
@@ -47,18 +49,21 @@ function syncProtocol() {
   setOptions($('obfuscation'), options, settings.obfuscation);
   $('obfuscation-help').textContent = t(masque ? 'help.obfuscationMasque' : 'help.obfuscationOther');
 }
+function syncConnectionMode(){settings.connectionMode=segmentValue('connectionMode')||settings.connectionMode;const manual=settings.connectionMode==='manual';$('manualProxy').classList.toggle('hidden',!manual);$('routingMode').disabled=manual;$('vpn-description').textContent=t(manual?'proxy.description':'vpn.description');const key=settings.routingMode==='bypass-local'?'bypassLocal':settings.routingMode==='split-include'?'splitInclude':settings.routingMode==='split-exclude'?'splitExclude':'full';$('routing-display').textContent=manual?t('vpn.manualMode'):t(`routing.${key}`)}
 
 function readSettings() {
-  return {language:getCurrentLanguage(),protocol:segmentValue('protocol'),scanMode:$('scanMode').value,ipMode:$('ipMode').value,obfuscation:$('obfuscation').value,masqueTransport:segmentValue('transport'),socksAddress:$('socksAddress').value.trim(),allowRemoteListener:$('allowRemote').checked,peer:$('peer').value.trim(),wgKeepalive:Number($('keepalive').value),stallTimeout:Number($('stallTimeout').value),watchdog:$('watchdog').checked,configPath:$('configPath').value.trim(),wgConfigPath:$('wgConfigPath').value.trim(),masqueConfigPath:$('masqueConfigPath').value.trim(),quickReconnect:$('quickReconnect').checked};
+  return {language:getCurrentLanguage(),connectionMode:segmentValue('connectionMode'),routingMode:$('routingMode').value,dnsLeakProtection:$('dnsLeakProtection').checked,ipv6Behavior:$('ipv6Behavior').value,killSwitch:$('killSwitch').checked,tunMtu:Number($('tunMtu').value),splitApplications:$('splitApplications').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),routeExclusions:$('routeExclusions').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),protocol:segmentValue('protocol'),scanMode:$('scanMode').value,ipMode:$('ipMode').value,obfuscation:$('obfuscation').value,masqueTransport:segmentValue('transport'),socksAddress:$('socksAddress').value.trim(),allowRemoteListener:$('allowRemote').checked,peer:$('peer').value.trim(),wgKeepalive:Number($('keepalive').value),stallTimeout:Number($('stallTimeout').value),watchdog:$('watchdog').checked,configPath:$('configPath').value.trim(),wgConfigPath:$('wgConfigPath').value.trim(),masqueConfigPath:$('masqueConfigPath').value.trim(),quickReconnect:$('quickReconnect').checked};
 }
 
 function renderSettings(saved) {
   settings = {...defaults,...saved};
   setCurrentLanguage(settings.language);
+  selectSegment('connectionMode',settings.connectionMode);
   selectSegment('protocol',settings.protocol);
   selectSegment('transport',settings.masqueTransport);
-  $('socksAddress').value=settings.socksAddress;$('allowRemote').checked=settings.allowRemoteListener;$('peer').value=settings.peer;$('keepalive').value=settings.wgKeepalive;$('stallTimeout').value=settings.stallTimeout;$('watchdog').checked=settings.watchdog;$('quickReconnect').checked=settings.quickReconnect;$('configPath').value=settings.configPath;$('wgConfigPath').value=settings.wgConfigPath;$('masqueConfigPath').value=settings.masqueConfigPath;$('socks-display').textContent=settings.socksAddress;
+  $('routingMode').value=settings.routingMode;$('dnsLeakProtection').checked=settings.dnsLeakProtection;$('ipv6Behavior').value=settings.ipv6Behavior;$('killSwitch').checked=settings.killSwitch;$('tunMtu').value=settings.tunMtu;$('splitApplications').value=settings.splitApplications.join('\n');$('routeExclusions').value=settings.routeExclusions.join('\n');$('socksAddress').value=settings.socksAddress;$('allowRemote').checked=settings.allowRemoteListener;$('peer').value=settings.peer;$('keepalive').value=settings.wgKeepalive;$('stallTimeout').value=settings.stallTimeout;$('watchdog').checked=settings.watchdog;$('quickReconnect').checked=settings.quickReconnect;$('configPath').value=settings.configPath;$('wgConfigPath').value=settings.wgConfigPath;$('masqueConfigPath').value=settings.masqueConfigPath;$('socks-display').textContent=settings.socksAddress;
   applyLanguage(settings.language, false);
+  syncConnectionMode();
 }
 
 async function changeLanguage(language, announce = true) {
@@ -111,7 +116,7 @@ function setState(next, endpoint) {
 function addLog(line){if(logs.length===0&&$('logs').textContent===t('diagnostics.waiting'))logs=[];logs.push(line);if(logs.length>2000)logs.splice(0,logs.length-2000);$('logs').textContent=logs.join('\n');$('logs').scrollTop=$('logs').scrollHeight}
 async function connect(){try{showView('dashboard');settings=readSettings();await invoke('save_settings',{settings});logs=[];$('logs').textContent='';await invoke('connect',{settings})}catch(error){setState('error');showError(error)}}
 async function disconnect(){try{await invoke('disconnect');setState('disconnected');$('elapsed').textContent='00:00:00'}catch(error){showError(error)}}
-async function testConnection(){const buttons=[$('test'),$('diagnosticTest')];buttons.forEach(button=>button.disabled=true);try{const result=await invoke('connection_test',{settings:readSettings()});const list=$('trace');list.replaceChildren();for(const line of result.trim().split(/\r?\n/)){const[key,...rest]=line.split('=');const term=document.createElement('dt');const description=document.createElement('dd');term.textContent=key;description.textContent=rest.join('=');list.append(term,description)}$('testResult').classList.remove('hidden');showView('diagnostics');toast(t('toast.verified'))}catch(error){showError(error)}finally{buttons.forEach(button=>button.disabled=state!=='connected')}}
+async function testConnection(){const buttons=[$('test'),$('diagnosticTest')];buttons.forEach(button=>button.disabled=true);try{const result=await invoke('connection_test',{settings:readSettings()});const list=$('trace');list.replaceChildren();for(const line of result.trim().split(/\r?\n/)){const[key,...rest]=line.split('=');const value=rest.join('=');const term=document.createElement('dt');const description=document.createElement('dd');term.textContent=key;description.textContent=value;list.append(term,description);if(key==='ip')$('public-ip').textContent=value}$('testResult').classList.remove('hidden');showView('diagnostics');toast(t('toast.verified'))}catch(error){showError(error)}finally{buttons.forEach(button=>button.disabled=state!=='connected')}}
 
 function showView(name){document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===`view-${name}`));document.querySelectorAll('.nav-item').forEach(item=>{const active=item.dataset.view===name;item.classList.toggle('active',active);if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current')});window.scrollTo({top:0,behavior:'instant'})}
 
@@ -127,18 +132,23 @@ function renderWizard(){if(!$('welcomeWizard'))return;document.querySelectorAll(
 
 $('protocol').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('protocol',event.target.dataset.value);settings.protocol=event.target.dataset.value;syncProtocol();queueSave()});
 $('transport').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('transport',event.target.dataset.value);queueSave()});
-document.querySelector('.settings-panel').querySelectorAll('input,select').forEach(element=>element.addEventListener('change',queueSave));
+$('connectionMode').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('connectionMode',event.target.dataset.value);settings.connectionMode=event.target.dataset.value;syncConnectionMode();queueSave()});
+document.querySelector('.settings-panel').querySelectorAll('input,select,textarea').forEach(element=>element.addEventListener('change',()=>{queueSave();syncConnectionMode()}));
+$('routingMode').addEventListener('change',()=>{settings.routingMode=$('routingMode').value;syncConnectionMode()});
 $('language').addEventListener('change',event=>changeLanguage(event.target.value));
 $('wizardEnglish').addEventListener('click',()=>changeLanguage('en',false));$('wizardPersian').addEventListener('click',()=>changeLanguage('fa',false));
 $('connect').addEventListener('click',connect);$('disconnect').addEventListener('click',disconnect);$('test').addEventListener('click',testConnection);$('diagnosticTest').addEventListener('click',testConnection);
 $('reset').addEventListener('click',()=>{const language=getCurrentLanguage();renderSettings({...defaults,language});queueSave();toast(t('toast.defaults'))});
 $('copyProxy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(readSettings().socksAddress);toast(t('toast.proxyCopied'))}catch(error){showError(error)}});
 $('clearLogs').addEventListener('click',()=>{logs=[];$('logs').textContent=''});$('copyLogs').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(logs.join('\n'));toast(t('toast.logsCopied'))}catch(error){showError(error)}});$('closeTest').addEventListener('click',()=>$('testResult').classList.add('hidden'));
+$('repairNetwork').addEventListener('click',async()=>{try{await invoke('repair_network');toast(t('diagnostics.repair'))}catch(error){showError(error)}});
+$('addApplications').addEventListener('click',async()=>{try{const paths=await invoke('pick_applications');if(paths.length){const existing=$('splitApplications').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);$('splitApplications').value=[...new Set([...existing,...paths])].join('\n');queueSave()}}catch(error){showError(error)}});
 $('docSearch').addEventListener('input',event=>renderDocs(event.target.value));document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>showView(item.dataset.view)));
 document.querySelectorAll('[data-external]').forEach(button=>button.addEventListener('click',async()=>{try{await openUrl(button.dataset.external)}catch(error){showError(error)}}));
 $('showTour').addEventListener('click',()=>showWizard(0));$('closeWizard').addEventListener('click',()=>closeWizard(true));$('wizardBack').addEventListener('click',()=>{if(wizardIndex>0){wizardIndex-=1;renderWizard()}});$('wizardNext').addEventListener('click',()=>{if(wizardIndex<4){wizardIndex+=1;renderWizard()}else{closeWizard(true);showView('dashboard');$('connect').focus()}});$('welcomeWizard').addEventListener('click',event=>{if(event.target===$('welcomeWizard'))closeWizard(true)});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('welcomeWizard').classList.contains('hidden'))closeWizard(true)});
 
-await listen('aether-log',event=>addLog(event.payload));await listen('aether-status',event=>setState(event.payload.state,event.payload.endpoint));await listen('tray-connect',connect);
+await listen('aether-log',event=>addLog(`[Aether] ${event.payload}`));await listen('aether-status',event=>setState(event.payload.state,event.payload.endpoint));await listen('routing-status',event=>{addLog(`[Routing/${event.payload.state}] ${event.payload.message}`);const key=`routing.${event.payload.state}`;$('routing-display').textContent=t(key);$('traffic-stats').textContent=event.payload.state==='connected'?'TCP + UDP':'—';if(event.payload.public_ip)$('public-ip').textContent=event.payload.public_ip;if(event.payload.state==='error'){setState('error');showError(event.payload.message)}});await listen('tray-connect',connect);
 try{renderSettings(await invoke('load_settings'))}catch(error){renderSettings(defaults);showError(error)}
+try{if(await invoke('recovery_status')&&window.confirm(t('recovery.prompt'))){await invoke('repair_network');toast(t('recovery.done'))}}catch(error){showError(error)}
 setState('disconnected');if(!localStorage.getItem(wizardStorageKey))setTimeout(()=>showWizard(0),220);
 setInterval(async()=>{if(state!=='connected')return;try{const seconds=await invoke('elapsed');const hours=String(Math.floor(seconds/3600)).padStart(2,'0');const minutes=String(Math.floor(seconds%3600/60)).padStart(2,'0');const remaining=String(seconds%60).padStart(2,'0');$('elapsed').textContent=`${hours}:${minutes}:${remaining}`}catch{}},1000);

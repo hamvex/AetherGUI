@@ -28,6 +28,8 @@ jobs:
         run: npm ci
       - name: Fetch and verify Aether core
         run: npm run fetch:core
+      - name: Fetch and verify routing engine
+        run: npm run fetch:routing
       - name: Test frontend
         run: npm test
       - name: Test Rust backend
@@ -41,7 +43,7 @@ jobs:
           New-Item -ItemType Directory -Force release | Out-Null
           Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release/
           Copy-Item src-tauri/target/release/bundle/msi/*.msi release/
-          Compress-Archive -Path src-tauri/target/release/aether-gui.exe,src-tauri/binaries/aether-x86_64-pc-windows-msvc.exe -DestinationPath release/Firstham_AetherGui_1.4.0_x64-portable.zip
+          Compress-Archive -Path src-tauri/target/release/aether-gui.exe,src-tauri/binaries/aether-x86_64-pc-windows-msvc.exe,src-tauri/binaries/sing-box-x86_64-pc-windows-msvc.exe -DestinationPath release/Firstham_AetherGui_1.5.0_x64-portable.zip
           Get-ChildItem release -File | ForEach-Object {
             $hash = Get-FileHash $_.FullName -Algorithm SHA256
             "$($hash.Hash.ToLower())  $($_.Name)" | Add-Content release/SHA256SUMS.txt
@@ -62,6 +64,6 @@ jobs:
           body: |
             Firstham AetherGui — an independent, beginner-friendly Windows GUI for Aether.
 
-            Includes a compact Windows interface, complete English/Persian localization with RTL support, bilingual onboarding and documentation, proxy setup diagrams, and a scoped About page.
-            The bundled Aether core is downloaded from the official CluvexStudio/Aether v1.2.0 release and SHA-256 verified during the build.
+            Includes built-in System-wide VPN Mode, full/local-bypass/split routing, DNS leak protection, explicit IPv6 handling, recovery tooling, and manual SOCKS5 mode. No V2RayN or Proxifier is required.
+            The bundled Aether core and sing-box 1.13.14 TUN engine are fetched from their official releases and SHA-256 verified during the build.
             Windows x64 only. Unsigned binaries may trigger a SmartScreen warning.

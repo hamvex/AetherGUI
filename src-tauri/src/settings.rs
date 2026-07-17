@@ -5,6 +5,14 @@ use std::{collections::HashMap, net::SocketAddr, path::Path};
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     pub language: String,
+    pub connection_mode: String,
+    pub routing_mode: String,
+    pub dns_leak_protection: bool,
+    pub ipv6_behavior: String,
+    pub kill_switch: bool,
+    pub tun_mtu: u16,
+    pub split_applications: Vec<String>,
+    pub route_exclusions: Vec<String>,
     pub protocol: String,
     pub scan_mode: String,
     pub ip_mode: String,
@@ -26,6 +34,14 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             language: "en".into(),
+            connection_mode: "vpn".into(),
+            routing_mode: "bypass-local".into(),
+            dns_leak_protection: true,
+            ipv6_behavior: "tunnel".into(),
+            kill_switch: false,
+            tun_mtu: 1500,
+            split_applications: Vec::new(),
+            route_exclusions: Vec::new(),
             protocol: "masque".into(),
             scan_mode: "balanced".into(),
             ip_mode: "v4".into(),
@@ -48,6 +64,33 @@ impl Default for Settings {
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
         one_of("language", &self.language, &["en", "fa"])?;
+        one_of("connection mode", &self.connection_mode, &["vpn", "manual"])?;
+        one_of(
+            "routing mode",
+            &self.routing_mode,
+            &["full", "bypass-local", "split-include", "split-exclude"],
+        )?;
+        one_of("IPv6 behavior", &self.ipv6_behavior, &["tunnel", "block"])?;
+        if !(1280..=9000).contains(&self.tun_mtu) {
+            return Err("TUN MTU must be between 1280 and 9000".into());
+        }
+        for path in &self.split_applications {
+            let path = Path::new(path);
+            if !path.is_absolute()
+                || path
+                    .extension()
+                    .and_then(|v| v.to_str())
+                    .map(|v| !v.eq_ignore_ascii_case("exe"))
+                    .unwrap_or(true)
+            {
+                return Err("Split-tunnel applications must be absolute .exe paths".into());
+            }
+        }
+        for cidr in &self.route_exclusions {
+            if cidr.contains(['\0', ' ', ';', '&', '|']) || !cidr.contains('/') {
+                return Err("Route exclusions must be CIDR addresses".into());
+            }
+        }
         one_of("protocol", &self.protocol, &["masque", "wg", "gool"])?;
         one_of(
             "scan mode",

@@ -7,6 +7,8 @@
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
+  ExecWait '"$INSTDIR\aether-gui.exe" --repair-network'
+  Sleep 3000
   Delete "$DESKTOP\AetherGUI.lnk"
   Delete "$DESKTOP\Firstham AetherGui.lnk"
 !macroend
