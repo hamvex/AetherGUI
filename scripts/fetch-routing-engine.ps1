@@ -9,7 +9,15 @@ try {
   New-Item -ItemType Directory -Force $temp | Out-Null
   $archive = Join-Path $temp $archiveName
   Invoke-WebRequest -UseBasicParsing $url -OutFile $archive
-  $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+  $stream = [System.IO.File]::OpenRead($archive)
+  $sha256 = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $actual = ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace("-", "").ToLowerInvariant()
+  }
+  finally {
+    $stream.Dispose()
+    $sha256.Dispose()
+  }
   if ($actual -ne $expected) { throw "sing-box checksum mismatch. Expected $expected, got $actual." }
   $expanded = Join-Path $temp "expanded"
   Expand-Archive -LiteralPath $archive -DestinationPath $expanded
