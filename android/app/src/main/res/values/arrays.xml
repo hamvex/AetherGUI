@@ -1,0 +1,23 @@
+<resources>
+    <string-array name="protocol_labels">
+        <item>MASQUE</item><item>WireGuard</item><item>gool / WARP-in-WARP</item>
+    </string-array>
+    <string-array name="scan_labels">
+        <item>Balanced (recommended)</item><item>Turbo</item><item>Thorough</item><item>Stealth</item><item>Ironclad verification</item>
+    </string-array>
+    <string-array name="transport_labels">
+        <item>HTTP/3 (QUIC)</item><item>HTTP/2 (TCP)</item>
+    </string-array>
+    <string-array name="ip_labels">
+        <item>IPv4 (recommended)</item><item>IPv6</item><item>IPv4 + IPv6</item>
+    </string-array>
+    <string-array name="obfuscation_labels">
+        <item>Firewall (recommended)</item><item>GFW</item><item>Balanced</item><item>Aggressive</item><item>Off</item>
+    </string-array>
+    <string-array name="log_labels">
+        <item>Info</item><item>Warning</item><item>Error</item><item>Debug</item><item>Trace</item>
+    </string-array>
+    <string-array name="routing_labels">
+        <item>Bypass local networks</item><item>All traffic</item><item>Include selected apps</item><item>Exclude selected apps</item>
+    </string-array>
+</resources>

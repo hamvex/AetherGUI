@@ -56,12 +56,12 @@ test('external destinations stay scoped and no remote scripts exist', async () =
   assert.deepEqual(opener.allow.map(item=>item.url).sort(),['https://github.com/CluvexStudio/Aether','https://github.com/hamvex/AetherGUI/releases','https://t.me/hamvex']);
 });
 
-test('application metadata is v1.7.0 with current pinned engines', async () => {
+test('application metadata is v1.8.0 with current pinned engines', async () => {
   const [pkg,tauri,cargo,fetch,routing,notice]=await Promise.all([read('../package.json'),read('../src-tauri/tauri.conf.json'),read('../src-tauri/Cargo.toml'),read('../scripts/fetch-aether.ps1'),read('../scripts/fetch-routing-engine.ps1'),read('../NOTICE.md')]);
-  assert.equal(JSON.parse(pkg).version,'1.7.0');
-  assert.equal(JSON.parse(tauri).version,'1.7.0');
+  assert.equal(JSON.parse(pkg).version,'1.8.0');
+  assert.equal(JSON.parse(tauri).version,'1.8.0');
   assert.equal(JSON.parse(tauri).productName,'Firstham AetherGui');
-  assert.match(cargo,/version = "1\.7\.0"/);
+  assert.match(cargo,/version = "1\.8\.0"/);
   assert.match(fetch,/"v1\.5\.0"/);
   assert.match(routing,/1\.13\.14/);
   assert.match(notice,/TRADEMARK\.md/);
@@ -92,21 +92,32 @@ test('legacy bilingual guide data remains complete for external documentation bu
   assert.deepEqual(docsByLanguage.en.map(section=>section.id),docsByLanguage.fa.map(section=>section.id));
 });
 
-test('Android client contains VPNService, native Aether bridge, Telegram section, and reproducible assets', async()=>{
-  const [manifest,activity,service,gradle,fetch]=await Promise.all([
+test('Android client contains VPNService, exact HEV bridge, Telegram section, and reproducible assets', async()=>{
+  const [manifest,activity,service,bridge,strings,gradle,fetch]=await Promise.all([
     read('../android/app/src/main/AndroidManifest.xml'),
     read('../android/app/src/main/java/com/firstham/aethergui/MainActivity.java'),
     read('../android/app/src/main/java/com/firstham/aethergui/AetherVpnService.java'),
+    read('../android/app/src/main/java/hev/htproxy/TProxyService.java'),
+    read('../android/app/src/main/res/values/strings.xml'),
     read('../android/app/build.gradle'),
     read('../scripts/fetch-android-assets.ps1')
   ]);
   assert.match(manifest,/android\.permission\.BIND_VPN_SERVICE/);
   assert.match(manifest,/FOREGROUND_SERVICE_SPECIAL_USE/);
-  assert.match(activity,/https:\/\/t\.me\/hamvex/);
-  assert.match(activity,/Join Telegram channel/);
+  assert.match(activity,/R\.string\.channel_url/);
+  assert.match(strings,/https:\/\/t\.me\/hamvex/);
+  assert.match(strings,/Firstham on Telegram/);
   assert.match(service,/TProxyStartService/);
   assert.match(service,/libaether\.so/);
-  assert.match(gradle,/versionName '1\.7\.0'/);
+  assert.match(service,/builder\.directory\(getFilesDir\(\)\)/);
+  assert.match(service,/killSwitch && vpnInterface != null/);
+  assert.match(bridge,/native void TProxyStartService\(String configPath, int fd\)/);
+  assert.match(bridge,/native void TProxyStopService\(\)/);
+  assert.match(bridge,/native long\[\] TProxyGetStats\(\)/);
+  assert.doesNotMatch(bridge,/TProxyIsRunning/);
+  assert.match(gradle,/versionName '1\.8\.0'/);
   assert.match(fetch,/aether-android-arm64\.tar\.gz/);
-  assert.match(fetch,/HevSha256/);
+  assert.match(fetch,/0a05221275a51a884d93328c55fc2fbc9e9b6974/);
+  assert.match(fetch,/27\.2\.12479018/);
+  assert.match(fetch,/APP_CFLAGS=-O3 -DPKGNAME=hev\/htproxy/);
 });

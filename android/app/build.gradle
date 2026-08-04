@@ -2,6 +2,8 @@ plugins { id 'com.android.application' }
 
 dependencies {
     implementation 'androidx.core:core:1.15.0'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
 }
 
 def signingProperties = new Properties()
@@ -20,8 +22,8 @@ android {
         applicationId 'io.github.hamvex.aethergui'
         minSdk 26
         targetSdk 35
-        versionCode 17
-        versionName '1.7.0'
+        versionCode 18
+        versionName '1.8.0'
     }
 
     signingConfigs {
@@ -44,6 +46,7 @@ android {
     }
 
     packaging { jniLibs { useLegacyPackaging true } }
+    buildFeatures { viewBinding true; buildConfig true }
     sourceSets { main { assets.srcDirs += ['../../third-party'] } }
     splits { abi { enable true; reset(); include 'arm64-v8a', 'x86_64'; universalApk true } }
 }

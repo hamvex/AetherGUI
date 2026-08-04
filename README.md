@@ -1,12 +1,17 @@
 # Firstham AetherGui
 
-Firstham AetherGui is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.7.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
+Firstham AetherGui is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.8.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
 
 [Persian documentation](README.fa.md) | [Releases](https://github.com/hamvex/AetherGUI/releases)
 
-![Firstham AetherGui 1.6.0 connection view](docs/aethergui-v1.6.0.png)
+![Firstham AetherGui Android 1.8.0 connection view](docs/android-v1.8.0.png)
 
-## What's new in 1.7.0
+## What's new in 1.8.0
+
+- Stabilized the Android VPN runtime with the exact HEV 2.16.0 JNI bridge and reproducible NDK builds.
+- Added fail-closed kill-switch behavior, supervised Aether startup, reconnect handling, traffic stats, and clearer diagnostics.
+- Refreshed the Android UI with a clean white-and-blue Material 3 design, gradient connection card, compact profile controls, and a dedicated Telegram channel card.
+- Fixed Android 15 system-bar insets, malformed punctuation, SOCKS5 IPv6 parsing, split-app validation, and process working-directory issues.
 
 - Redesigned the application around two focused views: **Connection** and **Diagnostics**.
 - Removed the welcome wizard, About page, and built-in documentation navigation.
@@ -35,10 +40,10 @@ Firstham AetherGui is an independent Windows and Android client for the official
 
 Download the latest files from [GitHub Releases](https://github.com/hamvex/AetherGUI/releases):
 
-- `Firstham AetherGui_1.7.0_x64-setup.exe`: recommended Windows installer.
-- `Firstham AetherGui_1.7.0_x64_en-US.msi`: MSI deployment package.
-- `Firstham_AetherGui_1.7.0_x64-portable.zip`: portable Windows executable and required sidecars.
-- `Firstham_AetherGui_1.7.0_android-universal.apk`: Android APK for ARM64 and x86_64 devices.
+- `Firstham AetherGui_1.8.0_x64-setup.exe`: recommended Windows installer.
+- `Firstham AetherGui_1.8.0_x64_en-US.msi`: MSI deployment package.
+- `Firstham_AetherGui_1.8.0_x64-portable.zip`: portable Windows executable and required sidecars.
+- `Firstham_AetherGui_1.8.0_android-universal.apk`: Android APK for ARM64 and x86_64 devices.
 - `SHA256SUMS.txt`: SHA-256 hashes for release verification.
 
 Windows 10/11 x64 is supported. Published binaries are currently unsigned and may trigger Microsoft Defender SmartScreen.
@@ -70,6 +75,8 @@ The GUI does not duplicate Aether's scanning, tunnel, obfuscation, identity, or 
 ### Android architecture
 
 The Android client is a separate native Java application under `android/`. Android `VpnService` creates the system TUN interface, the official Aether Android executable provides the local SOCKS5 tunnel, and the pinned HEV Socks5 Tunnel JNI library connects the VPN file descriptor to Aether. The application remains unprivileged and uses the standard Android VPN permission flow.
+
+The Android build pins HEV 2.16.0 and compiles its JNI libraries with Android NDK 27.2.12479018 for ARM64 and x86_64. On Windows, the fetch script materializes upstream symlink placeholders before `ndk-build`, ensuring local and CI builds produce real JNI libraries.
 
 ## Safety notes
 

@@ -24,6 +24,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Install Android NDK
+        shell: pwsh
+        run: sdkmanager "ndk;27.2.12479018"
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
@@ -100,6 +103,6 @@ jobs:
           body: |
             Firstham AetherGui - independent Windows and Android clients for Aether.
 
-            Version 1.7.0 includes the redesigned Windows client and the new native Android VPN application, powered by Aether 1.5.0 with Ironclad scanning and selectable log levels.
+            Version 1.8.0 stabilizes the Android VPN runtime with a source-built HEV 2.16.0 JNI bridge, fail-closed recovery, diagnostics, and a redesigned white-and-blue Material 3 interface.
             The bundled Aether 1.5.0 core and sing-box 1.13.14 TUN engine are fetched from official releases and SHA-256 verified during the build.
             Windows 10/11 x64 and Android 8.0+ are supported. Windows binaries are unsigned and may trigger a SmartScreen warning; Android APKs are release-signed.

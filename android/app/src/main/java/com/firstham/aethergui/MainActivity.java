@@ -1,31 +1,31 @@
 package com.firstham.aethergui;
 
-import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.net.VpnService;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.text.InputType;
-import android.view.Gravity;
+import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.Spinner;
 import android.widget.ArrayAdapter;
-import android.widget.Switch;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.appcompat.app.AppCompatActivity;
+
+import com.firstham.aethergui.databinding.ActivityMainBinding;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -34,158 +34,353 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public final class MainActivity extends Activity {
+public final class MainActivity extends AppCompatActivity {
     private static final int VPN_REQUEST = 41;
-    private static final int BLUE = Color.rgb(23, 103, 216);
-    private static final int NAVY = Color.rgb(16, 42, 67);
-    private static final int TEXT = Color.rgb(23, 36, 58);
-    private static final int MUTED = Color.rgb(107, 119, 137);
+    private static final int NOTIFICATION_REQUEST = 42;
+    private static final String INTERNAL_PERMISSION = "io.github.hamvex.aethergui.permission.INTERNAL";
+    private static final int BLUE = Color.rgb(23, 105, 224);
+    private static final int GREEN = Color.rgb(20, 166, 115);
+    private static final int RED = Color.rgb(220, 76, 100);
+
+    private ActivityMainBinding binding;
     private SharedPreferences preferences;
-    private LinearLayout content;
-    private LinearLayout connectionView;
-    private LinearLayout diagnosticsView;
-    private TextView stateText;
-    private TextView stateMessage;
-    private TextView endpointText;
-    private TextView logsText;
-    private Button connectButton;
-    private Button disconnectButton;
-    private Button vpnModeButton;
-    private Button manualModeButton;
-    private Spinner protocol;
-    private Spinner scan;
-    private Spinner transport;
-    private Spinner ipMode;
-    private Spinner obfuscation;
-    private Spinner logLevel;
-    private Spinner routing;
-    private EditText socksAddress;
-    private EditText peer;
-    private EditText mtu;
-    private EditText splitApps;
-    private Switch dnsLeak;
-    private Switch killSwitch;
-    private Switch quickReconnect;
+    private ExecutorService diagnosticExecutor;
     private String mode = "vpn";
+    private String state = "disconnected";
+    private boolean receiverRegistered;
+
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            if (AetherVpnService.ACTION_STATUS.equals(intent.getAction())) {
-                showStatus(intent.getStringExtra("state"), intent.getStringExtra("message"));
-            } else if (AetherVpnService.ACTION_LOG.equals(intent.getAction())) {
+            String action = intent.getAction();
+            if (AetherVpnService.ACTION_STATUS.equals(action)) {
+                renderState(intent.getStringExtra("state"), intent.getStringExtra("message"), intent.getStringExtra("endpoint"));
+            } else if (AetherVpnService.ACTION_LOG.equals(action)) {
                 appendLog(intent.getStringExtra("line"));
+            } else if (AetherVpnService.ACTION_STATS.equals(action)) {
+                long tx = intent.getLongExtra("tx", 0);
+                long rx = intent.getLongExtra("rx", 0);
+                binding.trafficStat.setText(getString(R.string.traffic_label) + "\n" + formatBytes(tx + rx));
             }
         }
     };
 
-    @Override protected void onCreate(Bundle state) {
-        super.onCreate(state);
+    @Override protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        binding = ActivityMainBinding.inflate(getLayoutInflater());
+        setContentView(binding.getRoot());
         preferences = getSharedPreferences("aether", MODE_PRIVATE);
-        buildUi();
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(AetherVpnService.ACTION_STATUS);
-        filter.addAction(AetherVpnService.ACTION_LOG);
-        ContextCompat.registerReceiver(this, receiver, filter,
-                "io.github.hamvex.aethergui.permission.INTERNAL", null,
-                ContextCompat.RECEIVER_NOT_EXPORTED);
+        diagnosticExecutor = Executors.newSingleThreadExecutor();
+
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root, (view, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            view.setPadding(view.getPaddingLeft(), bars.top, view.getPaddingRight(), bars.bottom);
+            return insets;
+        });
+        getWindow().setStatusBarColor(Color.TRANSPARENT);
+        getWindow().setNavigationBarColor(Color.TRANSPARENT);
+        WindowCompat.getInsetsController(getWindow(), binding.root).setAppearanceLightStatusBars(true);
+        WindowCompat.getInsetsController(getWindow(), binding.root).setAppearanceLightNavigationBars(true);
+
+        setupDropdowns();
+        restoreSettings();
+        setupActions();
+        requestNotificationPermission();
+        binding.statusVersion.setText("v" + BuildConfig.VERSION_NAME);
+        renderState(preferences.getString("state", "disconnected"), preferences.getString("message", getString(R.string.status_ready_message)), preferences.getString("endpoint", ""));
+        String logs = getSharedPreferences("service_state", MODE_PRIVATE).getString("logs", "");
+        if (logs != null && !logs.isEmpty()) binding.logText.setText(logs);
     }
 
-    private void buildUi() {
-        LinearLayout root = column(this, Color.rgb(244, 247, 251));
-        root.addView(header());
-        LinearLayout tabs = row(this, Color.WHITE);
-        Button connectionTab = button("CONNECTION", BLUE); Button diagnosticsTab = button("DIAGNOSTICS", MUTED);
-        tabs.addView(connectionTab, weight(1)); tabs.addView(diagnosticsTab, weight(1));
-        root.addView(tabs, new LinearLayout.LayoutParams(-1, dp(48)));
-        content = column(this, Color.TRANSPARENT);
-        ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.addView(content);
-        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        connectionView = buildConnectionView(); diagnosticsView = buildDiagnosticsView();
-        content.addView(connectionView); content.addView(diagnosticsView); diagnosticsView.setVisibility(View.GONE);
-        connectionTab.setOnClickListener(v -> { connectionView.setVisibility(View.VISIBLE); diagnosticsView.setVisibility(View.GONE); connectionTab.setTextColor(BLUE); diagnosticsTab.setTextColor(MUTED); });
-        diagnosticsTab.setOnClickListener(v -> { connectionView.setVisibility(View.GONE); diagnosticsView.setVisibility(View.VISIBLE); diagnosticsTab.setTextColor(BLUE); connectionTab.setTextColor(MUTED); });
-        setContentView(root);
+    private void setupDropdowns() {
+        setAdapter(binding.protocolInput, R.array.protocol_labels);
+        setAdapter(binding.scanInput, R.array.scan_labels);
+        setAdapter(binding.transportInput, R.array.transport_labels);
+        setAdapter(binding.ipInput, R.array.ip_labels);
+        setAdapter(binding.obfuscationInput, R.array.obfuscation_labels);
+        setAdapter(binding.logInput, R.array.log_labels);
+        setAdapter(binding.routingInput, R.array.routing_labels);
+        binding.protocolInput.setOnItemClickListener((parent, view, position, id) -> updateProtocolVisibility());
+        updateProtocolVisibility();
     }
 
-    private View header() {
-        LinearLayout bar = row(this, NAVY); bar.setPadding(dp(20), dp(18), dp(20), dp(17));
-        LinearLayout labels = column(this, Color.TRANSPARENT);
-        TextView overline = label("FIRSTHAM AETHERGUI", 10, Color.rgb(151, 178, 205)); overline.setTypeface(null, Typeface.BOLD);
-        TextView title = label("Firstham AetherGui", 23, Color.WHITE); title.setTypeface(null, Typeface.BOLD);
-        labels.addView(overline); labels.addView(title); bar.addView(labels, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView version = label("v1.7.0\nAether 1.5.0", 10, Color.rgb(191, 211, 231)); version.setGravity(Gravity.END | Gravity.CENTER_VERTICAL); bar.addView(version);
-        return bar;
+    private void setAdapter(MaterialAutoCompleteTextView view, int arrayId) {
+        view.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, getResources().getStringArray(arrayId)));
     }
 
-    private LinearLayout buildConnectionView() {
-        LinearLayout page = column(this, Color.TRANSPARENT); page.setPadding(dp(16), dp(16), dp(16), dp(24));
-        LinearLayout card = card();
-        stateText = label("Disconnected", 24, TEXT); stateText.setTypeface(null, Typeface.BOLD);
-        stateMessage = label("Ready to connect with recommended settings.", 13, MUTED);
-        endpointText = label("Endpoint: Not selected", 11, MUTED);
-        card.addView(label("AETHER CONNECTION", 10, BLUE)); card.addView(stateText, margin(0, 5, 0, 0)); card.addView(stateMessage, margin(0, 4, 0, 0)); card.addView(endpointText, margin(0, 12, 0, 0));
-        LinearLayout actions = row(this, Color.TRANSPARENT); connectButton = button("Connect", Color.WHITE); connectButton.setBackground(round(BLUE, 10)); connectButton.setTextColor(Color.WHITE); disconnectButton = button("Disconnect", Color.WHITE); disconnectButton.setBackground(round(Color.rgb(213, 76, 91), 10)); disconnectButton.setTextColor(Color.WHITE); disconnectButton.setVisibility(View.GONE); actions.addView(connectButton, weight(1)); actions.addView(disconnectButton, marginParams(8, 0, 0, 0, 1)); card.addView(actions, margin(0, 16, 0, 0)); page.addView(card);
-
-        LinearLayout modeCard = card(); modeCard.addView(label("CONNECTION MODE", 10, BLUE)); LinearLayout modes = row(this, Color.TRANSPARENT); vpnModeButton = button("VPN Mode", Color.WHITE); manualModeButton = button("Manual SOCKS5", MUTED); modes.addView(vpnModeButton, weight(1)); modes.addView(manualModeButton, weight(1)); modeCard.addView(modes, margin(0, 8, 0, 0)); page.addView(modeCard, margin(0, 12, 0, 0));
-        vpnModeButton.setOnClickListener(v -> { mode = "vpn"; vpnModeButton.setTextColor(BLUE); manualModeButton.setTextColor(MUTED); }); manualModeButton.setOnClickListener(v -> { mode = "manual"; manualModeButton.setTextColor(BLUE); vpnModeButton.setTextColor(MUTED); });
-
-        LinearLayout profile = card(); profile.addView(label("CONNECTION PROFILE", 10, BLUE)); profile.addView(label("Choose a protocol and scan profile. Advanced routing controls are below.", 12, MUTED), margin(0, 3, 0, 10));
-        protocol = spinner(new String[]{"MASQUE", "WireGuard", "gool / WARP-in-WARP"}); scan = spinner(new String[]{"Balanced — recommended", "Turbo", "Thorough", "Stealth", "Ironclad — verified tunnel"}); transport = spinner(new String[]{"HTTP/3 (QUIC)", "HTTP/2 (TCP)"}); ipMode = spinner(new String[]{"IPv4 — recommended", "IPv6", "IPv4 + IPv6"}); obfuscation = spinner(new String[]{"Firewall — recommended", "GFW", "Balanced", "Aggressive", "Off"}); logLevel = spinner(new String[]{"Info", "Warning", "Error", "Debug", "Trace"}); routing = spinner(new String[]{"Bypass local networks", "All traffic", "Include selected apps", "Exclude selected apps"});
-        profile.addView(field("Protocol", protocol)); profile.addView(field("Scan mode", scan)); profile.addView(field("MASQUE transport", transport));
-        LinearLayout advancedTitle = row(this, Color.TRANSPARENT); TextView adv = label("ADVANCED SETTINGS", 11, TEXT); adv.setTypeface(null, Typeface.BOLD); Button reset = button("Reset", MUTED); advancedTitle.addView(adv, weight(1)); advancedTitle.addView(reset); profile.addView(advancedTitle, margin(0, 14, 0, 7));
-        profile.addView(field("IP scan", ipMode)); profile.addView(field("Obfuscation", obfuscation)); profile.addView(field("Aether log level", logLevel)); profile.addView(field("Routing", routing));
-        socksAddress = edit("127.0.0.1:1819", false); peer = edit("Optional custom endpoint", false); mtu = edit("1500", true); splitApps = edit("Android package names, one per line", false); profile.addView(field("SOCKS5 listen address", socksAddress)); profile.addView(field("Custom endpoint", peer)); profile.addView(field("TUN MTU", mtu)); profile.addView(field("Split-tunnel packages", splitApps));
-        dnsLeak = toggle("DNS leak protection", true); killSwitch = toggle("Kill switch (fail closed)", false); quickReconnect = toggle("Quick reconnect", true); profile.addView(dnsLeak); profile.addView(killSwitch); profile.addView(quickReconnect); page.addView(profile, margin(0, 12, 0, 0));
-        reset.setOnClickListener(v -> resetDefaults()); connectButton.setOnClickListener(v -> connect()); disconnectButton.setOnClickListener(v -> disconnect());
-        Button telegram = button("Join Telegram channel  @hamvex", BLUE); telegram.setBackground(round(Color.rgb(234, 243, 255), 10)); telegram.setTextColor(BLUE); telegram.setOnClickListener(v -> openTelegram()); page.addView(telegram, margin(0, 14, 0, 0));
-        TextView attribution = label("Independent frontend for CluvexStudio/Aether · Android VPNService + HEV tun2socks", 10, MUTED); attribution.setGravity(Gravity.CENTER); page.addView(attribution, margin(0, 14, 0, 0));
-        return page;
+    private void restoreSettings() {
+        mode = preferences.getString("mode", "vpn");
+        binding.modeGroup.check("vpn".equals(mode) ? R.id.vpn_mode_button : R.id.proxy_mode_button);
+        binding.modeStat.setText(getString(R.string.mode_label) + "\n" + ("manual".equals(mode) ? "SOCKS5" : "VPN"));
+        setSelection(binding.protocolInput, R.array.protocol_labels, "protocol", 0);
+        setSelection(binding.scanInput, R.array.scan_labels, "scan", 0);
+        setSelection(binding.transportInput, R.array.transport_labels, "transport", 0);
+        setSelection(binding.ipInput, R.array.ip_labels, "ip", 0);
+        setSelection(binding.obfuscationInput, R.array.obfuscation_labels, "obfuscation", 0);
+        setSelection(binding.logInput, R.array.log_labels, "log", 0);
+        setSelection(binding.routingInput, R.array.routing_labels, "routing", 0);
+        binding.socksInput.setText(preferences.getString("socks", "127.0.0.1:1819"));
+        binding.peerInput.setText(preferences.getString("peer", ""));
+        binding.mtuInput.setText(preferences.getString("mtu", "1500"));
+        binding.splitAppsInput.setText(preferences.getString("splitApps", ""));
+        binding.dnsSwitch.setChecked(preferences.getBoolean("dnsLeak", true));
+        binding.killswitchSwitch.setChecked(preferences.getBoolean("killSwitch", false));
+        binding.reconnectSwitch.setChecked(preferences.getBoolean("quickReconnect", true));
+        updateProtocolVisibility();
     }
 
-    private LinearLayout buildDiagnosticsView() {
-        LinearLayout page = column(this, Color.TRANSPARENT); page.setPadding(dp(16), dp(16), dp(16), dp(24)); LinearLayout card = card(); card.addView(label("DIAGNOSTICS", 10, BLUE)); card.addView(label("Verify the local SOCKS5 proxy or inspect Aether output.", 14, MUTED), margin(0, 5, 0, 12)); Button test = button("Run connection self-test", Color.WHITE); test.setBackground(round(BLUE, 10)); test.setTextColor(Color.WHITE); card.addView(test); test.setOnClickListener(v -> selfTest()); Button clear = button("Clear logs", MUTED); card.addView(clear, margin(0, 6, 0, 0)); logsText = label("Waiting for Aether…", 11, Color.rgb(205, 218, 233)); logsText.setGravity(Gravity.TOP | Gravity.START); logsText.setPadding(dp(12), dp(12), dp(12), dp(12)); logsText.setBackground(round(NAVY, 10)); card.addView(logsText, margin(0, 14, 0, 0)); clear.setOnClickListener(v -> logsText.setText("")); page.addView(card); Button telegram = button("Join Telegram channel  @hamvex", BLUE); telegram.setOnClickListener(v -> openTelegram()); page.addView(telegram, margin(0, 12, 0, 0)); return page;
+    private void setSelection(MaterialAutoCompleteTextView view, int arrayId, String key, int fallback) {
+        String[] values = getResources().getStringArray(arrayId);
+        int index = Math.max(0, Math.min(values.length - 1, preferences.getInt(key, fallback)));
+        view.setText(values[index], false);
+    }
+
+    private void setupActions() {
+        binding.toolbar.setOnMenuItemClickListener(this::onToolbarItem);
+        binding.connectButton.setOnClickListener(v -> {
+            if (isActive()) disconnect(); else connect();
+        });
+        binding.modeGroup.addOnButtonCheckedListener((group, checkedId, checked) -> {
+            if (!checked) return;
+            mode = checkedId == R.id.proxy_mode_button ? "manual" : "vpn";
+            binding.modeStat.setText(getString(R.string.mode_label) + "\n" + ("manual".equals(mode) ? "SOCKS5" : "VPN"));
+            saveSettings();
+        });
+        binding.advancedToggle.setOnClickListener(v -> {
+            boolean show = binding.advancedContainer.getVisibility() != View.VISIBLE;
+            binding.advancedContainer.setVisibility(show ? View.VISIBLE : View.GONE);
+            binding.advancedToggle.setText(show ? R.string.hide_advanced : R.string.show_advanced);
+        });
+        binding.resetButton.setOnClickListener(v -> resetDefaults());
+        binding.testButton.setOnClickListener(v -> selfTest());
+        binding.clearLogsButton.setOnClickListener(v -> binding.logText.setText(R.string.logs_waiting));
+        View.OnClickListener telegram = v -> openTelegram();
+        binding.telegramCard.setOnClickListener(telegram);
+        binding.telegramButton.setOnClickListener(telegram);
+    }
+
+    private boolean onToolbarItem(MenuItem item) {
+        if (item.getItemId() == R.id.action_diagnostics) {
+            binding.scroll.smoothScrollTo(0, binding.diagnosticsCard.getTop());
+            return true;
+        }
+        if (item.getItemId() == R.id.action_telegram) {
+            openTelegram();
+            return true;
+        }
+        return false;
     }
 
     private void connect() {
+        String socks = binding.socksInput.getText() == null ? "" : binding.socksInput.getText().toString().trim();
+        if (!validSocksAddress(socks)) {
+            binding.socksInput.setError(getString(R.string.invalid_socks));
+            return;
+        }
+        binding.socksInput.setError(null);
+        saveSettings();
         if ("vpn".equals(mode)) {
             Intent permission = VpnService.prepare(this);
-            if (permission != null) { startActivityForResult(permission, VPN_REQUEST); return; }
+            if (permission != null) {
+                startActivityForResult(permission, VPN_REQUEST);
+                return;
+            }
         }
         startTunnelService();
     }
 
-    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) { super.onActivityResult(requestCode, resultCode, data); if (requestCode == VPN_REQUEST && resultCode == RESULT_OK) startTunnelService(); }
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == VPN_REQUEST) {
+            if (resultCode == RESULT_OK) startTunnelService();
+            else Toast.makeText(this, R.string.vpn_permission_denied, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, NOTIFICATION_REQUEST);
+        }
+    }
 
     private void startTunnelService() {
         Intent intent = new Intent(this, AetherVpnService.class).setAction(AetherVpnService.ACTION_START);
-        intent.putExtra("connectionMode", mode).putExtra("protocol", protocol.getSelectedItemPosition() == 1 ? "wg" : protocol.getSelectedItemPosition() == 2 ? "gool" : "masque");
-        intent.putExtra("scan", new String[]{"balanced", "turbo", "thorough", "stealth", "ironclad"}[scan.getSelectedItemPosition()]); intent.putExtra("transport", transport.getSelectedItemPosition() == 1 ? "h2" : "h3"); intent.putExtra("ipMode", new String[]{"v4", "v6", "both"}[ipMode.getSelectedItemPosition()]); intent.putExtra("obfuscation", obfuscation.getSelectedItem().toString().toLowerCase(Locale.US).split(" ")[0]); intent.putExtra("logLevel", logLevel.getSelectedItem().toString().toLowerCase(Locale.US)); intent.putExtra("routing", new String[]{"bypass-local", "full", "split-include", "split-exclude"}[routing.getSelectedItemPosition()]); intent.putExtra("socks", socksAddress.getText().toString().trim()); intent.putExtra("peer", peer.getText().toString().trim()); intent.putExtra("mtu", parseMtu()); intent.putExtra("splitApps", splitApps.getText().toString()); intent.putExtra("dnsLeak", dnsLeak.isChecked()).putExtra("killSwitch", killSwitch.isChecked()).putExtra("quickReconnect", quickReconnect.isChecked());
+        intent.putExtra("connectionMode", mode)
+                .putExtra("protocol", new String[]{"masque", "wg", "gool"}[selectedIndex(binding.protocolInput)])
+                .putExtra("scan", new String[]{"balanced", "turbo", "thorough", "stealth", "ironclad"}[selectedIndex(binding.scanInput)])
+                .putExtra("transport", selectedIndex(binding.transportInput) == 1 ? "h2" : "h3")
+                .putExtra("ipMode", new String[]{"v4", "v6", "both"}[selectedIndex(binding.ipInput)])
+                .putExtra("obfuscation", new String[]{"firewall", "gfw", "balanced", "aggressive", "off"}[selectedIndex(binding.obfuscationInput)])
+                .putExtra("logLevel", new String[]{"info", "warn", "error", "debug", "trace"}[selectedIndex(binding.logInput)])
+                .putExtra("routing", new String[]{"bypass-local", "full", "split-include", "split-exclude"}[selectedIndex(binding.routingInput)])
+                .putExtra("socks", text(binding.socksInput))
+                .putExtra("peer", text(binding.peerInput))
+                .putExtra("mtu", parseMtu())
+                .putExtra("splitApps", text(binding.splitAppsInput))
+                .putExtra("dnsLeak", binding.dnsSwitch.isChecked())
+                .putExtra("killSwitch", binding.killswitchSwitch.isChecked())
+                .putExtra("quickReconnect", binding.reconnectSwitch.isChecked());
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
     }
 
-    private int parseMtu() { try { return Math.max(1280, Math.min(9000, Integer.parseInt(mtu.getText().toString()))); } catch (Exception error) { return 1500; } }
-    private void disconnect() { startService(new Intent(this, AetherVpnService.class).setAction(AetherVpnService.ACTION_STOP)); }
+    private void disconnect() {
+        startService(new Intent(this, AetherVpnService.class).setAction(AetherVpnService.ACTION_STOP));
+    }
 
-    private void selfTest() { new Thread(() -> { try { String[] parts = socksAddress.getText().toString().split(":"); Proxy proxy = new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(parts[0], Integer.parseInt(parts[1]))); HttpURLConnection connection = (HttpURLConnection) new URL("https://www.cloudflare.com/cdn-cgi/trace").openConnection(proxy); connection.setConnectTimeout(8000); connection.setReadTimeout(8000); StringBuilder result = new StringBuilder(); try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) { String line; while ((line = reader.readLine()) != null) result.append(line).append('\n'); } runOnUiThread(() -> { appendLog("Self-test passed"); Toast.makeText(this, result.toString(), Toast.LENGTH_LONG).show(); }); } catch (Exception error) { runOnUiThread(() -> { appendLog("Self-test failed: " + error.getMessage()); Toast.makeText(this, "Connection test failed", Toast.LENGTH_SHORT).show(); }); } }).start(); }
-    private void showStatus(String state, String message) { boolean active = "connected".equals(state) || "scanning".equals(state) || "reconnecting".equals(state); stateText.setText("connected".equals(state) ? "Connected" : "error".equals(state) ? "Connection error" : "scanning".equals(state) ? "Scanning…" : "reconnecting".equals(state) ? "Reconnecting…" : "Disconnected"); stateText.setTextColor("connected".equals(state) ? Color.rgb(21, 155, 98) : "error".equals(state) ? Color.rgb(211, 70, 85) : TEXT); stateMessage.setText(message == null ? "" : message); connectButton.setVisibility(active ? View.GONE : View.VISIBLE); disconnectButton.setVisibility(active ? View.VISIBLE : View.GONE); }
-    private void appendLog(String line) { if (logsText == null || line == null) return; String current = logsText.getText().toString(); if (current.startsWith("Waiting for")) current = ""; String next = (current + (current.isEmpty() ? "" : "\n") + line); if (next.length() > 14000) next = next.substring(next.length() - 14000); logsText.setText(next); }
-    private void resetDefaults() { protocol.setSelection(0); scan.setSelection(0); transport.setSelection(0); ipMode.setSelection(0); obfuscation.setSelection(0); logLevel.setSelection(0); routing.setSelection(0); socksAddress.setText("127.0.0.1:1819"); peer.setText(""); mtu.setText("1500"); splitApps.setText(""); dnsLeak.setChecked(true); killSwitch.setChecked(false); quickReconnect.setChecked(true); }
-    private void openTelegram() { try { startActivity(new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://t.me/hamvex"))); } catch (Exception error) { Toast.makeText(this, "Telegram channel: @hamvex", Toast.LENGTH_SHORT).show(); } }
+    private void selfTest() {
+        final String value = text(binding.socksInput);
+        if (!validSocksAddress(value)) {
+            Toast.makeText(this, R.string.invalid_socks, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        binding.testButton.setEnabled(false);
+        diagnosticExecutor.execute(() -> {
+            try {
+                String[] parts = splitSocks(value);
+                Proxy proxy = new Proxy(Proxy.Type.SOCKS, new InetSocketAddress(parts[0], Integer.parseInt(parts[1])));
+                HttpURLConnection connection = (HttpURLConnection) new URL("https://www.cloudflare.com/cdn-cgi/trace").openConnection(proxy);
+                connection.setConnectTimeout(10_000);
+                connection.setReadTimeout(10_000);
+                StringBuilder result = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) result.append(line).append('\n');
+                }
+                runOnUiThread(() -> {
+                    binding.testButton.setEnabled(true);
+                    appendLog("Self-test passed");
+                    new MaterialAlertDialogBuilder(this).setTitle(R.string.test_passed).setMessage(result.toString().trim()).setPositiveButton(android.R.string.ok, null).show();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    binding.testButton.setEnabled(true);
+                    appendLog("Self-test failed: " + error.getMessage());
+                    Toast.makeText(this, R.string.test_failed, Toast.LENGTH_SHORT).show();
+                });
+            }
+        });
+    }
 
-    private TextView label(String text, int size, int color) { TextView view = new TextView(this); view.setText(text); view.setTextSize(size); view.setTextColor(color); return view; }
-    private Button button(String text, int color) { Button view = new Button(this); view.setText(text); view.setTextSize(12); view.setTextColor(color); view.setAllCaps(false); view.setGravity(Gravity.CENTER); view.setPadding(dp(8), 0, dp(8), 0); return view; }
-    private Spinner spinner(String[] values) { Spinner spinner = new Spinner(this); spinner.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, values)); return spinner; }
-    private EditText edit(String hint, boolean number) { EditText view = new EditText(this); view.setTextSize(13); view.setHint(hint); view.setSingleLine(!hint.contains("package")); view.setPadding(dp(12), 0, dp(12), 0); if (number) view.setInputType(InputType.TYPE_CLASS_NUMBER); return view; }
-    private Switch toggle(String text, boolean checked) { Switch view = new Switch(this); view.setText(text); view.setTextSize(12); view.setTextColor(TEXT); view.setChecked(checked); view.setPadding(0, dp(3), 0, dp(3)); return view; }
-    private View field(String title, View child) { LinearLayout box = column(this, Color.TRANSPARENT); box.addView(label(title, 11, MUTED)); box.addView(child, margin(0, 3, 0, 7)); return box; }
-    private LinearLayout card() { LinearLayout view = column(this, Color.WHITE); view.setPadding(dp(16), dp(16), dp(16), dp(16)); view.setBackground(round(Color.WHITE, 16)); return view; }
-    private LinearLayout column(Context context, int color) { LinearLayout view = new LinearLayout(context); view.setOrientation(LinearLayout.VERTICAL); view.setBackgroundColor(color); return view; }
-    private LinearLayout row(Context context, int color) { LinearLayout view = column(context, color); view.setOrientation(LinearLayout.HORIZONTAL); view.setGravity(Gravity.CENTER_VERTICAL); return view; }
-    private LinearLayout.LayoutParams margin(int l, int t, int r, int b) { LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2); p.setMargins(dp(l), dp(t), dp(r), dp(b)); return p; }
-    private LinearLayout.LayoutParams marginParams(int l, int t, int r, int b, float weight) { LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(0, -2, weight); p.setMargins(dp(l), dp(t), dp(r), dp(b)); return p; }
-    private LinearLayout.LayoutParams weight(float weight) { return new LinearLayout.LayoutParams(0, -1, weight); }
-    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
-    private android.graphics.drawable.GradientDrawable round(int color, int radius) { android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable(); drawable.setColor(color); drawable.setCornerRadius(dp(radius)); return drawable; }
+    private void renderState(String newState, String message, String endpoint) {
+        state = newState == null ? "disconnected" : newState;
+        String title;
+        String phase;
+        boolean active = isActive();
+        if ("connected".equals(state)) { title = "You are protected"; phase = "CONNECTED"; }
+        else if ("starting".equals(state)) { title = "Starting Aether"; phase = "STARTING"; }
+        else if ("scanning".equals(state)) { title = "Finding a gateway"; phase = "SCANNING"; }
+        else if ("securing".equals(state)) { title = "Securing your route"; phase = "SECURING"; }
+        else if ("reconnecting".equals(state)) { title = "Reconnecting"; phase = "RECONNECTING"; }
+        else if ("blocked".equals(state)) { title = "Traffic is blocked"; phase = "FAIL CLOSED"; }
+        else if ("error".equals(state)) { title = "Connection needs attention"; phase = "ERROR"; }
+        else { title = getString(R.string.status_disconnected); phase = "READY"; }
+        binding.statusTitle.setText(title);
+        binding.statusPhase.setText(phase);
+        binding.statusMessage.setText(message == null ? "" : message);
+        binding.connectButton.setText(active ? R.string.disconnect : R.string.connect);
+        binding.connectButton.setIconResource(active ? android.R.drawable.ic_media_pause : R.drawable.ic_power);
+        binding.progress.setVisibility(active && !"connected".equals(state) ? View.VISIBLE : View.GONE);
+        binding.statusDot.setColorFilter("connected".equals(state) ? GREEN : "error".equals(state) || "blocked".equals(state) ? RED : Color.WHITE);
+        if (endpoint != null && !endpoint.isEmpty()) binding.protocolStat.setText(getString(R.string.protocol_label) + "\n" + endpoint);
+        preferences.edit().putString("state", state).putString("message", message == null ? "" : message).putString("endpoint", endpoint == null ? "" : endpoint).apply();
+    }
 
-    @Override protected void onDestroy() { try { unregisterReceiver(receiver); } catch (Exception ignored) { } super.onDestroy(); }
+    private void appendLog(String line) {
+        if (line == null || line.isEmpty()) return;
+        String existing = binding.logText.getText().toString();
+        if (existing.equals(getString(R.string.logs_waiting))) existing = "";
+        String next = existing + (existing.isEmpty() ? "" : "\n") + line;
+        if (next.length() > 18_000) next = next.substring(next.length() - 18_000);
+        binding.logText.setText(next);
+        binding.logText.post(() -> { android.text.Layout layout = binding.logText.getLayout(); if (layout != null) binding.logText.scrollTo(0, layout.getHeight()); });
+    }
+
+    private void resetDefaults() {
+        binding.protocolInput.setText(getResources().getStringArray(R.array.protocol_labels)[0], false);
+        binding.scanInput.setText(getResources().getStringArray(R.array.scan_labels)[0], false);
+        binding.transportInput.setText(getResources().getStringArray(R.array.transport_labels)[0], false);
+        binding.ipInput.setText(getResources().getStringArray(R.array.ip_labels)[0], false);
+        binding.obfuscationInput.setText(getResources().getStringArray(R.array.obfuscation_labels)[0], false);
+        binding.logInput.setText(getResources().getStringArray(R.array.log_labels)[0], false);
+        binding.routingInput.setText(getResources().getStringArray(R.array.routing_labels)[0], false);
+        binding.socksInput.setText("127.0.0.1:1819");
+        binding.peerInput.setText("");
+        binding.mtuInput.setText("1500");
+        binding.splitAppsInput.setText("");
+        binding.dnsSwitch.setChecked(true);
+        binding.killswitchSwitch.setChecked(false);
+        binding.reconnectSwitch.setChecked(true);
+        saveSettings();
+        updateProtocolVisibility();
+    }
+
+    private void updateProtocolVisibility() {
+        binding.transportLayout.setVisibility(selectedIndex(binding.protocolInput) == 0 ? View.VISIBLE : View.GONE);
+        binding.protocolStat.setText(getString(R.string.protocol_label) + "\n" + selectedText(binding.protocolInput));
+    }
+
+    private void saveSettings() {
+        preferences.edit()
+                .putString("mode", mode)
+                .putInt("protocol", selectedIndex(binding.protocolInput))
+                .putInt("scan", selectedIndex(binding.scanInput))
+                .putInt("transport", selectedIndex(binding.transportInput))
+                .putInt("ip", selectedIndex(binding.ipInput))
+                .putInt("obfuscation", selectedIndex(binding.obfuscationInput))
+                .putInt("log", selectedIndex(binding.logInput))
+                .putInt("routing", selectedIndex(binding.routingInput))
+                .putString("socks", text(binding.socksInput))
+                .putString("peer", text(binding.peerInput))
+                .putString("mtu", text(binding.mtuInput))
+                .putString("splitApps", text(binding.splitAppsInput))
+                .putBoolean("dnsLeak", binding.dnsSwitch.isChecked())
+                .putBoolean("killSwitch", binding.killswitchSwitch.isChecked())
+                .putBoolean("quickReconnect", binding.reconnectSwitch.isChecked())
+                .apply();
+    }
+
+    private void openTelegram() {
+        try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.channel_url)))); }
+        catch (Exception error) { Toast.makeText(this, "Telegram: @hamvex", Toast.LENGTH_SHORT).show(); }
+    }
+
+    private boolean isActive() { return "starting".equals(state) || "scanning".equals(state) || "securing".equals(state) || "connected".equals(state) || "reconnecting".equals(state) || "blocked".equals(state); }
+    private int selectedIndex(MaterialAutoCompleteTextView view) { Object tag = view.getTag(); return tag instanceof Integer ? (Integer) tag : findIndex(view); }
+    private int findIndex(MaterialAutoCompleteTextView view) { String value = selectedText(view); String[] all = view.getAdapter() == null ? new String[0] : getAdapterValues(view); for (int i = 0; i < all.length; i++) if (all[i].equals(value)) return i; return 0; }
+    private String[] getAdapterValues(MaterialAutoCompleteTextView view) { String[] values = new String[view.getAdapter().getCount()]; for (int i = 0; i < values.length; i++) values[i] = String.valueOf(view.getAdapter().getItem(i)); return values; }
+    private String selectedText(MaterialAutoCompleteTextView view) { return view.getText() == null ? "" : view.getText().toString(); }
+    private String text(com.google.android.material.textfield.TextInputEditText view) { return view.getText() == null ? "" : view.getText().toString().trim(); }
+    private int parseMtu() { try { return Math.max(1280, Math.min(9000, Integer.parseInt(text(binding.mtuInput)))); } catch (Exception error) { return 1500; } }
+    private boolean validSocksAddress(String value) { try { String[] parts = splitSocks(value); int port = Integer.parseInt(parts[1]); return !parts[0].isEmpty() && port > 0 && port <= 65535; } catch (Exception error) { return false; } }
+    private String[] splitSocks(String value) { String input = value.trim(); if (input.startsWith("[")) { int end = input.indexOf(']'); if (end < 0 || end + 2 >= input.length() || input.charAt(end + 1) != ':') throw new IllegalArgumentException(); return new String[]{input.substring(1, end), input.substring(end + 2)}; } int split = input.lastIndexOf(':'); if (split <= 0) throw new IllegalArgumentException(); return new String[]{input.substring(0, split), input.substring(split + 1)}; }
+    private String formatBytes(long bytes) { if (bytes < 1024) return bytes + " B"; if (bytes < 1024 * 1024) return String.format(Locale.US, "%.1f KB", bytes / 1024.0); if (bytes < 1024L * 1024L * 1024L) return String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0)); return String.format(Locale.US, "%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0)); }
+
+    @Override protected void onStart() {
+        super.onStart();
+        if (!receiverRegistered) {
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(AetherVpnService.ACTION_STATUS);
+            filter.addAction(AetherVpnService.ACTION_LOG);
+            filter.addAction(AetherVpnService.ACTION_STATS);
+            ContextCompat.registerReceiver(this, receiver, filter, INTERNAL_PERMISSION, null, ContextCompat.RECEIVER_NOT_EXPORTED);
+            receiverRegistered = true;
+        }
+        startService(new Intent(this, AetherVpnService.class).setAction(AetherVpnService.ACTION_QUERY));
+    }
+
+    @Override protected void onStop() {
+        if (receiverRegistered) {
+            unregisterReceiver(receiver);
+            receiverRegistered = false;
+        }
+        super.onStop();
+    }
+
+    @Override protected void onDestroy() {
+        if (diagnosticExecutor != null) diagnosticExecutor.shutdownNow();
+        super.onDestroy();
+    }
 }

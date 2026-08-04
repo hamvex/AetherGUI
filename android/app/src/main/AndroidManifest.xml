@@ -2,6 +2,7 @@
     <permission android:name="io.github.hamvex.aethergui.permission.INTERNAL" android:protectionLevel="signature" />
     <uses-permission android:name="io.github.hamvex.aethergui.permission.INTERNAL" />
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

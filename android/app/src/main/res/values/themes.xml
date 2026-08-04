@@ -1,9 +1,17 @@
 <resources>
-    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/blue_700</item>
+        <item name="colorOnPrimary">@color/surface</item>
+        <item name="colorPrimaryContainer">@color/blue_100</item>
+        <item name="colorOnPrimaryContainer">@color/blue_900</item>
+        <item name="colorSecondary">@color/blue_600</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorSurfaceVariant">@color/blue_50</item>
+        <item name="colorOutline">@color/border</item>
         <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">@color/blue_700</item>
         <item name="android:navigationBarColor">@color/background</item>
-        <item name="android:statusBarColor">@color/blue_900</item>
-        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
     </style>
 </resources>
