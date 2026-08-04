@@ -28,6 +28,10 @@ pub struct Settings {
     pub wg_config_path: String,
     pub masque_config_path: String,
     pub quick_reconnect: bool,
+    pub dns_resolvers: String,
+    pub route_block: Vec<String>,
+    pub route_direct: Vec<String>,
+    pub routes_file: String,
 }
 
 impl Default for Settings {
@@ -57,6 +61,10 @@ impl Default for Settings {
             wg_config_path: String::new(),
             masque_config_path: String::new(),
             quick_reconnect: true,
+            dns_resolvers: String::new(),
+            route_block: Vec::new(),
+            route_direct: Vec::new(),
+            routes_file: String::new(),
         }
     }
 }
@@ -129,11 +137,23 @@ impl Settings {
             ("configuration", &self.config_path),
             ("WireGuard configuration", &self.wg_config_path),
             ("MASQUE configuration", &self.masque_config_path),
+            ("routing rules", &self.routes_file),
         ] {
             if !value.trim().is_empty()
                 && (Path::new(value).file_name().is_none() || value.contains('\0'))
             {
                 return Err(format!("Invalid {label} file path"));
+            }
+        }
+        if self.dns_resolvers.split(',').any(|resolver| {
+            let value = resolver.trim();
+            !value.is_empty() && value.parse::<std::net::IpAddr>().is_err()
+        }) {
+            return Err("DNS resolvers must be comma-separated IP addresses".into());
+        }
+        for (label, rules) in [("blocked", &self.route_block), ("direct", &self.route_direct)] {
+            if rules.iter().any(|rule| rule.trim().is_empty() || rule.contains(['\0', ';', '&', '|'])) {
+                return Err(format!("Invalid {label} routing rule"));
             }
         }
         Ok(())
@@ -191,6 +211,18 @@ impl Settings {
                 "AETHER_MASQUE_CONFIG".into(),
                 self.masque_config_path.clone(),
             );
+        }
+        if !self.dns_resolvers.trim().is_empty() {
+            env.insert("AETHER_DNS".into(), self.dns_resolvers.trim().into());
+        }
+        if !self.route_block.is_empty() {
+            env.insert("AETHER_ROUTE_BLOCK".into(), self.route_block.join(","));
+        }
+        if !self.route_direct.is_empty() {
+            env.insert("AETHER_ROUTE_DIRECT".into(), self.route_direct.join(","));
+        }
+        if !self.routes_file.trim().is_empty() {
+            env.insert("AETHER_ROUTES_FILE".into(), self.routes_file.clone());
         }
         Ok(env)
     }
