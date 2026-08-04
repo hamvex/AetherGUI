@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Firstham AetherGui</string>
+    <string name="vpn_description">Protect all Android traffic through Aether.</string>
+    <string name="channel_url">https://t.me/hamvex</string>
+</resources>

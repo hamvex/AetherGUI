@@ -1,12 +1,12 @@
 # Firstham AetherGui
 
-Firstham AetherGui is an independent Windows desktop client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.6.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through a focused Tauri interface.
+Firstham AetherGui is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.7.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
 
 [Persian documentation](README.fa.md) | [Releases](https://github.com/hamvex/AetherGUI/releases)
 
 ![Firstham AetherGui 1.6.0 connection view](docs/aethergui-v1.6.0.png)
 
-## What's new in 1.6.0
+## What's new in 1.7.0
 
 - Redesigned the application around two focused views: **Connection** and **Diagnostics**.
 - Removed the welcome wizard, About page, and built-in documentation navigation.
@@ -15,6 +15,8 @@ Firstham AetherGui is an independent Windows desktop client for the official [Cl
 - Added Ironclad verified-tunnel scanning and configurable Aether log levels.
 - Included upstream tunnel leak fixes, dead-tunnel detection, TLS certificate pinning, and routing-rule support through the current core.
 - Preserved complete English/Persian localization, RTL layout, tray controls, VPN recovery, and diagnostics.
+- Added a native Android application using `VpnService`, official Aether Android cores, and HEV Socks5 Tunnel.
+- Added ARM64, x86_64, and universal APK builds with an in-app Telegram channel section.
 
 ## Features
 
@@ -33,12 +35,15 @@ Firstham AetherGui is an independent Windows desktop client for the official [Cl
 
 Download the latest files from [GitHub Releases](https://github.com/hamvex/AetherGUI/releases):
 
-- `Firstham AetherGui_1.6.0_x64-setup.exe`: recommended Windows installer.
-- `Firstham AetherGui_1.6.0_x64_en-US.msi`: MSI deployment package.
-- `Firstham_AetherGui_1.6.0_x64-portable.zip`: portable executable and required sidecars.
+- `Firstham AetherGui_1.7.0_x64-setup.exe`: recommended Windows installer.
+- `Firstham AetherGui_1.7.0_x64_en-US.msi`: MSI deployment package.
+- `Firstham_AetherGui_1.7.0_x64-portable.zip`: portable Windows executable and required sidecars.
+- `Firstham_AetherGui_1.7.0_android-universal.apk`: Android APK for ARM64 and x86_64 devices.
 - `SHA256SUMS.txt`: SHA-256 hashes for release verification.
 
 Windows 10/11 x64 is supported. Published binaries are currently unsigned and may trigger Microsoft Defender SmartScreen.
+
+Android 8.0 or newer is supported. Android asks for system VPN permission when VPN Mode starts. Split tunneling uses Android application package names rather than Windows executable paths.
 
 ## Using the app
 
@@ -62,6 +67,10 @@ The GUI does not duplicate Aether's scanning, tunnel, obfuscation, identity, or 
 - `scripts/fetch-routing-engine.ps1`: downloads and verifies the pinned sing-box release.
 - `.github/workflows/release.yml`: tests, Windows builds, installer packaging, and tagged releases.
 
+### Android architecture
+
+The Android client is a separate native Java application under `android/`. Android `VpnService` creates the system TUN interface, the official Aether Android executable provides the local SOCKS5 tunnel, and the pinned HEV Socks5 Tunnel JNI library connects the VPN file descriptor to Aether. The application remains unprivileged and uses the standard Android VPN permission flow.
+
 ## Safety notes
 
 The GUI remains unelevated during normal operation. Windows elevation is requested only for the routing helper that creates the virtual adapter and applies routes.
@@ -82,6 +91,7 @@ Requirements: Windows 10/11 x64, Node.js 20+, Rust stable with the MSVC target, 
 npm ci
 npm run fetch:core
 npm run fetch:routing
+npm run fetch:android
 npm test
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 npm run dev
@@ -91,6 +101,7 @@ Production build:
 
 ```powershell
 npm run build
+npm run build:android
 ```
 
 The executable is generated at `src-tauri/target/release/aether-gui.exe`. Installer bundles are generated under `src-tauri/target/release/bundle/`.

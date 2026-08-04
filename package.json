@@ -1,7 +1,7 @@
 {
     "name":  "@hamvex/aether-gui",
     "private":  true,
-    "version":  "1.6.0",
+    "version":  "1.7.0",
     "type":  "module",
     "scripts":  {
                     "dev":  "tauri dev",
@@ -9,7 +9,9 @@
                     "test":  "node tests/frontend.test.mjs",
                     "tauri":  "tauri",
                     "fetch:core":  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-aether.ps1",
-                    "fetch:routing": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-routing-engine.ps1"
+                    "fetch:routing": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-routing-engine.ps1",
+                    "fetch:android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-android-assets.ps1",
+                    "build:android": "cd android && gradlew.bat assembleRelease"
                 },
     "devDependencies":  {
                             "@tauri-apps/cli":  "^2.8.0"

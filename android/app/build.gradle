@@ -1,0 +1,49 @@
+plugins { id 'com.android.application' }
+
+dependencies {
+    implementation 'androidx.core:core:1.15.0'
+}
+
+def signingProperties = new Properties()
+def signingPropertiesFile = rootProject.file('.android-signing/signing.properties')
+if (signingPropertiesFile.exists()) signingPropertiesFile.withInputStream { signingProperties.load(it) }
+def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH') ?: signingProperties.getProperty('storeFile')
+def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: signingProperties.getProperty('storePassword')
+def keyAliasName = System.getenv('ANDROID_KEY_ALIAS') ?: signingProperties.getProperty('keyAlias')
+def keyPasswordValue = System.getenv('ANDROID_KEY_PASSWORD') ?: signingProperties.getProperty('keyPassword')
+
+android {
+    namespace 'com.firstham.aethergui'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.hamvex.aethergui'
+        minSdk 26
+        targetSdk 35
+        versionCode 17
+        versionName '1.7.0'
+    }
+
+    signingConfigs {
+        release {
+            if (keystorePath) {
+                storeFile rootProject.file(keystorePath)
+                storePassword keystorePassword
+                keyAlias keyAliasName
+                keyPassword keyPasswordValue
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (keystorePath) signingConfig signingConfigs.release
+        }
+    }
+
+    packaging { jniLibs { useLegacyPackaging true } }
+    sourceSets { main { assets.srcDirs += ['../../third-party'] } }
+    splits { abi { enable true; reset(); include 'arm64-v8a', 'x86_64'; universalApk true } }
+}

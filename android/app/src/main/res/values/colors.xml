@@ -1,0 +1,10 @@
+<resources>
+    <color name="blue_900">#102A43</color>
+    <color name="blue_700">#1767D8</color>
+    <color name="blue_100">#EAF3FF</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="background">#F4F7FB</color>
+    <color name="text">#17243A</color>
+    <color name="muted">#6B7789</color>
+    <color name="green">#159B62</color>
+</resources>

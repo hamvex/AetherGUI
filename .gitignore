@@ -10,6 +10,11 @@ src-tauri/binaries/*.exe
 .vscode/
 .idea/
 release-v*/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/app/src/main/jniLibs/**/*.so
+android/.android-signing/
 
 # Never commit Aether identity or credential material.
 aether*.toml
