@@ -26,7 +26,14 @@ jobs:
           java-version: "17"
       - name: Install Android NDK
         shell: pwsh
-        run: sdkmanager "ndk;27.2.12479018"
+        run: |
+          $sdkManager = Get-ChildItem -Path @(
+            (Join-Path $env:ANDROID_HOME 'cmdline-tools'),
+            (Join-Path $env:ANDROID_SDK_ROOT 'cmdline-tools')
+          ) -Filter 'sdkmanager.bat' -File -Recurse -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $sdkManager) { throw 'Android sdkmanager.bat was not found on the hosted runner.' }
+          & $sdkManager 'ndk;27.2.12479018'
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: x86_64-pc-windows-msvc
