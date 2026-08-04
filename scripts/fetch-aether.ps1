@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$version = if ($env:AETHER_CORE_VERSION) { $env:AETHER_CORE_VERSION } else { "v1.2.0" }
+$version = if ($env:AETHER_CORE_VERSION) { $env:AETHER_CORE_VERSION } else { "v1.5.0" }
 $baseUrl = "https://github.com/CluvexStudio/Aether/releases/download/$version"
 $archiveName = "aether-windows-x86_64.zip"
 $checksumName = "$archiveName.sha256"

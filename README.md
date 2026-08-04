@@ -15,7 +15,7 @@ For installation, settings, troubleshooting, v2rayN, and Proxifier instructions,
 
 - Connect, disconnect, reconnect and clear state reporting
 - MASQUE, WireGuard and gool / WARP-in-WARP
-- Turbo, Balanced, Thorough and Stealth scanning
+- Turbo, Balanced, Thorough, Stealth and Ironclad verified-tunnel scanning
 - IPv4, IPv6 and dual-stack modes
 - Protocol-specific obfuscation profiles
 - MASQUE HTTP/3 or HTTP/2 transport
@@ -24,12 +24,9 @@ For installation, settings, troubleshooting, v2rayN, and Proxifier instructions,
 - Local settings persistence, reset to defaults and non-loopback safety acknowledgement
 - System tray actions and clean child-process shutdown
 - Single-instance protection
-- Modern white and blue Windows interface
-- Persistent five-step first-launch welcome wizard
-- Searchable built-in English documentation and setup guide
-- In-app v2rayN and Proxifier instructions with traffic-flow diagrams
-- Scoped About page with upstream attribution and Telegram link
-- Compact connection-first layout with separate diagnostics
+- Minimal two-view Windows interface focused on Connection and Diagnostics
+- Progressive disclosure for advanced routing, safety and configuration controls
+- Configurable Aether v1.5.0 log levels for cleaner troubleshooting
 - Complete English and Persian localization with remembered language selection
 - Full RTL mirroring and a bundled Vazirmatn Persian font
 - Localized tray menu, onboarding, tooltips, statuses, and built-in documentation

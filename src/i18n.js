@@ -48,6 +48,9 @@ Object.assign(translations.fa,{'recovery.prompt':'یک نشست VPN ناتمام
 Object.assign(translations.en,{'vpn.addApps':'Add applications','routing.disabled':'Disabled','routing.preparing':'Preparing','routing.requesting-elevation':'Requesting administrator permission','routing.starting-adapter':'Starting virtual adapter','routing.configuring-routes':'Configuring routes','routing.connected':'Connected','routing.reconnecting':'Reconnecting','routing.restoring':'Restoring network settings','routing.error':'Error'});
 Object.assign(translations.fa,{'vpn.addApps':'افزودن برنامه‌ها','routing.disabled':'غیرفعال','routing.preparing':'در حال آماده‌سازی','routing.requesting-elevation':'درخواست دسترسی مدیر','routing.starting-adapter':'راه‌اندازی رابط مجازی','routing.configuring-routes':'پیکربندی مسیرها','routing.connected':'متصل','routing.reconnecting':'اتصال مجدد','routing.restoring':'بازیابی تنظیمات شبکه','routing.error':'خطا'});
 
+Object.assign(translations.en,{'settings.logLevel':'Log level','scan.ironclad':'Ironclad — verified tunnel'});
+Object.assign(translations.fa,{'settings.logLevel':'سطح گزارش','scan.ironclad':'Ironclad — بررسی کامل تونل'});
+
 let currentLanguage = 'en';
 
 export function setCurrentLanguage(language) {

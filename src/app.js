@@ -1,5 +1,4 @@
 import { applyTranslations, getCurrentLanguage, setCurrentLanguage, t } from './i18n.js';
-import { docsByLanguage } from './docs.js';
 
 const tauri = window.__TAURI__ || {
   core: { invoke: async command => command === 'load_settings' ? {} : command === 'elapsed' ? 0 : command === 'connection_test' ? 'ip=203.0.113.1\nwarp=on\nhttp=http/3' : undefined },
@@ -10,14 +9,12 @@ const { invoke } = tauri.core;
 const { listen } = tauri.event;
 const { openUrl } = tauri.opener;
 const $ = id => document.getElementById(id);
-const defaults = {language:'en',connectionMode:'vpn',routingMode:'bypass-local',dnsLeakProtection:true,ipv6Behavior:'tunnel',killSwitch:false,tunMtu:1500,splitApplications:[],routeExclusions:[],protocol:'masque',scanMode:'balanced',ipMode:'v4',obfuscation:'firewall',masqueTransport:'h3',socksAddress:'127.0.0.1:1819',allowRemoteListener:false,peer:'',wgKeepalive:5,stallTimeout:90,watchdog:true,configPath:'',wgConfigPath:'',masqueConfigPath:'',quickReconnect:true};
-const wizardStorageKey = 'firstham-welcome-complete-v1';
+const defaults = {language:'en',connectionMode:'vpn',routingMode:'bypass-local',dnsLeakProtection:true,ipv6Behavior:'tunnel',killSwitch:false,tunMtu:1500,splitApplications:[],routeExclusions:[],protocol:'masque',scanMode:'balanced',logLevel:'info',ipMode:'v4',obfuscation:'firewall',masqueTransport:'h3',socksAddress:'127.0.0.1:1819',allowRemoteListener:false,peer:'',wgKeepalive:5,stallTimeout:90,watchdog:true,configPath:'',wgConfigPath:'',masqueConfigPath:'',quickReconnect:true};
 let settings = {...defaults};
 let state = 'disconnected';
 let activeEndpoint = '';
 let logs = [];
 let saveTimer;
-let wizardIndex = 0;
 
 function selectSegment(id, value) {
   [...$(id).querySelectorAll('button')].forEach(button => button.classList.toggle('active', button.dataset.value === value));
@@ -30,7 +27,8 @@ function setOptions(element, options, selected) {
 }
 
 function renderChoiceOptions() {
-  setOptions($('scanMode'), [['turbo',t('scan.turbo')],['balanced',t('scan.balanced')],['thorough',t('scan.thorough')],['stealth',t('scan.stealth')]], settings.scanMode);
+  setOptions($('scanMode'), [['turbo',t('scan.turbo')],['balanced',t('scan.balanced')],['thorough',t('scan.thorough')],['stealth',t('scan.stealth')],['ironclad',t('scan.ironclad')]], settings.scanMode);
+  setOptions($('logLevel'), [['error','Error'],['warn','Warning'],['info','Info'],['debug','Debug'],['trace','Trace']], settings.logLevel);
   setOptions($('ipMode'), [['v4',t('ip.v4')],['v6',t('ip.v6')],['both',t('ip.both')]], settings.ipMode);
   setOptions($('routingMode'), [['full',t('routing.full')],['bypass-local',t('routing.bypassLocal')],['split-include',t('routing.splitInclude')],['split-exclude',t('routing.splitExclude')]], settings.routingMode);
   setOptions($('ipv6Behavior'), [['tunnel',t('ipv6.tunnel')],['block',t('ipv6.block')]], settings.ipv6Behavior);
@@ -52,7 +50,7 @@ function syncProtocol() {
 function syncConnectionMode(){settings.connectionMode=segmentValue('connectionMode')||settings.connectionMode;const manual=settings.connectionMode==='manual';$('manualProxy').classList.toggle('hidden',!manual);$('routingMode').disabled=manual;$('vpn-description').textContent=t(manual?'proxy.description':'vpn.description');const key=settings.routingMode==='bypass-local'?'bypassLocal':settings.routingMode==='split-include'?'splitInclude':settings.routingMode==='split-exclude'?'splitExclude':'full';$('routing-display').textContent=manual?t('vpn.manualMode'):t(`routing.${key}`)}
 
 function readSettings() {
-  return {language:getCurrentLanguage(),connectionMode:segmentValue('connectionMode'),routingMode:$('routingMode').value,dnsLeakProtection:$('dnsLeakProtection').checked,ipv6Behavior:$('ipv6Behavior').value,killSwitch:$('killSwitch').checked,tunMtu:Number($('tunMtu').value),splitApplications:$('splitApplications').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),routeExclusions:$('routeExclusions').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),protocol:segmentValue('protocol'),scanMode:$('scanMode').value,ipMode:$('ipMode').value,obfuscation:$('obfuscation').value,masqueTransport:segmentValue('transport'),socksAddress:$('socksAddress').value.trim(),allowRemoteListener:$('allowRemote').checked,peer:$('peer').value.trim(),wgKeepalive:Number($('keepalive').value),stallTimeout:Number($('stallTimeout').value),watchdog:$('watchdog').checked,configPath:$('configPath').value.trim(),wgConfigPath:$('wgConfigPath').value.trim(),masqueConfigPath:$('masqueConfigPath').value.trim(),quickReconnect:$('quickReconnect').checked};
+  return {language:getCurrentLanguage(),connectionMode:segmentValue('connectionMode'),routingMode:$('routingMode').value,dnsLeakProtection:$('dnsLeakProtection').checked,ipv6Behavior:$('ipv6Behavior').value,killSwitch:$('killSwitch').checked,tunMtu:Number($('tunMtu').value),splitApplications:$('splitApplications').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),routeExclusions:$('routeExclusions').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),protocol:segmentValue('protocol'),scanMode:$('scanMode').value,logLevel:$('logLevel').value,ipMode:$('ipMode').value,obfuscation:$('obfuscation').value,masqueTransport:segmentValue('transport'),socksAddress:$('socksAddress').value.trim(),allowRemoteListener:$('allowRemote').checked,peer:$('peer').value.trim(),wgKeepalive:Number($('keepalive').value),stallTimeout:Number($('stallTimeout').value),watchdog:$('watchdog').checked,configPath:$('configPath').value.trim(),wgConfigPath:$('wgConfigPath').value.trim(),masqueConfigPath:$('masqueConfigPath').value.trim(),quickReconnect:$('quickReconnect').checked};
 }
 
 function renderSettings(saved) {
@@ -61,7 +59,7 @@ function renderSettings(saved) {
   selectSegment('connectionMode',settings.connectionMode);
   selectSegment('protocol',settings.protocol);
   selectSegment('transport',settings.masqueTransport);
-  $('routingMode').value=settings.routingMode;$('dnsLeakProtection').checked=settings.dnsLeakProtection;$('ipv6Behavior').value=settings.ipv6Behavior;$('killSwitch').checked=settings.killSwitch;$('tunMtu').value=settings.tunMtu;$('splitApplications').value=settings.splitApplications.join('\n');$('routeExclusions').value=settings.routeExclusions.join('\n');$('socksAddress').value=settings.socksAddress;$('allowRemote').checked=settings.allowRemoteListener;$('peer').value=settings.peer;$('keepalive').value=settings.wgKeepalive;$('stallTimeout').value=settings.stallTimeout;$('watchdog').checked=settings.watchdog;$('quickReconnect').checked=settings.quickReconnect;$('configPath').value=settings.configPath;$('wgConfigPath').value=settings.wgConfigPath;$('masqueConfigPath').value=settings.masqueConfigPath;$('socks-display').textContent=settings.socksAddress;
+  $('routingMode').value=settings.routingMode;$('dnsLeakProtection').checked=settings.dnsLeakProtection;$('ipv6Behavior').value=settings.ipv6Behavior;$('killSwitch').checked=settings.killSwitch;$('tunMtu').value=settings.tunMtu;$('splitApplications').value=settings.splitApplications.join('\n');$('routeExclusions').value=settings.routeExclusions.join('\n');$('socksAddress').value=settings.socksAddress;$('allowRemote').checked=settings.allowRemoteListener;$('peer').value=settings.peer;$('keepalive').value=settings.wgKeepalive;$('stallTimeout').value=settings.stallTimeout;$('watchdog').checked=settings.watchdog;$('quickReconnect').checked=settings.quickReconnect;$('configPath').value=settings.configPath;$('wgConfigPath').value=settings.wgConfigPath;$('masqueConfigPath').value=settings.masqueConfigPath;$('logLevel').value=settings.logLevel;$('socks-display').textContent=settings.socksAddress;
   applyLanguage(settings.language, false);
   syncConnectionMode();
 }
@@ -81,13 +79,9 @@ function applyLanguage(language, rerenderSettings = true) {
   setCurrentLanguage(language);
   settings.language = getCurrentLanguage();
   $('language').value = settings.language;
-  $('wizardEnglish').classList.toggle('selected',settings.language==='en');
-  $('wizardPersian').classList.toggle('selected',settings.language==='fa');
   applyTranslations();
-  if (rerenderSettings) renderChoiceOptions(); else { renderChoiceOptions(); }
-  renderDocs($('docSearch').value);
+  renderChoiceOptions();
   setState(state, activeEndpoint);
-  renderWizard();
 }
 
 function queueSave() {
@@ -120,35 +114,23 @@ async function testConnection(){const buttons=[$('test'),$('diagnosticTest')];bu
 
 function showView(name){document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===`view-${name}`));document.querySelectorAll('.nav-item').forEach(item=>{const active=item.dataset.view===name;item.classList.toggle('active',active);if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current')});window.scrollTo({top:0,behavior:'instant'})}
 
-function renderDocs(query='') {
-  const language=getCurrentLanguage();const normalized=query.trim().toLocaleLowerCase(language);const sections=docsByLanguage[language];const matches=sections.filter(section=>!normalized||`${section.title} ${section.html.replace(/<[^>]+>/g,' ')}`.toLocaleLowerCase(language).includes(normalized));const nav=$('docsNav');const content=$('docsContent');nav.replaceChildren();content.replaceChildren();
-  matches.forEach((section,index)=>{const navButton=document.createElement('button');navButton.textContent=section.title;navButton.dataset.doc=section.id;navButton.addEventListener('click',()=>{const card=$(`doc-${section.id}`);card.open=true;card.scrollIntoView({behavior:'smooth',block:'start'});document.querySelectorAll('.docs-nav button').forEach(button=>button.classList.toggle('active',button===navButton))});nav.append(navButton);const card=document.createElement('details');card.id=`doc-${section.id}`;card.className='doc-card';card.open=index===0&&!normalized;const summary=document.createElement('summary');const number=document.createElement('span');number.textContent=String(sections.indexOf(section)+1).padStart(2,'0');const title=document.createElement('h3');title.textContent=section.title;summary.append(number,title);const body=document.createElement('div');body.className='doc-body';body.innerHTML=section.html;card.append(summary,body);content.append(card)});
-  $('noDocResults').classList.toggle('hidden',matches.length!==0);
-}
-
-function showWizard(start=0){wizardIndex=start;$('welcomeWizard').classList.remove('hidden');renderWizard();$('closeWizard').focus()}
-function closeWizard(complete=true){$('welcomeWizard').classList.add('hidden');if(complete)localStorage.setItem(wizardStorageKey,'1')}
-function renderWizard(){if(!$('welcomeWizard'))return;document.querySelectorAll('.wizard-slide').forEach((slide,index)=>slide.classList.toggle('active',index===wizardIndex));document.querySelectorAll('.wizard-progress i').forEach((dot,index)=>dot.classList.toggle('active',index<=wizardIndex));$('wizardBack').disabled=wizardIndex===0;$('wizardNext').textContent=t(wizardIndex===4?'actions.start':'actions.next');$('wizardStep').textContent=`${wizardIndex+1} / 5`}
-
 $('protocol').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('protocol',event.target.dataset.value);settings.protocol=event.target.dataset.value;syncProtocol();queueSave()});
 $('transport').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('transport',event.target.dataset.value);queueSave()});
 $('connectionMode').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('connectionMode',event.target.dataset.value);settings.connectionMode=event.target.dataset.value;syncConnectionMode();queueSave()});
 document.querySelector('.settings-panel').querySelectorAll('input,select,textarea').forEach(element=>element.addEventListener('change',()=>{queueSave();syncConnectionMode()}));
 $('routingMode').addEventListener('change',()=>{settings.routingMode=$('routingMode').value;syncConnectionMode()});
 $('language').addEventListener('change',event=>changeLanguage(event.target.value));
-$('wizardEnglish').addEventListener('click',()=>changeLanguage('en',false));$('wizardPersian').addEventListener('click',()=>changeLanguage('fa',false));
 $('connect').addEventListener('click',connect);$('disconnect').addEventListener('click',disconnect);$('test').addEventListener('click',testConnection);$('diagnosticTest').addEventListener('click',testConnection);
 $('reset').addEventListener('click',()=>{const language=getCurrentLanguage();renderSettings({...defaults,language});queueSave();toast(t('toast.defaults'))});
 $('copyProxy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(readSettings().socksAddress);toast(t('toast.proxyCopied'))}catch(error){showError(error)}});
 $('clearLogs').addEventListener('click',()=>{logs=[];$('logs').textContent=''});$('copyLogs').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(logs.join('\n'));toast(t('toast.logsCopied'))}catch(error){showError(error)}});$('closeTest').addEventListener('click',()=>$('testResult').classList.add('hidden'));
 $('repairNetwork').addEventListener('click',async()=>{try{await invoke('repair_network');toast(t('diagnostics.repair'))}catch(error){showError(error)}});
 $('addApplications').addEventListener('click',async()=>{try{const paths=await invoke('pick_applications');if(paths.length){const existing=$('splitApplications').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);$('splitApplications').value=[...new Set([...existing,...paths])].join('\n');queueSave()}}catch(error){showError(error)}});
-$('docSearch').addEventListener('input',event=>renderDocs(event.target.value));document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>showView(item.dataset.view)));
+document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>showView(item.dataset.view)));
 document.querySelectorAll('[data-external]').forEach(button=>button.addEventListener('click',async()=>{try{await openUrl(button.dataset.external)}catch(error){showError(error)}}));
-$('showTour').addEventListener('click',()=>showWizard(0));$('closeWizard').addEventListener('click',()=>closeWizard(true));$('wizardBack').addEventListener('click',()=>{if(wizardIndex>0){wizardIndex-=1;renderWizard()}});$('wizardNext').addEventListener('click',()=>{if(wizardIndex<4){wizardIndex+=1;renderWizard()}else{closeWizard(true);showView('dashboard');$('connect').focus()}});$('welcomeWizard').addEventListener('click',event=>{if(event.target===$('welcomeWizard'))closeWizard(true)});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('welcomeWizard').classList.contains('hidden'))closeWizard(true)});
 
 await listen('aether-log',event=>addLog(`[Aether] ${event.payload}`));await listen('aether-status',event=>setState(event.payload.state,event.payload.endpoint));await listen('routing-status',event=>{addLog(`[Routing/${event.payload.state}] ${event.payload.message}`);const key=`routing.${event.payload.state}`;$('routing-display').textContent=t(key);$('traffic-stats').textContent=event.payload.state==='connected'?'TCP + UDP':'—';if(event.payload.public_ip)$('public-ip').textContent=event.payload.public_ip;if(event.payload.state==='error'){setState('error');showError(event.payload.message)}});await listen('tray-connect',connect);
 try{renderSettings(await invoke('load_settings'))}catch(error){renderSettings(defaults);showError(error)}
 try{if(await invoke('recovery_status')&&window.confirm(t('recovery.prompt'))){await invoke('repair_network');toast(t('recovery.done'))}}catch(error){showError(error)}
-setState('disconnected');if(!localStorage.getItem(wizardStorageKey))setTimeout(()=>showWizard(0),220);
+setState('disconnected');
 setInterval(async()=>{if(state!=='connected')return;try{const seconds=await invoke('elapsed');const hours=String(Math.floor(seconds/3600)).padStart(2,'0');const minutes=String(Math.floor(seconds%3600/60)).padStart(2,'0');const remaining=String(seconds%60).padStart(2,'0');$('elapsed').textContent=`${hours}:${minutes}:${remaining}`}catch{}},1000);

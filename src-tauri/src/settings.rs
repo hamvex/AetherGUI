@@ -15,6 +15,7 @@ pub struct Settings {
     pub route_exclusions: Vec<String>,
     pub protocol: String,
     pub scan_mode: String,
+    pub log_level: String,
     pub ip_mode: String,
     pub obfuscation: String,
     pub masque_transport: String,
@@ -48,6 +49,7 @@ impl Default for Settings {
             route_exclusions: Vec::new(),
             protocol: "masque".into(),
             scan_mode: "balanced".into(),
+            log_level: "info".into(),
             ip_mode: "v4".into(),
             obfuscation: "firewall".into(),
             masque_transport: "h3".into(),
@@ -103,8 +105,9 @@ impl Settings {
         one_of(
             "scan mode",
             &self.scan_mode,
-            &["turbo", "balanced", "thorough", "stealth"],
+            &["turbo", "balanced", "thorough", "stealth", "ironclad"],
         )?;
+        one_of("log level", &self.log_level, &["error", "warn", "info", "debug", "trace"])?;
         one_of("IP mode", &self.ip_mode, &["v4", "v6", "both"])?;
         one_of("MASQUE transport", &self.masque_transport, &["h3", "h2"])?;
         let profiles = if self.protocol == "masque" {
@@ -164,6 +167,7 @@ impl Settings {
         let mut env = HashMap::from([
             ("AETHER_PROTOCOL".into(), self.protocol.clone()),
             ("AETHER_SCAN".into(), self.scan_mode.clone()),
+            ("AETHER_LOG_LEVEL".into(), self.log_level.clone()),
             ("AETHER_IP".into(), self.ip_mode.clone()),
             ("AETHER_NOIZE".into(), self.obfuscation.clone()),
             ("AETHER_SOCKS".into(), self.socks_address.clone()),
