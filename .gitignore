@@ -9,6 +9,7 @@ src-tauri/binaries/*.exe
 .DS_Store
 .vscode/
 .idea/
+release-v*/
 
 # Never commit Aether identity or credential material.
 aether*.toml
