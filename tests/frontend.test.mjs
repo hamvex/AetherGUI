@@ -82,12 +82,12 @@ test('external destinations remain narrowly scoped and no remote scripts exist',
   assert.deepEqual(opener.allow.map(item=>item.url).sort(),['https://github.com/CluvexStudio/Aether','https://github.com/hamvex/AetherGUI/releases','https://t.me/hamvex']);
 });
 
-test('application metadata is v1.5.0 with pinned Aether and routing engines', async () => {
+test('application metadata is v1.5.1 with pinned Aether and routing engines', async () => {
   const [pkg,tauri,cargo,fetch,routing,notice]=await Promise.all([read('../package.json'),read('../src-tauri/tauri.conf.json'),read('../src-tauri/Cargo.toml'),read('../scripts/fetch-aether.ps1'),read('../scripts/fetch-routing-engine.ps1'),read('../NOTICE.md')]);
-  assert.equal(JSON.parse(pkg).version,'1.5.0');
-  assert.equal(JSON.parse(tauri).version,'1.5.0');
+  assert.equal(JSON.parse(pkg).version,'1.5.1');
+  assert.equal(JSON.parse(tauri).version,'1.5.1');
   assert.equal(JSON.parse(tauri).productName,'Firstham AetherGui');
-  assert.match(cargo,/version = "1\.5\.0"/);
+  assert.match(cargo,/version = "1\.5\.1"/);
   assert.match(fetch,/"v1\.2\.0"/);
   assert.match(routing,/1\.13\.14/);
   assert.match(routing,/f580782c6dd10f7691c66cea1d7c421813c5fbf7e305d1ee7ce0c3a40d196341/);

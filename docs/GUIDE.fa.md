@@ -2,7 +2,7 @@
 
 Firstham AetherGui رابط گرافیکی مستقل ویندوز برای هستهٔ رسمی [Aether](https://github.com/CluvexStudio/Aether) است. برنامه عملیات شبکه را دوباره پیاده‌سازی نمی‌کند؛ فایل رسمی `aether.exe` را بدون پنجرهٔ ترمینال اجرا می‌کند، تنظیمات را از طریق متغیرهای رسمی Aether می‌فرستد و چرخهٔ عمر، لاگ و خطاهای آن را مدیریت می‌کند.
 
-نسخهٔ 1.5.0 این برنامه هستهٔ Aether v1.2.0 و موتور مسیریابی sing-box v1.13.14 را در خود دارد. آرشیو رسمی هر دو وابستگی هنگام Build با SHA-256 ثابت بررسی می‌شود.
+نسخهٔ 1.5.1 این برنامه هستهٔ Aether v1.2.0 و موتور مسیریابی sing-box v1.13.14 را در خود دارد. آرشیو رسمی هر دو وابستگی هنگام Build با SHA-256 ثابت بررسی می‌شود.
 
 ## حالت VPN سراسری
 
@@ -221,7 +221,7 @@ Proxifier عمدتاً اتصال‌های TCP را هدایت می‌کند؛ �
 برای بررسی SHA-256 در PowerShell:
 
 ```powershell
-Get-FileHash ".\Firstham AetherGui_1.5.0_x64-setup.exe" -Algorithm SHA256
+Get-FileHash ".\Firstham AetherGui_1.5.1_x64-setup.exe" -Algorithm SHA256
 ```
 
 ## ۱۰. ساخت از سورس

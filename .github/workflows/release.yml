@@ -43,7 +43,8 @@ jobs:
           New-Item -ItemType Directory -Force release | Out-Null
           Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release/
           Copy-Item src-tauri/target/release/bundle/msi/*.msi release/
-          Compress-Archive -Path src-tauri/target/release/aether-gui.exe,src-tauri/binaries/aether-x86_64-pc-windows-msvc.exe,src-tauri/binaries/sing-box-x86_64-pc-windows-msvc.exe -DestinationPath release/Firstham_AetherGui_1.5.0_x64-portable.zip
+          $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          Compress-Archive -Path src-tauri/target/release/aether-gui.exe,src-tauri/binaries/aether-x86_64-pc-windows-msvc.exe,src-tauri/binaries/sing-box-x86_64-pc-windows-msvc.exe -DestinationPath "release/Firstham_AetherGui_${version}_x64-portable.zip"
           Get-ChildItem release -File | ForEach-Object {
             $hash = Get-FileHash $_.FullName -Algorithm SHA256
             "$($hash.Hash.ToLower())  $($_.Name)" | Add-Content release/SHA256SUMS.txt
