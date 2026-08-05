@@ -1,27 +1,23 @@
 # Aethon
 
+<p align="center">
+  <img src="src-tauri/icons/icon.png" width="160" alt="Aethon logo">
+</p>
+
 Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.9.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
 
 [Persian documentation](README.fa.md) | [Releases](https://github.com/hamvex/AetherGUI/releases)
 
-![Firstham AetherGui Android 1.8.0 connection view](docs/android-v1.8.0.png)
+## What's new in 1.9.0
 
-## What's new in 1.8.0
-
-- Stabilized the Android VPN runtime with the exact HEV 2.16.0 JNI bridge and reproducible NDK builds.
-- Added fail-closed kill-switch behavior, supervised Aether startup, reconnect handling, traffic stats, and clearer diagnostics.
-- Refreshed the Android UI with a clean white-and-blue Material 3 design, gradient connection card, compact profile controls, and a dedicated Telegram channel card.
-- Fixed Android 15 system-bar insets, malformed punctuation, SOCKS5 IPv6 parsing, split-app validation, and process working-directory issues.
-
-- Redesigned the application around two focused views: **Connection** and **Diagnostics**.
-- Removed the welcome wizard, About page, and built-in documentation navigation.
-- Moved secondary network, routing, safety, and configuration controls into collapsed Advanced Settings.
-- Upgraded the checksum-verified Aether sidecar from v1.2.0 to v1.5.0.
-- Added Ironclad verified-tunnel scanning and configurable Aether log levels.
-- Included upstream tunnel leak fixes, dead-tunnel detection, TLS certificate pinning, and routing-rule support through the current core.
-- Preserved complete English/Persian localization, RTL layout, tray controls, VPN recovery, and diagnostics.
-- Added a native Android application using `VpnService`, official Aether Android cores, and HEV Socks5 Tunnel.
-- Added ARM64, x86_64, and universal APK builds with an in-app Telegram channel section.
+- Renamed the application to **Aethon** and introduced a new modern logo across Windows, Android, and installer assets.
+- Fixed the Android Disconnect deadlock and prevented stopped or superseded sessions from reconnecting themselves.
+- Fixed Windows Disconnect so Aether and system routing cleanup are both attempted even if one component reports an error.
+- Fixed Windows VPN startup state updates and excluded Aethon/Aether processes from the TUN route to prevent proxy loops.
+- Added failure rollback when Windows VPN routing cannot start, avoiding orphaned Aether processes.
+- Hardened Android with target SDK 35, disabled cleartext traffic and backups, R8 shrinking, private components, and release-only signing enforcement.
+- Increased Android `versionCode` to `19` while preserving the package ID and release certificate for installation over older signed releases.
+- Added signed universal, ARM64, and x86_64 APKs plus a signed Android App Bundle for Play Console.
 
 ## Features
 
@@ -44,21 +40,37 @@ Download the latest files from [GitHub Releases](https://github.com/hamvex/Aethe
 - `Aethon_1.9.0_x64_en-US.msi`: MSI deployment package.
 - `Aethon_1.9.0_x64-portable.zip`: portable Windows executable and required sidecars.
 - `Aethon_1.9.0_android-universal.apk`: Android APK for ARM64 and x86_64 devices.
+- `Aethon_1.9.0_android-arm64.apk`: smaller APK for most physical Android devices.
+- `Aethon_1.9.0_android-x86_64.apk`: APK for compatible emulators and x86_64 devices.
+- `Aethon_1.9.0_android-play.aab`: signed bundle for Google Play Console.
 - `SHA256SUMS.txt`: SHA-256 hashes for release verification.
 
 Windows 10/11 x64 is supported. Published binaries are currently unsigned and may trigger Microsoft Defender SmartScreen.
 
 Android 8.0 or newer is supported. Android asks for system VPN permission when VPN Mode starts. Split tunneling uses Android application package names rather than Windows executable paths.
 
-## Using the app
+## Windows installation and usage
 
-1. Keep **VPN Mode**, **MASQUE**, **Balanced**, and **HTTP/3** selected for the recommended configuration.
-2. Select **Connect** and approve the narrowly scoped Windows elevation request used to create the TUN adapter.
-3. Wait for the Connected state. The status panel displays the endpoint, routing mode, elapsed time, public IP, and proxy address.
-4. Open **Diagnostics** to run the self-test or inspect live Aether and routing logs.
-5. Select **Disconnect** to stop Aether and restore the Windows routing state.
+1. Download and run `Aethon_1.9.0_x64-setup.exe`. Existing installations can be upgraded by running the newer installer.
+2. Keep **VPN Mode**, **MASQUE**, **Balanced**, and **HTTP/3** selected for the recommended configuration.
+3. Select **Connect** and approve the narrowly scoped Windows elevation request used to create the TUN adapter.
+4. Wait for the Connected state. The status panel displays the endpoint, routing mode, elapsed time, public IP, and proxy address.
+5. Open **Diagnostics** to run the self-test or inspect live Aether and routing logs.
+6. Select **Disconnect** to stop Aether, close the virtual adapter, and restore Windows routing.
 
-Use Manual SOCKS5 mode when only selected proxy-aware applications should connect through Aether. Configure those applications with host `127.0.0.1` and port `1819`.
+Use Manual SOCKS5 mode when only selected proxy-aware applications should connect through Aethon. Configure those applications with host `127.0.0.1` and port `1819`.
+
+The portable ZIP must be fully extracted before use. Keep `Aethon.exe`, `aether.exe`, and `sing-box.exe` together in the same directory.
+
+## Android installation and usage
+
+1. Download the universal APK, or the ARM64 APK for most modern phones and tablets.
+2. Install it over the previous signed version; uninstalling the old version is not required.
+3. Open Aethon, keep **Device VPN**, **MASQUE**, **Balanced**, and **HTTP/3**, then select **Connect securely**.
+4. Approve Android's standard VPN permission dialog. Notification permission is used only for connection status and the foreground VPN service.
+5. Select **Disconnect** in the application or its persistent VPN notification to close the VPN safely.
+
+The Android application ID remains `io.github.hamvex.aethergui` for update compatibility. Release APKs keep the established signing certificate; packages signed by a different key cannot replace an installed release.
 
 ## Architecture
 
@@ -115,6 +127,6 @@ The executable is generated at `src-tauri/target/release/aether-gui.exe`. Instal
 
 ## License and trademark
 
-Firstham AetherGui is licensed under GNU AGPL v3.0. Aether is developed by CluvexStudio and remains the networking engine. This repository is an independent graphical frontend and is not endorsed by CluvexStudio.
+Aethon is licensed under GNU AGPL v3.0. Aether is developed by CluvexStudio and remains the networking engine. This repository is an independent graphical frontend and is not endorsed by CluvexStudio.
 
 The Aether name and branding are governed by the upstream [Aether Trademark Policy](TRADEMARK.md). Derivative clients using the Aether name or branding may require prior written permission from the Aether maintainers.
