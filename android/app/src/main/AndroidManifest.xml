@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
     <permission android:name="io.github.hamvex.aethergui.permission.INTERNAL" android:protectionLevel="signature" />
     <uses-permission android:name="io.github.hamvex.aethergui.permission.INTERNAL" />
     <uses-permission android:name="android.permission.INTERNET" />

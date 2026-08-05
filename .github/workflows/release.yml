@@ -96,6 +96,7 @@ jobs:
           Copy-Item LICENSE,NOTICE.md,TRADEMARK.md,third-party/sing-box-LICENSE.txt portable/
           Compress-Archive -Path portable/* -DestinationPath "release/Aethon_${version}_x64-portable.zip"
           Copy-Item android/app/build/outputs/apk/release/app-universal-release.apk "release/Aethon_${version}_android-universal.apk"
+          Copy-Item android/app/build/outputs/apk/release/app-armeabi-v7a-release.apk "release/Aethon_${version}_android-armv7.apk"
           Copy-Item android/app/build/outputs/apk/release/app-arm64-v8a-release.apk "release/Aethon_${version}_android-arm64.apk"
           Copy-Item android/app/build/outputs/apk/release/app-x86_64-release.apk "release/Aethon_${version}_android-x86_64.apk"
           Copy-Item android/app/build/outputs/bundle/release/app-release.aab "release/Aethon_${version}_android-play.aab"
@@ -103,6 +104,10 @@ jobs:
             $hash = Get-FileHash $_.FullName -Algorithm SHA256
             "$($hash.Hash.ToLower())  $($_.Name)" | Add-Content release/SHA256SUMS.txt
           }
+          $bundle = "release/Aethon_${version}_all-platforms.zip"
+          Compress-Archive -Path (Get-ChildItem release -File | Select-Object -ExpandProperty FullName) -DestinationPath $bundle
+          $bundleHash = Get-FileHash $bundle -Algorithm SHA256
+          "$($bundleHash.Hash.ToLower())  $([System.IO.Path]::GetFileName($bundle))" | Add-Content release/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
@@ -119,6 +124,7 @@ jobs:
           body: |
             Aethon - independent Windows and Android clients for Aether.
 
-            Version 1.9.0 fixes disconnect handling on Windows and Android, repairs Windows VPN routing state updates, hardens Android release security, preserves signed in-place upgrades, and introduces the Aethon name and logo.
+            Version 1.10.0 adds Android split tunneling, Material 3 light/dark themes, Smart Connect protocol scoring, and signed ARMv7 support alongside ARM64 and x86_64.
+            Aethon_1.10.0_all-platforms.zip contains every Windows and Android build in one labeled archive.
             The bundled Aether 1.5.0 core and sing-box 1.13.14 TUN engine are fetched from official releases and SHA-256 verified during the build.
             Windows 10/11 x64 and Android 8.0+ are supported. Windows binaries are unsigned and may trigger a SmartScreen warning; Android APKs are release-signed.

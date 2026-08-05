@@ -9,6 +9,7 @@ $destination = Join-Path $root "android/app/src/main/jniLibs"
 $nativeBase = if ($env:PUBLIC) { Join-Path $env:PUBLIC "FirsthamAetherGuiNative" } else { Join-Path ([System.IO.Path]::GetTempPath()) "FirsthamAetherGuiNative" }
 $temp = Join-Path $nativeBase ([guid]::NewGuid().ToString("N"))
 $targets = @(
+    @{ Abi = "armeabi-v7a"; Archive = "aether-android-armv7.tar.gz" },
     @{ Abi = "arm64-v8a"; Archive = "aether-android-arm64.tar.gz" },
     @{ Abi = "x86_64"; Archive = "aether-android-x86_64.tar.gz" }
 )
@@ -26,17 +27,24 @@ function Get-Sha256([string]$Path) {
 }
 
 function Resolve-NdkRoot {
-    $candidates = @(
-        $env:ANDROID_NDK_HOME,
-        $env:ANDROID_NDK_ROOT,
-        $(if ($env:ANDROID_HOME) { Join-Path $env:ANDROID_HOME "ndk/$ndkVersion" }),
-        $(if ($env:ANDROID_SDK_ROOT) { Join-Path $env:ANDROID_SDK_ROOT "ndk/$ndkVersion" }),
-        $(if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "Android/Sdk/ndk/$ndkVersion" })
-    ) | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Container) }
+    $localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+    $possible = @()
+    if ($env:ANDROID_NDK_HOME) { $possible += $env:ANDROID_NDK_HOME }
+    if ($env:ANDROID_NDK_ROOT) { $possible += $env:ANDROID_NDK_ROOT }
+    if ($env:ANDROID_HOME) { $possible += (Join-Path $env:ANDROID_HOME "ndk/$ndkVersion") }
+    if ($env:ANDROID_SDK_ROOT) { $possible += (Join-Path $env:ANDROID_SDK_ROOT "ndk/$ndkVersion") }
+    if ($env:LOCALAPPDATA) { $possible += (Join-Path $env:LOCALAPPDATA "Android/Sdk/ndk/$ndkVersion") }
+    if ($localAppData) { $possible += (Join-Path $localAppData "Android/Sdk/ndk/$ndkVersion") }
+    $candidates = @($possible | Where-Object { Test-Path -LiteralPath $_ -PathType Container })
     if (-not $candidates) {
         throw "Android NDK $ndkVersion is required. Install it with sdkmanager 'ndk;$ndkVersion'."
     }
-    return (Resolve-Path -LiteralPath $candidates[0]).Path
+    $resolved = (Resolve-Path -LiteralPath $candidates[0]).Path
+    if ($IsWindows -or $PSVersionTable.PSEdition -eq "Desktop") {
+        $short = (& cmd.exe /d /c "for %I in (`"$resolved`") do @echo %~sI").Trim()
+        if ($short -and (Test-Path -LiteralPath $short -PathType Container)) { return $short }
+    }
+    return $resolved
 }
 
 function Expand-WindowsSymlinkPlaceholders([string]$SourceRoot) {
@@ -104,7 +112,7 @@ try {
     $ndkBuild = Join-Path $ndkRoot $(if ($IsWindows -or $PSVersionTable.PSEdition -eq "Desktop") { "ndk-build.cmd" } else { "ndk-build" })
     $libsOut = Join-Path $temp "hev-libs"
     $objOut = Join-Path $temp "hev-obj"
-    & $ndkBuild "NDK_PROJECT_PATH=$hevSource" "APP_BUILD_SCRIPT=$(Join-Path $hevSource 'Android.mk')" "NDK_APPLICATION_MK=$(Join-Path $hevSource 'Application.mk')" 'APP_ABI=arm64-v8a x86_64' 'APP_CFLAGS=-O3 -DPKGNAME=hev/htproxy' "NDK_LIBS_OUT=$libsOut" "NDK_OUT=$objOut" -j 4
+    & $ndkBuild "NDK_PROJECT_PATH=$hevSource" "APP_BUILD_SCRIPT=$(Join-Path $hevSource 'Android.mk')" "NDK_APPLICATION_MK=$(Join-Path $hevSource 'Application.mk')" 'APP_ABI=armeabi-v7a arm64-v8a x86_64' 'APP_CFLAGS=-O3 -DPKGNAME=hev/htproxy' "NDK_LIBS_OUT=$libsOut" "NDK_OUT=$objOut" -j 4
     if ($LASTEXITCODE -ne 0) { throw "HEV JNI build failed." }
 
     foreach ($target in $targets) {

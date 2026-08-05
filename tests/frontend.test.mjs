@@ -56,12 +56,12 @@ test('external destinations stay scoped and no remote scripts exist', async () =
   assert.deepEqual(opener.allow.map(item=>item.url).sort(),['https://github.com/CluvexStudio/Aether','https://github.com/hamvex/AetherGUI/releases','https://t.me/hamvex']);
 });
 
-test('application metadata is v1.9.0 with current pinned engines', async () => {
+test('application metadata is v1.10.0 with current pinned engines', async () => {
   const [pkg,tauri,cargo,fetch,routing,notice]=await Promise.all([read('../package.json'),read('../src-tauri/tauri.conf.json'),read('../src-tauri/Cargo.toml'),read('../scripts/fetch-aether.ps1'),read('../scripts/fetch-routing-engine.ps1'),read('../NOTICE.md')]);
-  assert.equal(JSON.parse(pkg).version,'1.9.0');
-  assert.equal(JSON.parse(tauri).version,'1.9.0');
+  assert.equal(JSON.parse(pkg).version,'1.10.0');
+  assert.equal(JSON.parse(tauri).version,'1.10.0');
   assert.equal(JSON.parse(tauri).productName,'Aethon');
-  assert.match(cargo,/version = "1\.9\.0"/);
+  assert.match(cargo,/version = "1\.10\.0"/);
   assert.match(fetch,/"v1\.5\.0"/);
   assert.match(routing,/1\.13\.14/);
   assert.match(notice,/TRADEMARK\.md/);
@@ -93,12 +93,16 @@ test('legacy bilingual guide data remains complete for external documentation bu
 });
 
 test('Android client contains VPNService, exact HEV bridge, Telegram section, and reproducible assets', async()=>{
-  const [manifest,activity,service,bridge,strings,gradle,fetch]=await Promise.all([
+  const [manifest,activity,service,picker,bridge,strings,arrays,theme,nightTheme,gradle,fetch]=await Promise.all([
     read('../android/app/src/main/AndroidManifest.xml'),
     read('../android/app/src/main/java/com/firstham/aethergui/MainActivity.java'),
     read('../android/app/src/main/java/com/firstham/aethergui/AetherVpnService.java'),
+    read('../android/app/src/main/java/com/firstham/aethergui/SplitAppPicker.java'),
     read('../android/app/src/main/java/hev/htproxy/TProxyService.java'),
     read('../android/app/src/main/res/values/strings.xml'),
+    read('../android/app/src/main/res/values/arrays.xml'),
+    read('../android/app/src/main/res/values/themes.xml'),
+    read('../android/app/src/main/res/values-night/themes.xml'),
     read('../android/app/build.gradle'),
     read('../scripts/fetch-android-assets.ps1')
   ]);
@@ -106,6 +110,8 @@ test('Android client contains VPNService, exact HEV bridge, Telegram section, an
   assert.match(manifest,/FOREGROUND_SERVICE_SPECIAL_USE/);
   assert.match(manifest,/usesCleartextTraffic="false"/);
   assert.match(manifest,/allowBackup="false"/);
+  assert.match(manifest,/android\.intent\.category\.LAUNCHER/);
+  assert.doesNotMatch(manifest,/QUERY_ALL_PACKAGES/);
   assert.match(activity,/R\.string\.channel_url/);
   assert.match(strings,/https:\/\/t\.me\/hamvex/);
   assert.match(strings,/Firstham on Telegram/);
@@ -116,14 +122,27 @@ test('Android client contains VPNService, exact HEV bridge, Telegram section, an
   assert.match(service,/private final AtomicLong generation/);
   assert.match(service,/generation\.incrementAndGet\(\)/);
   assert.match(service,/newCachedThreadPool\(\)/);
+  assert.match(service,/chooseSmartProtocol/);
+  assert.match(service,/50\.0 \+ handshakeScore \+ latencyScore \+ stabilityScore/);
+  assert.match(service,/addAllowedApplication/);
+  assert.match(service,/addDisallowedApplication/);
+  assert.match(activity,/AppCompatDelegate\.setDefaultNightMode/);
+  assert.match(activity,/R\.id\.smart_mode_button/);
+  assert.match(picker,/loadIcon/);
+  assert.match(picker,/SectionIndexer/);
+  assert.match(picker,/app_package/);
+  assert.match(arrays,/System default/);
+  assert.match(theme,/Theme\.Material3\.DayNight/);
+  assert.match(nightTheme,/windowLightStatusBar">false/);
   assert.match(bridge,/native void TProxyStartService\(String configPath, int fd\)/);
   assert.match(bridge,/native void TProxyStopService\(\)/);
   assert.match(bridge,/native long\[\] TProxyGetStats\(\)/);
   assert.doesNotMatch(bridge,/TProxyIsRunning/);
-  assert.match(gradle,/versionName '1\.9\.0'/);
-  assert.match(gradle,/versionCode 19/);
+  assert.match(gradle,/versionName '1\.10\.0'/);
+  assert.match(gradle,/versionCode 20/);
   assert.match(gradle,/Release signing credentials are required/);
   assert.match(fetch,/aether-android-arm64\.tar\.gz/);
+  assert.match(fetch,/aether-android-armv7\.tar\.gz/);
   assert.match(fetch,/0a05221275a51a884d93328c55fc2fbc9e9b6974/);
   assert.match(fetch,/27\.2\.12479018/);
   assert.match(fetch,/APP_CFLAGS=-O3 -DPKGNAME=hev\/htproxy/);

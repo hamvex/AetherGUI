@@ -1,0 +1,25 @@
+<resources>
+    <color name="blue_950">#E6F0FF</color>
+    <color name="blue_900">#CFE2FF</color>
+    <color name="blue_800">#9CC4FF</color>
+    <color name="blue_700">#6BA7FF</color>
+    <color name="blue_600">#4B91F1</color>
+    <color name="blue_200">#274A72</color>
+    <color name="blue_100">#193653</color>
+    <color name="blue_50">#15283D</color>
+    <color name="surface">#111923</color>
+    <color name="background">#0B1119</color>
+    <color name="text">#E8EEF7</color>
+    <color name="muted">#A5B3C5</color>
+    <color name="border">#29384A</color>
+    <color name="green">#42D39A</color>
+    <color name="green_soft">#163A2E</color>
+    <color name="red">#FF7890</color>
+    <color name="amber">#FFC36B</color>
+    <color name="hero_start">#0A3468</color>
+    <color name="hero_center">#1157B8</color>
+    <color name="hero_end">#1979D8</color>
+    <color name="on_hero">#FFFFFF</color>
+    <color name="log_surface">#07131F</color>
+    <color name="log_text">#D9E8FA</color>
+</resources>

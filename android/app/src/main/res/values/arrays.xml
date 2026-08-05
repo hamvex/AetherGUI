@@ -20,4 +20,7 @@
     <string-array name="routing_labels">
         <item>Bypass local networks</item><item>All traffic</item><item>Include selected apps</item><item>Exclude selected apps</item>
     </string-array>
+    <string-array name="theme_labels">
+        <item>System default</item><item>Light</item><item>Dark</item>
+    </string-array>
 </resources>

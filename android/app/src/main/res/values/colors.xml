@@ -16,4 +16,10 @@
     <color name="green_soft">#DDF8ED</color>
     <color name="red">#DC4C64</color>
     <color name="amber">#F2A53B</color>
+    <color name="hero_start">#0D4B91</color>
+    <color name="hero_center">#1769E0</color>
+    <color name="hero_end">#35A0FF</color>
+    <color name="on_hero">#FFFFFF</color>
+    <color name="log_surface">#071C35</color>
+    <color name="log_text">#E7F2FF</color>
 </resources>

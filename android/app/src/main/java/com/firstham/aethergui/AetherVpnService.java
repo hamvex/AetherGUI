@@ -18,9 +18,12 @@ import androidx.core.app.NotificationCompat;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -45,6 +48,7 @@ public final class AetherVpnService extends VpnService {
     private static final String CHANNEL_ID = "aether_vpn";
     private static final int NOTIFICATION_ID = 1819;
     private static final int SOCKS_TIMEOUT_MS = 120_000;
+    private static final int SMART_PROTOCOL_TIMEOUT_MS = 35_000;
     private static final String TAG = "AetherVpnService";
 
     private final ExecutorService worker = Executors.newCachedThreadPool();
@@ -57,6 +61,7 @@ public final class AetherVpnService extends VpnService {
     private volatile boolean stopping = true;
     private volatile boolean active;
     private volatile boolean killSwitch;
+    private volatile boolean smartBenchmarking;
     private volatile String currentState = "disconnected";
     private volatile String currentMessage = "Ready to connect";
     private volatile String currentEndpoint = "";
@@ -105,6 +110,15 @@ public final class AetherVpnService extends VpnService {
 
     private void runConnection(Intent request, long session) {
         try {
+            String connectionMode = value(request, "connectionMode", "vpn");
+            if ("smart".equals(connectionMode)) {
+                updateState("smart-testing", "Testing MASQUE, WireGuard, and gool");
+                String protocol = chooseSmartProtocol(request, session);
+                request.putExtra("protocol", protocol);
+                stateStore.edit().putString("smartProtocol", protocol).apply();
+                sendLog("Smart Connect selected " + protocolLabel(protocol));
+                currentEndpoint = "";
+            }
             updateState("starting", "Launching the official Aether 1.5.0 core");
             startAether(request);
             updateState("scanning", "Scanning for a verified gateway");
@@ -112,7 +126,7 @@ public final class AetherVpnService extends VpnService {
                 throw new IllegalStateException(aetherExitMessage("Aether did not open its SOCKS5 listener"));
             }
 
-            if ("manual".equals(value(request, "connectionMode", "vpn"))) {
+            if ("manual".equals(connectionMode)) {
                 connectedAt = System.currentTimeMillis();
                 updateState("connected", "Local SOCKS5 proxy is ready");
                 updateNotification("SOCKS5 proxy is connected");
@@ -120,7 +134,7 @@ public final class AetherVpnService extends VpnService {
                 establishVpn(request);
                 connectedAt = System.currentTimeMillis();
                 updateState("connected", "Your device traffic is protected");
-                updateNotification("Protected through Aether");
+                updateNotification("smart".equals(connectionMode) ? "Protected with Smart Connect" : "Protected through Aether");
             }
             monitorAether(request, session);
         } catch (Throwable error) {
@@ -207,9 +221,11 @@ public final class AetherVpnService extends VpnService {
             while ((line = reader.readLine()) != null) {
                 sendLog("[Aether] " + line);
                 String lower = line.toLowerCase(Locale.US);
-                if (lower.contains("identity ready")) updateState("scanning", "Identity ready; finding the best gateway");
-                if (lower.contains("hunting for")) updateState("scanning", "Testing reachable gateways");
-                if (lower.contains("validated") || lower.contains("passed handshake")) updateState("securing", "Gateway verified; securing the tunnel");
+                if (!smartBenchmarking) {
+                    if (lower.contains("identity ready")) updateState("scanning", "Identity ready; finding the best gateway");
+                    if (lower.contains("hunting for")) updateState("scanning", "Testing reachable gateways");
+                    if (lower.contains("validated") || lower.contains("passed handshake")) updateState("securing", "Gateway verified; securing the tunnel");
+                }
                 if (lower.contains("socks5 server listening")) {
                     int index = lower.indexOf("listening on");
                     if (index >= 0) currentEndpoint = line.substring(index + "listening on".length()).trim();
@@ -257,6 +273,133 @@ public final class AetherVpnService extends VpnService {
             }
         }
         return false;
+    }
+
+    private String chooseSmartProtocol(Intent request, long session) throws Exception {
+        String[] protocols = {"masque", "wg", "gool"};
+        SmartResult best = null;
+        smartBenchmarking = true;
+        try {
+            for (int index = 0; index < protocols.length; index++) {
+                if (stopping || generation.get() != session) throw new InterruptedException("Smart Connect was cancelled");
+                String protocol = protocols[index];
+                updateState("smart-testing", "Testing " + protocolLabel(protocol) + " (" + (index + 1) + "/" + protocols.length + ")");
+                Intent trial = new Intent(request).putExtra("protocol", protocol).putExtra("quickReconnect", false);
+                SmartResult result = benchmarkProtocol(trial, protocol);
+                sendLog(result.summary());
+                if (best == null || result.score > best.score) best = result;
+                stopAetherOnly();
+                Thread.sleep(500);
+            }
+        } finally {
+            smartBenchmarking = false;
+            stopAetherOnly();
+        }
+        if (best == null || !best.connected) throw new IllegalStateException("Smart Connect could not establish any available protocol");
+        return best.protocol;
+    }
+
+    private SmartResult benchmarkProtocol(Intent request, String protocol) {
+        long started = System.nanoTime();
+        try {
+            startAether(request);
+            String socks = value(request, "socks", "127.0.0.1:1819");
+            boolean connected = waitForSocks(socks, SMART_PROTOCOL_TIMEOUT_MS);
+            long handshakeMs = elapsedMillis(started);
+            if (!connected) return SmartResult.failed(protocol, handshakeMs);
+            long latencyMs = socksConnectMillis(socks, "1.1.1.1", 443, 4_000);
+            long dnsMs = socksConnectMillis(socks, "cloudflare.com", 443, 5_000);
+            int attempts = 5;
+            int stable = 0;
+            long latencyTotal = 0;
+            for (int i = 0; i < attempts; i++) {
+                if (stopping) break;
+                try {
+                    long probe = socksConnectMillis(socks, "1.1.1.1", 443, 4_000);
+                    latencyTotal += probe;
+                    stable++;
+                } catch (Exception ignored) { }
+                try { Thread.sleep(600); }
+                catch (InterruptedException error) { Thread.currentThread().interrupt(); break; }
+            }
+            if (stable > 0) latencyMs = Math.min(latencyMs, latencyTotal / stable);
+            return SmartResult.success(protocol, handshakeMs, latencyMs, dnsMs, stable, attempts);
+        } catch (Throwable error) {
+            return SmartResult.failed(protocol, elapsedMillis(started));
+        }
+    }
+
+    private long socksConnectMillis(String socksAddress, String host, int port, int timeoutMs) throws Exception {
+        HostPort proxy = HostPort.parse(socksAddress);
+        long started = System.nanoTime();
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(proxy.host, proxy.port), timeoutMs);
+            socket.setSoTimeout(timeoutMs);
+            InputStream input = socket.getInputStream();
+            OutputStream output = socket.getOutputStream();
+            output.write(new byte[]{5, 1, 0});
+            output.flush();
+            byte[] greeting = readExact(input, 2);
+            if (greeting[0] != 5 || greeting[1] != 0) throw new IllegalStateException("SOCKS5 authentication failed");
+            byte[] ipv4 = parseIpv4Address(host);
+            if (ipv4 != null) {
+                output.write(new byte[]{5, 1, 0, 1});
+                output.write(ipv4);
+            } else {
+                byte[] hostBytes = host.getBytes(StandardCharsets.US_ASCII);
+                if (hostBytes.length > 255) throw new IllegalArgumentException("Smart Connect probe host is too long");
+                output.write(new byte[]{5, 1, 0, 3, (byte) hostBytes.length});
+                output.write(hostBytes);
+            }
+            output.write(new byte[]{(byte) (port >>> 8), (byte) port});
+            output.flush();
+            byte[] response = readExact(input, 4);
+            if (response[0] != 5 || response[1] != 0) throw new IllegalStateException("SOCKS5 connection probe failed");
+            int addressLength;
+            if (response[3] == 1) addressLength = 4;
+            else if (response[3] == 4) addressLength = 16;
+            else if (response[3] == 3) addressLength = readExact(input, 1)[0] & 0xff;
+            else throw new IllegalStateException("Invalid SOCKS5 response");
+            readExact(input, addressLength + 2);
+            return elapsedMillis(started);
+        }
+    }
+
+    private static byte[] readExact(InputStream input, int length) throws Exception {
+        byte[] value = new byte[length];
+        int offset = 0;
+        while (offset < length) {
+            int read = input.read(value, offset, length - offset);
+            if (read < 0) throw new IllegalStateException("SOCKS5 response ended early");
+            offset += read;
+        }
+        return value;
+    }
+
+    private static byte[] parseIpv4Address(String host) {
+        String[] parts = host.split("\\.", -1);
+        if (parts.length != 4) return null;
+        byte[] address = new byte[4];
+        for (int i = 0; i < parts.length; i++) {
+            try {
+                int value = Integer.parseInt(parts[i]);
+                if (value < 0 || value > 255) return null;
+                address[i] = (byte) value;
+            } catch (NumberFormatException error) {
+                return null;
+            }
+        }
+        return address;
+    }
+
+    private static long elapsedMillis(long startedNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+    }
+
+    private static String protocolLabel(String protocol) {
+        if ("wg".equals(protocol)) return "WireGuard";
+        if ("gool".equals(protocol)) return "gool / WARP-in-WARP";
+        return "MASQUE";
     }
 
     private File writeTunConfig(Intent request) throws Exception {
@@ -442,7 +585,7 @@ public final class AetherVpnService extends VpnService {
         Intent stop = new Intent(this, AetherVpnService.class).setAction(ACTION_STOP);
         PendingIntent disconnect = PendingIntent.getService(this, 1, stop, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("Aethon")
                 .setContentText(text)
                 .setOngoing(true)
@@ -492,6 +635,46 @@ public final class AetherVpnService extends VpnService {
     }
 
     private static String yamlEscape(String value) { return value.replace("'", "''"); }
+
+    private static final class SmartResult {
+        final String protocol;
+        final boolean connected;
+        final long handshakeMs;
+        final long latencyMs;
+        final long dnsMs;
+        final int stableProbes;
+        final int attempts;
+        final double score;
+
+        private SmartResult(String protocol, boolean connected, long handshakeMs, long latencyMs, long dnsMs, int stableProbes, int attempts, double score) {
+            this.protocol = protocol;
+            this.connected = connected;
+            this.handshakeMs = handshakeMs;
+            this.latencyMs = latencyMs;
+            this.dnsMs = dnsMs;
+            this.stableProbes = stableProbes;
+            this.attempts = attempts;
+            this.score = score;
+        }
+
+        static SmartResult failed(String protocol, long handshakeMs) {
+            return new SmartResult(protocol, false, handshakeMs, -1, -1, 0, 5, 0);
+        }
+
+        static SmartResult success(String protocol, long handshakeMs, long latencyMs, long dnsMs, int stableProbes, int attempts) {
+            double handshakeScore = 30.0 * clamp(1.0 - handshakeMs / (double) SMART_PROTOCOL_TIMEOUT_MS);
+            double latencyScore = 15.0 * clamp(1.0 - latencyMs / 2_000.0);
+            double stabilityScore = 5.0 * stableProbes / Math.max(1, attempts);
+            return new SmartResult(protocol, true, handshakeMs, latencyMs, dnsMs, stableProbes, attempts, 50.0 + handshakeScore + latencyScore + stabilityScore);
+        }
+
+        String summary() {
+            double loss = attempts == 0 ? 100 : 100.0 * (attempts - stableProbes) / attempts;
+            return String.format(Locale.US, "Smart Connect %s: success=%s handshake=%dms latency=%dms dns=%dms loss=%.0f%% stability=%d/%d score=%.1f", protocolLabel(protocol), connected, handshakeMs, latencyMs, dnsMs, loss, stableProbes, attempts, score);
+        }
+
+        private static double clamp(double value) { return Math.max(0, Math.min(1, value)); }
+    }
 
     private static final class HostPort {
         final String host;

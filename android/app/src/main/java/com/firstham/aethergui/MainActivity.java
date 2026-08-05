@@ -11,6 +11,7 @@ import android.net.VpnService;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.content.res.Configuration;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
@@ -22,6 +23,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 
 import com.firstham.aethergui.databinding.ActivityMainBinding;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -34,6 +36,11 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -41,10 +48,6 @@ public final class MainActivity extends AppCompatActivity {
     private static final int VPN_REQUEST = 41;
     private static final int NOTIFICATION_REQUEST = 42;
     private static final String INTERNAL_PERMISSION = "io.github.hamvex.aethergui.permission.INTERNAL";
-    private static final int BLUE = Color.rgb(23, 105, 224);
-    private static final int GREEN = Color.rgb(20, 166, 115);
-    private static final int RED = Color.rgb(220, 76, 100);
-
     private ActivityMainBinding binding;
     private SharedPreferences preferences;
     private ExecutorService diagnosticExecutor;
@@ -68,10 +71,11 @@ public final class MainActivity extends AppCompatActivity {
     };
 
     @Override protected void onCreate(Bundle savedInstanceState) {
+        preferences = getSharedPreferences("aether", MODE_PRIVATE);
+        AppCompatDelegate.setDefaultNightMode(themeMode(preferences.getInt("theme", 0)));
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
-        preferences = getSharedPreferences("aether", MODE_PRIVATE);
         diagnosticExecutor = Executors.newSingleThreadExecutor();
 
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
@@ -80,10 +84,11 @@ public final class MainActivity extends AppCompatActivity {
             view.setPadding(view.getPaddingLeft(), bars.top, view.getPaddingRight(), bars.bottom);
             return insets;
         });
-        getWindow().setStatusBarColor(Color.TRANSPARENT);
-        getWindow().setNavigationBarColor(Color.TRANSPARENT);
-        WindowCompat.getInsetsController(getWindow(), binding.root).setAppearanceLightStatusBars(true);
-        WindowCompat.getInsetsController(getWindow(), binding.root).setAppearanceLightNavigationBars(true);
+        boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        getWindow().setStatusBarColor(ContextCompat.getColor(this, R.color.surface));
+        getWindow().setNavigationBarColor(ContextCompat.getColor(this, R.color.background));
+        WindowCompat.getInsetsController(getWindow(), binding.root).setAppearanceLightStatusBars(!dark);
+        WindowCompat.getInsetsController(getWindow(), binding.root).setAppearanceLightNavigationBars(!dark);
 
         setupDropdowns();
         restoreSettings();
@@ -102,25 +107,28 @@ public final class MainActivity extends AppCompatActivity {
         setAdapter(binding.ipInput, R.array.ip_labels);
         setAdapter(binding.obfuscationInput, R.array.obfuscation_labels);
         setAdapter(binding.logInput, R.array.log_labels);
+        setAdapter(binding.themeInput, R.array.theme_labels);
         setAdapter(binding.routingInput, R.array.routing_labels);
         binding.protocolInput.setOnItemClickListener((parent, view, position, id) -> updateProtocolVisibility());
+        binding.themeInput.setOnItemClickListener((parent, view, position, id) -> { saveSettings(); applyTheme(position); });
+        binding.routingInput.setOnItemClickListener((parent, view, position, id) -> { updateSplitUi(); saveSettings(); announceReconnect(); });
         updateProtocolVisibility();
     }
 
     private void setAdapter(MaterialAutoCompleteTextView view, int arrayId) {
-        view.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, getResources().getStringArray(arrayId)));
+        view.setAdapter(new ArrayAdapter<>(this, com.google.android.material.R.layout.mtrl_auto_complete_simple_item, getResources().getStringArray(arrayId)));
     }
 
     private void restoreSettings() {
         mode = preferences.getString("mode", "vpn");
-        binding.modeGroup.check("vpn".equals(mode) ? R.id.vpn_mode_button : R.id.proxy_mode_button);
-        binding.modeStat.setText(getString(R.string.mode_label) + "\n" + ("manual".equals(mode) ? "SOCKS5" : "VPN"));
+        binding.modeGroup.check("manual".equals(mode) ? R.id.proxy_mode_button : "smart".equals(mode) ? R.id.smart_mode_button : R.id.vpn_mode_button);
         setSelection(binding.protocolInput, R.array.protocol_labels, "protocol", 0);
         setSelection(binding.scanInput, R.array.scan_labels, "scan", 0);
         setSelection(binding.transportInput, R.array.transport_labels, "transport", 0);
         setSelection(binding.ipInput, R.array.ip_labels, "ip", 0);
         setSelection(binding.obfuscationInput, R.array.obfuscation_labels, "obfuscation", 0);
         setSelection(binding.logInput, R.array.log_labels, "log", 0);
+        setSelection(binding.themeInput, R.array.theme_labels, "theme", 0);
         setSelection(binding.routingInput, R.array.routing_labels, "routing", 0);
         binding.socksInput.setText(preferences.getString("socks", "127.0.0.1:1819"));
         binding.peerInput.setText(preferences.getString("peer", ""));
@@ -129,7 +137,8 @@ public final class MainActivity extends AppCompatActivity {
         binding.dnsSwitch.setChecked(preferences.getBoolean("dnsLeak", true));
         binding.killswitchSwitch.setChecked(preferences.getBoolean("killSwitch", false));
         binding.reconnectSwitch.setChecked(preferences.getBoolean("quickReconnect", true));
-        updateProtocolVisibility();
+        updateModeUi();
+        updateSplitUi();
     }
 
     private void setSelection(MaterialAutoCompleteTextView view, int arrayId, String key, int fallback) {
@@ -145,9 +154,10 @@ public final class MainActivity extends AppCompatActivity {
         });
         binding.modeGroup.addOnButtonCheckedListener((group, checkedId, checked) -> {
             if (!checked) return;
-            mode = checkedId == R.id.proxy_mode_button ? "manual" : "vpn";
-            binding.modeStat.setText(getString(R.string.mode_label) + "\n" + ("manual".equals(mode) ? "SOCKS5" : "VPN"));
+            mode = checkedId == R.id.proxy_mode_button ? "manual" : checkedId == R.id.smart_mode_button ? "smart" : "vpn";
+            updateModeUi();
             saveSettings();
+            announceReconnect();
         });
         binding.advancedToggle.setOnClickListener(v -> {
             boolean show = binding.advancedContainer.getVisibility() != View.VISIBLE;
@@ -155,6 +165,8 @@ public final class MainActivity extends AppCompatActivity {
             binding.advancedToggle.setText(show ? R.string.hide_advanced : R.string.show_advanced);
         });
         binding.resetButton.setOnClickListener(v -> resetDefaults());
+        binding.chooseAppsButton.setOnClickListener(v -> showAppPicker());
+        binding.splitAppsInput.setOnClickListener(v -> showAppPicker());
         binding.testButton.setOnClickListener(v -> selfTest());
         binding.clearLogsButton.setOnClickListener(v -> binding.logText.setText(R.string.logs_waiting));
         View.OnClickListener telegram = v -> openTelegram();
@@ -181,8 +193,12 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         binding.socksInput.setError(null);
+        if (selectedIndex(binding.routingInput) == 2 && selectedPackages().isEmpty()) {
+            Toast.makeText(this, R.string.split_include_empty, Toast.LENGTH_LONG).show();
+            return;
+        }
         saveSettings();
-        if ("vpn".equals(mode)) {
+        if (!"manual".equals(mode)) {
             Intent permission = VpnService.prepare(this);
             if (permission != null) {
                 startActivityForResult(permission, VPN_REQUEST);
@@ -272,6 +288,7 @@ public final class MainActivity extends AppCompatActivity {
         boolean active = isActive();
         if ("connected".equals(state)) { title = "You are protected"; phase = "CONNECTED"; }
         else if ("starting".equals(state)) { title = "Starting Aether"; phase = "STARTING"; }
+        else if ("smart-testing".equals(state)) { title = getString(R.string.smart_mode); phase = "TESTING"; }
         else if ("scanning".equals(state)) { title = "Finding a gateway"; phase = "SCANNING"; }
         else if ("securing".equals(state)) { title = "Securing your route"; phase = "SECURING"; }
         else if ("reconnecting".equals(state)) { title = "Reconnecting"; phase = "RECONNECTING"; }
@@ -285,7 +302,7 @@ public final class MainActivity extends AppCompatActivity {
         binding.connectButton.setText(active ? R.string.disconnect : R.string.connect);
         binding.connectButton.setIconResource(active ? android.R.drawable.ic_media_pause : R.drawable.ic_power);
         binding.progress.setVisibility(active && !"connected".equals(state) ? View.VISIBLE : View.GONE);
-        binding.statusDot.setColorFilter("connected".equals(state) ? GREEN : "error".equals(state) || "blocked".equals(state) ? RED : Color.WHITE);
+        binding.statusDot.setColorFilter("connected".equals(state) ? ContextCompat.getColor(this, R.color.green) : "error".equals(state) || "blocked".equals(state) ? ContextCompat.getColor(this, R.color.red) : Color.WHITE);
         if (endpoint != null && !endpoint.isEmpty()) binding.protocolStat.setText(getString(R.string.protocol_label) + "\n" + endpoint);
         preferences.edit().putString("state", state).putString("message", message == null ? "" : message).putString("endpoint", endpoint == null ? "" : endpoint).apply();
     }
@@ -307,6 +324,7 @@ public final class MainActivity extends AppCompatActivity {
         binding.ipInput.setText(getResources().getStringArray(R.array.ip_labels)[0], false);
         binding.obfuscationInput.setText(getResources().getStringArray(R.array.obfuscation_labels)[0], false);
         binding.logInput.setText(getResources().getStringArray(R.array.log_labels)[0], false);
+        binding.themeInput.setText(getResources().getStringArray(R.array.theme_labels)[0], false);
         binding.routingInput.setText(getResources().getStringArray(R.array.routing_labels)[0], false);
         binding.socksInput.setText("127.0.0.1:1819");
         binding.peerInput.setText("");
@@ -316,12 +334,64 @@ public final class MainActivity extends AppCompatActivity {
         binding.killswitchSwitch.setChecked(false);
         binding.reconnectSwitch.setChecked(true);
         saveSettings();
+        applyTheme(0);
         updateProtocolVisibility();
+        updateSplitUi();
     }
 
     private void updateProtocolVisibility() {
-        binding.transportLayout.setVisibility(selectedIndex(binding.protocolInput) == 0 ? View.VISIBLE : View.GONE);
-        binding.protocolStat.setText(getString(R.string.protocol_label) + "\n" + selectedText(binding.protocolInput));
+        boolean smart = "smart".equals(mode);
+        binding.protocolLayout.setVisibility(smart ? View.GONE : View.VISIBLE);
+        binding.transportLayout.setVisibility(!smart && selectedIndex(binding.protocolInput) == 0 ? View.VISIBLE : View.GONE);
+        binding.protocolStat.setText(getString(R.string.protocol_label) + "\n" + (smart ? "AUTO" : selectedText(binding.protocolInput)));
+    }
+
+    private void updateModeUi() {
+        String value = "manual".equals(mode) ? "SOCKS5" : "smart".equals(mode) ? "SMART" : "VPN";
+        binding.modeStat.setText(getString(R.string.mode_label) + "\n" + value);
+        binding.modeSummary.setText("smart".equals(mode) ? R.string.smart_mode_summary : R.string.status_ready_message);
+        updateProtocolVisibility();
+    }
+
+    private void updateSplitUi() {
+        boolean split = selectedIndex(binding.routingInput) >= 2;
+        binding.chooseAppsButton.setEnabled(split);
+        binding.splitAppsInput.setEnabled(split);
+    }
+
+    private void showAppPicker() {
+        SplitAppPicker.show(this, selectedPackages(), packages -> {
+            List<String> ordered = new ArrayList<>(packages);
+            Collections.sort(ordered);
+            binding.splitAppsInput.setText(String.join("\n", ordered));
+            saveSettings();
+            announceReconnect();
+        });
+    }
+
+    private Set<String> selectedPackages() {
+        Set<String> result = new LinkedHashSet<>();
+        String value = text(binding.splitAppsInput);
+        for (String packageName : value.split("[\\r\\n,]+")) {
+            packageName = packageName.trim();
+            if (!packageName.isEmpty()) result.add(packageName);
+        }
+        return result;
+    }
+
+    private void announceReconnect() {
+        if (isActive()) Toast.makeText(this, R.string.choose_apps_summary, Toast.LENGTH_SHORT).show();
+    }
+
+    private void applyTheme(int choice) {
+        preferences.edit().putInt("theme", choice).apply();
+        AppCompatDelegate.setDefaultNightMode(themeMode(choice));
+    }
+
+    private static int themeMode(int choice) {
+        if (choice == 1) return AppCompatDelegate.MODE_NIGHT_NO;
+        if (choice == 2) return AppCompatDelegate.MODE_NIGHT_YES;
+        return AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
     }
 
     private void saveSettings() {
@@ -333,6 +403,7 @@ public final class MainActivity extends AppCompatActivity {
                 .putInt("ip", selectedIndex(binding.ipInput))
                 .putInt("obfuscation", selectedIndex(binding.obfuscationInput))
                 .putInt("log", selectedIndex(binding.logInput))
+                .putInt("theme", selectedIndex(binding.themeInput))
                 .putInt("routing", selectedIndex(binding.routingInput))
                 .putString("socks", text(binding.socksInput))
                 .putString("peer", text(binding.peerInput))
@@ -349,7 +420,7 @@ public final class MainActivity extends AppCompatActivity {
         catch (Exception error) { Toast.makeText(this, "Telegram: @hamvex", Toast.LENGTH_SHORT).show(); }
     }
 
-    private boolean isActive() { return "starting".equals(state) || "scanning".equals(state) || "securing".equals(state) || "connected".equals(state) || "reconnecting".equals(state) || "disconnecting".equals(state) || "blocked".equals(state); }
+    private boolean isActive() { return "starting".equals(state) || "smart-testing".equals(state) || "scanning".equals(state) || "securing".equals(state) || "connected".equals(state) || "reconnecting".equals(state) || "disconnecting".equals(state) || "blocked".equals(state); }
     private int selectedIndex(MaterialAutoCompleteTextView view) { Object tag = view.getTag(); return tag instanceof Integer ? (Integer) tag : findIndex(view); }
     private int findIndex(MaterialAutoCompleteTextView view) { String value = selectedText(view); String[] all = view.getAdapter() == null ? new String[0] : getAdapterValues(view); for (int i = 0; i < all.length; i++) if (all[i].equals(value)) return i; return 0; }
     private String[] getAdapterValues(MaterialAutoCompleteTextView view) { String[] values = new String[view.getAdapter().getCount()]; for (int i = 0; i < values.length; i++) values[i] = String.valueOf(view.getAdapter().getItem(i)); return values; }

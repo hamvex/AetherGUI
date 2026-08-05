@@ -86,7 +86,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="12dp"
                         android:text="@string/status_disconnected"
-                        android:textColor="@color/surface"
+                        android:textColor="@color/on_hero"
                         android:textSize="28sp"
                         android:textStyle="bold" />
                     <TextView
@@ -102,9 +102,9 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="20dp"
                         android:gravity="center_vertical">
-                        <TextView android:id="@+id/mode_stat" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="MODE\nVPN" android:textColor="@color/surface" android:textSize="12sp" />
-                        <TextView android:id="@+id/protocol_stat" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="PROTOCOL\nMASQUE" android:textColor="@color/surface" android:textSize="12sp" />
-                        <TextView android:id="@+id/traffic_stat" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="TRAFFIC\n0 B" android:textColor="@color/surface" android:textSize="12sp" />
+                        <TextView android:id="@+id/mode_stat" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="MODE\nVPN" android:textColor="@color/on_hero" android:textSize="12sp" />
+                        <TextView android:id="@+id/protocol_stat" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="PROTOCOL\nMASQUE" android:textColor="@color/on_hero" android:textSize="12sp" />
+                        <TextView android:id="@+id/traffic_stat" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="TRAFFIC\n0 B" android:textColor="@color/on_hero" android:textSize="12sp" />
                     </LinearLayout>
                     <com.google.android.material.progressindicator.LinearProgressIndicator
                         android:id="@+id/progress"
@@ -112,7 +112,7 @@
                         android:layout_height="4dp"
                         android:layout_marginTop="18dp"
                         android:visibility="gone"
-                        app:indicatorColor="@color/surface"
+                        app:indicatorColor="@color/on_hero"
                         app:trackColor="@color/blue_200" />
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/connect_button"
@@ -123,7 +123,7 @@
                         android:textSize="15sp"
                         android:textStyle="bold"
                         android:textColor="@color/blue_800"
-                        app:backgroundTint="@color/surface"
+                        app:backgroundTint="@color/on_hero"
                         app:cornerRadius="18dp"
                         app:icon="@drawable/ic_power"
                         app:iconTint="@color/blue_700" />
@@ -144,13 +144,15 @@
                     <com.google.android.material.button.MaterialButtonToggleGroup
                         android:id="@+id/mode_group"
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
+                        android:layout_height="54dp"
                         android:layout_marginTop="10dp"
                         app:singleSelection="true"
                         app:selectionRequired="true">
-                        <com.google.android.material.button.MaterialButton android:id="@+id/vpn_mode_button" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/vpn_mode" android:textSize="12sp" />
-                        <com.google.android.material.button.MaterialButton android:id="@+id/proxy_mode_button" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/proxy_mode" android:textSize="12sp" />
+                        <com.google.android.material.button.MaterialButton android:id="@+id/vpn_mode_button" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/vpn_mode" android:textSize="10sp" />
+                        <com.google.android.material.button.MaterialButton android:id="@+id/smart_mode_button" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/smart_mode" android:textSize="10sp" />
+                        <com.google.android.material.button.MaterialButton android:id="@+id/proxy_mode_button" style="@style/Widget.Material3.Button.OutlinedButton" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="@string/proxy_mode" android:textSize="10sp" />
                     </com.google.android.material.button.MaterialButtonToggleGroup>
+                    <TextView android:id="@+id/mode_summary" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/status_ready_message" android:textColor="@color/muted" android:textSize="12sp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -184,11 +186,14 @@
                         <com.google.android.material.textfield.TextInputLayout android:id="@+id/ip_layout" style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:hint="@string/ip_scan"><com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/ip_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none" /></com.google.android.material.textfield.TextInputLayout>
                         <com.google.android.material.textfield.TextInputLayout android:id="@+id/obfuscation_layout" style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:hint="@string/obfuscation"><com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/obfuscation_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none" /></com.google.android.material.textfield.TextInputLayout>
                         <com.google.android.material.textfield.TextInputLayout android:id="@+id/log_layout" style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:hint="@string/log_level"><com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/log_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none" /></com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputLayout android:id="@+id/theme_layout" style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:hint="@string/theme"><com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/theme_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none" /></com.google.android.material.textfield.TextInputLayout>
                         <com.google.android.material.textfield.TextInputLayout android:id="@+id/routing_layout" style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:hint="@string/routing"><com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/routing_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none" /></com.google.android.material.textfield.TextInputLayout>
                         <com.google.android.material.textfield.TextInputLayout android:id="@+id/socks_layout" style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:hint="@string/socks_address"><com.google.android.material.textfield.TextInputEditText android:id="@+id/socks_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textUri" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
                         <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:hint="@string/custom_endpoint" style="@style/Widget.Material3.TextInputLayout.OutlinedBox"><com.google.android.material.textfield.TextInputEditText android:id="@+id/peer_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textUri" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
                         <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:hint="@string/mtu" style="@style/Widget.Material3.TextInputLayout.OutlinedBox"><com.google.android.material.textfield.TextInputEditText android:id="@+id/mtu_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="number" android:singleLine="true" /></com.google.android.material.textfield.TextInputLayout>
-                        <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:hint="@string/split_apps" style="@style/Widget.Material3.TextInputLayout.OutlinedBox"><com.google.android.material.textfield.TextInputEditText android:id="@+id/split_apps_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textMultiLine" android:minLines="2" /></com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.textfield.TextInputLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:hint="@string/split_apps" style="@style/Widget.Material3.TextInputLayout.OutlinedBox"><com.google.android.material.textfield.TextInputEditText android:id="@+id/split_apps_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:focusable="false" android:clickable="true" android:inputType="none" android:maxLines="4" /></com.google.android.material.textfield.TextInputLayout>
+                        <com.google.android.material.button.MaterialButton android:id="@+id/choose_apps_button" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/choose_apps" />
+                        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="@string/choose_apps_summary" android:textColor="@color/muted" android:textSize="12sp" />
                         <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/dns_switch" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/dns_protection" android:textColor="@color/text" app:useMaterialThemeColors="true" />
                         <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/dns_protection_summary" android:textColor="@color/muted" android:textSize="12sp" />
                         <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/killswitch_switch" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="@string/kill_switch" android:textColor="@color/text" app:useMaterialThemeColors="true" />
@@ -216,7 +221,7 @@
                         <com.google.android.material.button.MaterialButton android:id="@+id/test_button" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/run_test" android:textSize="11sp" />
                     </LinearLayout>
                     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:gravity="center_vertical"><TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/live_log" android:textColor="@color/muted" android:textSize="12sp" /><com.google.android.material.button.MaterialButton android:id="@+id/clear_logs_button" style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/clear_logs" android:textSize="11sp" /></LinearLayout>
-                    <TextView android:id="@+id/log_text" android:layout_width="match_parent" android:layout_height="180dp" android:layout_marginTop="5dp" android:background="@drawable/log_background" android:fontFamily="monospace" android:gravity="top|start" android:padding="12dp" android:scrollbars="vertical" android:text="@string/logs_waiting" android:textColor="@color/blue_100" android:textSize="11sp" />
+                    <TextView android:id="@+id/log_text" android:layout_width="match_parent" android:layout_height="180dp" android:layout_marginTop="5dp" android:background="@drawable/log_background" android:fontFamily="monospace" android:gravity="top|start" android:padding="12dp" android:scrollbars="vertical" android:text="@string/logs_waiting" android:textColor="@color/log_text" android:textSize="11sp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
