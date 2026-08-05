@@ -30,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import hev.htproxy.TProxyService;
 
@@ -46,8 +47,9 @@ public final class AetherVpnService extends VpnService {
     private static final int SOCKS_TIMEOUT_MS = 120_000;
     private static final String TAG = "AetherVpnService";
 
-    private final ExecutorService worker = Executors.newSingleThreadExecutor();
+    private final ExecutorService worker = Executors.newCachedThreadPool();
     private final ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
+    private final AtomicLong generation = new AtomicLong();
     private final Object runtimeLock = new Object();
     private volatile Process aetherProcess;
     private volatile ParcelFileDescriptor vpnInterface;
@@ -65,7 +67,7 @@ public final class AetherVpnService extends VpnService {
         super.onCreate();
         stateStore = getSharedPreferences("service_state", MODE_PRIVATE);
         createNotificationChannel();
-        telemetry.scheduleAtFixedRate(this::publishStats, 1, 1, TimeUnit.SECONDS);
+        telemetry.scheduleWithFixedDelay(this::publishStats, 1, 1, TimeUnit.SECONDS);
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -78,27 +80,30 @@ public final class AetherVpnService extends VpnService {
             return active ? START_STICKY : START_NOT_STICKY;
         }
         if (ACTION_STOP.equals(action)) {
+            generation.incrementAndGet();
             stopping = true;
             worker.execute(() -> stopConnection(true));
             return START_NOT_STICKY;
         }
         if (ACTION_START.equals(action)) {
             Intent request = new Intent(intent);
+            long session = generation.incrementAndGet();
             stopping = true;
             startForegroundCompat(notification("Preparing a secure connection", false));
             worker.execute(() -> {
                 stopConnection(false);
+                if (generation.get() != session) return;
                 stopping = false;
                 active = true;
                 killSwitch = request.getBooleanExtra("killSwitch", false);
-                runConnection(request);
+                runConnection(request, session);
             });
             return START_STICKY;
         }
         return active ? START_STICKY : START_NOT_STICKY;
     }
 
-    private void runConnection(Intent request) {
+    private void runConnection(Intent request, long session) {
         try {
             updateState("starting", "Launching the official Aether 1.5.0 core");
             startAether(request);
@@ -117,8 +122,9 @@ public final class AetherVpnService extends VpnService {
                 updateState("connected", "Your device traffic is protected");
                 updateNotification("Protected through Aether");
             }
-            monitorAether(request);
+            monitorAether(request, session);
         } catch (Throwable error) {
+            if (stopping || generation.get() != session) return;
             Log.e(TAG, "Connection failed", error);
             sendLog("Error: " + safeMessage(error));
             if (killSwitch && vpnInterface != null && !stopping) {
@@ -137,7 +143,7 @@ public final class AetherVpnService extends VpnService {
 
     private void establishVpn(Intent request) throws Exception {
         Builder builder = new Builder()
-                .setSession("Firstham AetherGui")
+                .setSession("Aethon")
                 .setMtu(request.getIntExtra("mtu", 1500))
                 .setBlocking(false)
                 .addAddress("198.18.0.1", 30)
@@ -214,12 +220,12 @@ public final class AetherVpnService extends VpnService {
         }
     }
 
-    private void monitorAether(Intent request) throws Exception {
-        while (!stopping) {
+    private void monitorAether(Intent request, long session) throws Exception {
+        while (!stopping && generation.get() == session) {
             Process process = aetherProcess;
             if (process == null) return;
             int exitCode = process.waitFor();
-            if (stopping) return;
+            if (stopping || generation.get() != session) return;
             sendLog("Aether exited with code " + exitCode);
             if (!request.getBooleanExtra("quickReconnect", true)) {
                 throw new IllegalStateException("Aether stopped unexpectedly (exit " + exitCode + ")");
@@ -357,9 +363,13 @@ public final class AetherVpnService extends VpnService {
         active = false;
         connectedAt = 0;
         currentEndpoint = "";
-        if (userInitiated) updateState("disconnected", "Disconnected safely");
-        stopForeground(STOP_FOREGROUND_REMOVE);
-        if (userInitiated) stopSelf();
+        if (userInitiated) {
+            updateState("disconnected", "Disconnected safely");
+        }
+        if (userInitiated) {
+            stopForeground(STOP_FOREGROUND_REMOVE);
+            stopSelf();
+        }
     }
 
     private void stopRuntime() {
@@ -421,8 +431,8 @@ public final class AetherVpnService extends VpnService {
     }
 
     private void createNotificationChannel() {
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Aether VPN", NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("Firstham AetherGui connection status");
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Aethon VPN", NotificationManager.IMPORTANCE_LOW);
+        channel.setDescription("Aethon connection status");
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
     }
 
@@ -433,7 +443,7 @@ public final class AetherVpnService extends VpnService {
         PendingIntent disconnect = PendingIntent.getService(this, 1, stop, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                .setContentTitle("Firstham AetherGui")
+                .setContentTitle("Aethon")
                 .setContentText(text)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
@@ -457,6 +467,7 @@ public final class AetherVpnService extends VpnService {
     }
 
     @Override public void onRevoke() {
+        generation.incrementAndGet();
         stopping = true;
         worker.execute(() -> stopConnection(true));
         super.onRevoke();

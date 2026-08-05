@@ -131,9 +131,22 @@ impl ProcessManager {
     pub async fn stop(&self) -> Result<(), String> {
         *self.generation.lock().await += 1;
         if let Some(mut child) = self.child.lock().await.take() {
-            if child.try_wait().map_err(display_err)?.is_none() {
-                child.kill().await.map_err(display_err)?;
-                let _ = child.wait().await;
+            match child.try_wait() {
+                Ok(Some(_)) => {}
+                Ok(None) => {
+                    if let Err(error) = child.kill().await {
+                        if child.try_wait().ok().flatten().is_none() {
+                            return Err(display_err(error));
+                        }
+                    }
+                    let _ = child.wait().await;
+                }
+                Err(error) => {
+                    if child.kill().await.is_err() && child.try_wait().ok().flatten().is_none() {
+                        return Err(display_err(error));
+                    }
+                    let _ = child.wait().await;
+                }
             }
         }
         *self.started.lock().await = None;

@@ -1,14 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="g" x1="70" y1="60" x2="445" y2="455" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0B58D0"/><stop offset="1" stop-color="#51B6F5"/>
+    <linearGradient id="surface" x1="72" y1="54" x2="444" y2="466" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#050816"/>
     </linearGradient>
-    <filter id="s" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#0B58D0" flood-opacity=".2"/>
+    <linearGradient id="signal" x1="156" y1="378" x2="372" y2="130" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22D3A7"/>
+      <stop offset=".5" stop-color="#2AA8FF"/>
+      <stop offset="1" stop-color="#7C5CFF"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
-  <rect width="512" height="512" rx="118" fill="#F7FBFF"/>
-  <rect x="52" y="52" width="408" height="408" rx="98" fill="url(#g)" filter="url(#s)"/>
-  <path d="M148 136h172v58H211v65h94v57h-94v86h-63V136Z" fill="#fff"/>
-  <path d="m327 239 67 163h-55l-12-33h-56l-12 33h-54l68-163h54Zm-28 57-12 31h25l-13-31Z" fill="#CBE9FF"/>
+  <rect width="512" height="512" rx="116" fill="url(#surface)"/>
+  <path d="M256 91 407 178v156L256 421 105 334V178L256 91Z" fill="none" stroke="#FFFFFF" stroke-opacity=".1" stroke-width="12"/>
+  <path d="M149 343 241 145c6-13 24-13 30 0l92 198h-58l-19-43h-71l-19 43h-47Zm87-92h29l-14-35-15 35Z" fill="url(#signal)" filter="url(#glow)"/>
+  <path d="M129 245c35-42 78-63 127-63s92 21 127 63" fill="none" stroke="#F8FAFC" stroke-width="18" stroke-linecap="round" opacity=".94"/>
+  <circle cx="129" cy="245" r="13" fill="#22D3A7"/>
+  <circle cx="383" cy="245" r="13" fill="#7C5CFF"/>
 </svg>

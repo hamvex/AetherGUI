@@ -223,10 +223,11 @@ public final class MainActivity extends AppCompatActivity {
                 .putExtra("dnsLeak", binding.dnsSwitch.isChecked())
                 .putExtra("killSwitch", binding.killswitchSwitch.isChecked())
                 .putExtra("quickReconnect", binding.reconnectSwitch.isChecked());
-        if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
+        startForegroundService(intent);
     }
 
     private void disconnect() {
+        renderState("disconnecting", "Closing the tunnel safely", "");
         startService(new Intent(this, AetherVpnService.class).setAction(AetherVpnService.ACTION_STOP));
     }
 
@@ -274,6 +275,7 @@ public final class MainActivity extends AppCompatActivity {
         else if ("scanning".equals(state)) { title = "Finding a gateway"; phase = "SCANNING"; }
         else if ("securing".equals(state)) { title = "Securing your route"; phase = "SECURING"; }
         else if ("reconnecting".equals(state)) { title = "Reconnecting"; phase = "RECONNECTING"; }
+        else if ("disconnecting".equals(state)) { title = "Disconnecting"; phase = "CLOSING"; }
         else if ("blocked".equals(state)) { title = "Traffic is blocked"; phase = "FAIL CLOSED"; }
         else if ("error".equals(state)) { title = "Connection needs attention"; phase = "ERROR"; }
         else { title = getString(R.string.status_disconnected); phase = "READY"; }
@@ -347,7 +349,7 @@ public final class MainActivity extends AppCompatActivity {
         catch (Exception error) { Toast.makeText(this, "Telegram: @hamvex", Toast.LENGTH_SHORT).show(); }
     }
 
-    private boolean isActive() { return "starting".equals(state) || "scanning".equals(state) || "securing".equals(state) || "connected".equals(state) || "reconnecting".equals(state) || "blocked".equals(state); }
+    private boolean isActive() { return "starting".equals(state) || "scanning".equals(state) || "securing".equals(state) || "connected".equals(state) || "reconnecting".equals(state) || "disconnecting".equals(state) || "blocked".equals(state); }
     private int selectedIndex(MaterialAutoCompleteTextView view) { Object tag = view.getTag(); return tag instanceof Integer ? (Integer) tag : findIndex(view); }
     private int findIndex(MaterialAutoCompleteTextView view) { String value = selectedText(view); String[] all = view.getAdapter() == null ? new String[0] : getAdapterValues(view); for (int i = 0; i < all.length; i++) if (all[i].equals(value)) return i; return 0; }
     private String[] getAdapterValues(MaterialAutoCompleteTextView view) { String[] values = new String[view.getAdapter().getCount()]; for (int i = 0; i < values.length; i++) values[i] = String.valueOf(view.getAdapter().getItem(i)); return values; }

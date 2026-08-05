@@ -148,7 +148,10 @@ impl RoutingManager {
             "restoring",
             "Restoring routes, DNS, and the virtual adapter",
         );
-        atomic_json(&session.dir.join("control.json"), &json!({"action":"stop"}))?;
+        let control_result = atomic_json(
+            &session.dir.join("control.json"),
+            &json!({"action":"stop"}),
+        );
         for _ in 0..40 {
             sleep(Duration::from_millis(250)).await;
             if read_status(&session.dir)
@@ -158,8 +161,15 @@ impl RoutingManager {
                 return Ok(());
             }
         }
-        launch_elevated("--repair-network", &session.dir)?;
-        Ok(())
+        launch_elevated("--repair-network", &session.dir).map_err(|repair_error| {
+            if let Err(control_error) = control_result {
+                format!(
+                    "Could not signal the routing helper ({control_error}) or launch recovery ({repair_error})"
+                )
+            } else {
+                format!("The routing helper did not stop and recovery failed: {repair_error}")
+            }
+        })
     }
 }
 
@@ -243,6 +253,7 @@ fn sing_box_config(request: &RoutingRequest) -> Value {
     let mut rules = vec![
         json!({"action":"sniff"}),
         json!({"protocol":"dns","action":"hijack-dns"}),
+        json!({"process_name":["aether.exe","aether-gui.exe","Aethon.exe","Firstham AetherGui.exe","sing-box.exe"],"action":"route","outbound":"direct"}),
     ];
     if request.ipv6_behavior == "block" {
         rules.push(json!({"ip_version":6,"action":"reject"}));
@@ -274,7 +285,7 @@ fn sing_box_config(request: &RoutingRequest) -> Value {
       "dns":{"servers":[{"type":"https","tag":"secure-dns","server":"1.1.1.1","server_port":443,"path":"/dns-query","tls":{"enabled":true,"server_name":"cloudflare-dns.com"},"detour":"aether"}],"final":"secure-dns","strategy":"prefer_ipv4"},
       "inbounds":[{"type":"tun","tag":"tun-in","interface_name":"FirsthamAether","address":["172.19.0.1/30","fdfe:dcba:9876::1/126"],"mtu":request.tun_mtu,"auto_route":true,"strict_route":request.dns_leak_protection,"stack":"mixed"}],
       "outbounds":[{"type":"socks","tag":"aether","server":socket.ip().to_string(),"server_port":socket.port(),"version":"5"},{"type":"direct","tag":"direct"}],
-      "route":{"auto_detect_interface":true,"find_process":request.routing_mode.starts_with("split-"),"rules":rules,"final":final_outbound}
+      "route":{"auto_detect_interface":true,"find_process":true,"rules":rules,"final":final_outbound}
     })
 }
 
@@ -583,7 +594,14 @@ fn atomic_json(path: &Path, value: &impl Serialize) -> Result<(), String> {
     file.write_all(&serde_json::to_vec_pretty(value).map_err(display_err)?)
         .map_err(display_err)?;
     file.sync_all().map_err(display_err)?;
-    fs::rename(tmp, path).map_err(display_err)
+    match fs::rename(&tmp, path) {
+        Ok(()) => Ok(()),
+        Err(_) if path.exists() => {
+            fs::remove_file(path).map_err(display_err)?;
+            fs::rename(tmp, path).map_err(display_err)
+        }
+        Err(error) => Err(display_err(error)),
+    }
 }
 fn display_err(e: impl std::fmt::Display) -> String {
     e.to_string()
@@ -613,6 +631,19 @@ mod tests {
         assert!(c.contains("strict_route"));
         assert!(c.contains("aether"));
         assert!(c.contains("hijack-dns"));
+        assert!(c.contains("aether.exe"));
+        assert!(c.contains("\"find_process\":true"));
+    }
+    #[test]
+    fn atomic_json_replaces_existing_status() {
+        let dir = std::env::temp_dir().join(format!("aethon-routing-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("status.json");
+        atomic_json(&path, &json!({"state":"preparing"})).unwrap();
+        atomic_json(&path, &json!({"state":"connected"})).unwrap();
+        let value: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        assert_eq!(value["state"], "connected");
+        let _ = fs::remove_dir_all(dir);
     }
     #[test]
     fn pinned_engine_accepts_generated_configuration() {

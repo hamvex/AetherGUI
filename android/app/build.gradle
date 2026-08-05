@@ -13,6 +13,8 @@ def keystorePath = System.getenv('ANDROID_KEYSTORE_PATH') ?: signingProperties.g
 def keystorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: signingProperties.getProperty('storePassword')
 def keyAliasName = System.getenv('ANDROID_KEY_ALIAS') ?: signingProperties.getProperty('keyAlias')
 def keyPasswordValue = System.getenv('ANDROID_KEY_PASSWORD') ?: signingProperties.getProperty('keyPassword')
+def releaseSigningAvailable = keystorePath && keystorePassword && keyAliasName && keyPasswordValue
+def releaseRequested = gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
 
 android {
     namespace 'com.firstham.aethergui'
@@ -22,13 +24,13 @@ android {
         applicationId 'io.github.hamvex.aethergui'
         minSdk 26
         targetSdk 35
-        versionCode 18
-        versionName '1.8.0'
+        versionCode 19
+        versionName '1.9.0'
     }
 
     signingConfigs {
         release {
-            if (keystorePath) {
+            if (releaseSigningAvailable) {
                 storeFile rootProject.file(keystorePath)
                 storePassword keystorePassword
                 keyAlias keyAliasName
@@ -39,9 +41,11 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            if (releaseRequested && !releaseSigningAvailable) throw new GradleException('Release signing credentials are required. Unsigned release APKs are not allowed.')
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            if (keystorePath) signingConfig signingConfigs.release
+            signingConfig signingConfigs.release
         }
     }
 

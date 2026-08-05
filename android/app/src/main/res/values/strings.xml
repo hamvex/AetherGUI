@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Firstham AetherGui</string>
-    <string name="app_version">v1.8.0</string>
+    <string name="app_name">Aethon</string>
+    <string name="app_version">v1.9.0</string>
     <string name="channel_url">https://t.me/hamvex</string>
     <string name="toolbar_subtitle">Aether 1.5.0 • Android</string>
     <string name="status_disconnected">Ready when you are</string>

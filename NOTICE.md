@@ -1,6 +1,6 @@
 # Third-party notices
 
-Firstham AetherGui is an independent graphical frontend maintained by hamvex.
+Aethon is an independent graphical frontend maintained by hamvex.
 
 This application bundles the Aether executable from https://github.com/CluvexStudio/Aether.
 Aether is licensed under GNU AGPL v3.0. The bundled executable is downloaded from the official v1.5.0 release and verified against the publisher-provided SHA-256 checksum during reproducible builds. Aether and its marks are subject to the upstream project's TRADEMARK.md policy; Firstham AetherGui is an independent frontend and is not endorsed by CluvexStudio.

@@ -56,12 +56,12 @@ test('external destinations stay scoped and no remote scripts exist', async () =
   assert.deepEqual(opener.allow.map(item=>item.url).sort(),['https://github.com/CluvexStudio/Aether','https://github.com/hamvex/AetherGUI/releases','https://t.me/hamvex']);
 });
 
-test('application metadata is v1.8.0 with current pinned engines', async () => {
+test('application metadata is v1.9.0 with current pinned engines', async () => {
   const [pkg,tauri,cargo,fetch,routing,notice]=await Promise.all([read('../package.json'),read('../src-tauri/tauri.conf.json'),read('../src-tauri/Cargo.toml'),read('../scripts/fetch-aether.ps1'),read('../scripts/fetch-routing-engine.ps1'),read('../NOTICE.md')]);
-  assert.equal(JSON.parse(pkg).version,'1.8.0');
-  assert.equal(JSON.parse(tauri).version,'1.8.0');
-  assert.equal(JSON.parse(tauri).productName,'Firstham AetherGui');
-  assert.match(cargo,/version = "1\.8\.0"/);
+  assert.equal(JSON.parse(pkg).version,'1.9.0');
+  assert.equal(JSON.parse(tauri).version,'1.9.0');
+  assert.equal(JSON.parse(tauri).productName,'Aethon');
+  assert.match(cargo,/version = "1\.9\.0"/);
   assert.match(fetch,/"v1\.5\.0"/);
   assert.match(routing,/1\.13\.14/);
   assert.match(notice,/TRADEMARK\.md/);
@@ -104,6 +104,8 @@ test('Android client contains VPNService, exact HEV bridge, Telegram section, an
   ]);
   assert.match(manifest,/android\.permission\.BIND_VPN_SERVICE/);
   assert.match(manifest,/FOREGROUND_SERVICE_SPECIAL_USE/);
+  assert.match(manifest,/usesCleartextTraffic="false"/);
+  assert.match(manifest,/allowBackup="false"/);
   assert.match(activity,/R\.string\.channel_url/);
   assert.match(strings,/https:\/\/t\.me\/hamvex/);
   assert.match(strings,/Firstham on Telegram/);
@@ -111,11 +113,16 @@ test('Android client contains VPNService, exact HEV bridge, Telegram section, an
   assert.match(service,/libaether\.so/);
   assert.match(service,/builder\.directory\(getFilesDir\(\)\)/);
   assert.match(service,/killSwitch && vpnInterface != null/);
+  assert.match(service,/private final AtomicLong generation/);
+  assert.match(service,/generation\.incrementAndGet\(\)/);
+  assert.match(service,/newCachedThreadPool\(\)/);
   assert.match(bridge,/native void TProxyStartService\(String configPath, int fd\)/);
   assert.match(bridge,/native void TProxyStopService\(\)/);
   assert.match(bridge,/native long\[\] TProxyGetStats\(\)/);
   assert.doesNotMatch(bridge,/TProxyIsRunning/);
-  assert.match(gradle,/versionName '1\.8\.0'/);
+  assert.match(gradle,/versionName '1\.9\.0'/);
+  assert.match(gradle,/versionCode 19/);
+  assert.match(gradle,/Release signing credentials are required/);
   assert.match(fetch,/aether-android-arm64\.tar\.gz/);
   assert.match(fetch,/0a05221275a51a884d93328c55fc2fbc9e9b6974/);
   assert.match(fetch,/27\.2\.12479018/);

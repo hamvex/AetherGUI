@@ -64,6 +64,7 @@ jobs:
           [IO.File]::WriteAllBytes("android/.android-signing/firstham-aethergui.jks", [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
 
       - name: Build signed Android APKs
+        if: github.event_name != 'pull_request'
         shell: pwsh
         env:
           ANDROID_KEYSTORE_PATH: .android-signing/firstham-aethergui.jks
@@ -72,7 +73,14 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           Set-Location android
-          ./gradlew.bat assembleRelease lintRelease
+          ./gradlew.bat assembleRelease bundleRelease lintRelease
+
+      - name: Validate Android pull request build
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          Set-Location android
+          ./gradlew.bat assembleDebug lintDebug
 
       - name: Stage release files
         shell: pwsh
@@ -82,14 +90,15 @@ jobs:
           Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release/
           Copy-Item src-tauri/target/release/bundle/msi/*.msi release/
           $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
-          Copy-Item src-tauri/target/release/aether-gui.exe "portable/Firstham AetherGui.exe"
+          Copy-Item src-tauri/target/release/aether-gui.exe "portable/Aethon.exe"
           Copy-Item src-tauri/binaries/aether-x86_64-pc-windows-msvc.exe portable/aether.exe
           Copy-Item src-tauri/binaries/sing-box-x86_64-pc-windows-msvc.exe portable/sing-box.exe
           Copy-Item LICENSE,NOTICE.md,TRADEMARK.md,third-party/sing-box-LICENSE.txt portable/
-          Compress-Archive -Path portable/* -DestinationPath "release/Firstham_AetherGui_${version}_x64-portable.zip"
-          Copy-Item android/app/build/outputs/apk/release/app-universal-release.apk "release/Firstham_AetherGui_${version}_android-universal.apk"
-          Copy-Item android/app/build/outputs/apk/release/app-arm64-v8a-release.apk "release/Firstham_AetherGui_${version}_android-arm64.apk"
-          Copy-Item android/app/build/outputs/apk/release/app-x86_64-release.apk "release/Firstham_AetherGui_${version}_android-x86_64.apk"
+          Compress-Archive -Path portable/* -DestinationPath "release/Aethon_${version}_x64-portable.zip"
+          Copy-Item android/app/build/outputs/apk/release/app-universal-release.apk "release/Aethon_${version}_android-universal.apk"
+          Copy-Item android/app/build/outputs/apk/release/app-arm64-v8a-release.apk "release/Aethon_${version}_android-arm64.apk"
+          Copy-Item android/app/build/outputs/apk/release/app-x86_64-release.apk "release/Aethon_${version}_android-x86_64.apk"
+          Copy-Item android/app/build/outputs/bundle/release/app-release.aab "release/Aethon_${version}_android-play.aab"
           Get-ChildItem release -File | ForEach-Object {
             $hash = Get-FileHash $_.FullName -Algorithm SHA256
             "$($hash.Hash.ToLower())  $($_.Name)" | Add-Content release/SHA256SUMS.txt
@@ -108,8 +117,8 @@ jobs:
           generate_release_notes: true
           files: release/*
           body: |
-            Firstham AetherGui - independent Windows and Android clients for Aether.
+            Aethon - independent Windows and Android clients for Aether.
 
-            Version 1.8.0 stabilizes the Android VPN runtime with a source-built HEV 2.16.0 JNI bridge, fail-closed recovery, diagnostics, and a redesigned white-and-blue Material 3 interface.
+            Version 1.9.0 fixes disconnect handling on Windows and Android, repairs Windows VPN routing state updates, hardens Android release security, preserves signed in-place upgrades, and introduces the Aethon name and logo.
             The bundled Aether 1.5.0 core and sing-box 1.13.14 TUN engine are fetched from official releases and SHA-256 verified during the build.
             Windows 10/11 x64 and Android 8.0+ are supported. Windows binaries are unsigned and may trigger a SmartScreen warning; Android APKs are release-signed.

@@ -25,14 +25,23 @@ async fn connect(
     settings: Settings,
 ) -> Result<(), String> {
     state.process.start(app.clone(), settings.clone()).await?;
-    wait_for_socks(
+    if let Err(error) = wait_for_socks(
         &settings.socks_address,
         std::time::Duration::from_secs(settings.stall_timeout),
     )
-    .await?;
+    .await
+    {
+        let _ = state.process.stop().await;
+        return Err(error);
+    }
     state.process.mark_connected().await;
     if settings.connection_mode == "vpn" {
-        state.routing.start(app.clone(), &settings).await?;
+        if let Err(error) = state.routing.start(app.clone(), &settings).await {
+            let _ = state.routing.stop(&app).await;
+            let _ = state.process.stop().await;
+            emit_status(&app, "disconnected", None, None);
+            return Err(format!("VPN Mode could not start: {error}"));
+        }
     }
     let message = if settings.connection_mode == "vpn" {
         "Aether and System-wide VPN Mode are ready"
@@ -44,10 +53,19 @@ async fn connect(
 }
 #[tauri::command]
 async fn disconnect(app: AppHandle, state: tauri::State<'_, AppState>) -> Result<(), String> {
-    state.routing.stop(&app).await?;
-    state.process.stop().await?;
+    let routing_result = state.routing.stop(&app).await;
+    let process_result = state.process.stop().await;
     emit_status(&app, "disconnected", None, None);
-    Ok(())
+    match (routing_result, process_result) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(routing), Ok(())) => Err(format!(
+            "Aether stopped, but Windows network cleanup needs attention: {routing}"
+        )),
+        (Ok(()), Err(process)) => Err(format!("Could not stop the Aether core: {process}")),
+        (Err(routing), Err(process)) => Err(format!(
+            "Aether and Windows network cleanup both reported errors: {process}; {routing}"
+        )),
+    }
 }
 #[tauri::command]
 async fn elapsed(state: tauri::State<'_, AppState>) -> Result<u64, String> {
@@ -114,9 +132,9 @@ async fn set_language(app: AppHandle, language: String) -> Result<(), String> {
 }
 fn tray_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<tauri::Wry>> {
     let (show_text, connect_text, disconnect_text, quit_text) = if language == "fa" {
-        ("نمایش Firstham AetherGui", "اتصال", "قطع اتصال", "خروج")
+        ("نمایش Aethon", "اتصال", "قطع اتصال", "خروج")
     } else {
-        ("Show Firstham AetherGui", "Connect", "Disconnect", "Exit")
+        ("Show Aethon", "Connect", "Disconnect", "Exit")
     };
     let show = MenuItem::with_id(app, "show", show_text, true, None::<&str>)?;
     let connect = MenuItem::with_id(app, "connect", connect_text, true, None::<&str>)?;
@@ -126,9 +144,9 @@ fn tray_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<tauri::Wry>>
 }
 fn tray_tooltip(language: &str) -> &'static str {
     if language == "fa" {
-        "Firstham AetherGui — قطع"
+        "Aethon - قطع"
     } else {
-        "Firstham AetherGui — Disconnected"
+        "Aethon - Disconnected"
     }
 }
 fn settings_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
@@ -296,5 +314,5 @@ pub fn run() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running Firstham AetherGui");
+        .expect("error while running Aethon");
 }

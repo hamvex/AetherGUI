@@ -1,8 +1,8 @@
-# Firstham AetherGui for Android
+# Aethon for Android
 
 The Android client is a native Java application using Android `VpnService`. It runs the official Aether 1.5.0 Android executable as a supervised local SOCKS5 core and routes the VPN file descriptor through HEV Socks5 Tunnel 2.16.0.
 
-Version 1.8.0 adds a polished white-and-blue Material 3 interface, connection and traffic status, diagnostics with live logs, advanced routing controls, quick reconnect, fail-closed kill switch behavior, split-app validation, and a Firstham Telegram channel card.
+Version 1.9.0 adds reliable disconnect handling, hardened release security, in-place upgrade compatibility, connection and traffic status, diagnostics, advanced routing controls, quick reconnect, and fail-closed kill switch behavior.
 
 Supported APK ABIs:
 

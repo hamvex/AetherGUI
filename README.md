@@ -1,6 +1,6 @@
-# Firstham AetherGui
+# Aethon
 
-Firstham AetherGui is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.8.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
+Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.9.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
 
 [Persian documentation](README.fa.md) | [Releases](https://github.com/hamvex/AetherGUI/releases)
 
@@ -40,10 +40,10 @@ Firstham AetherGui is an independent Windows and Android client for the official
 
 Download the latest files from [GitHub Releases](https://github.com/hamvex/AetherGUI/releases):
 
-- `Firstham AetherGui_1.8.0_x64-setup.exe`: recommended Windows installer.
-- `Firstham AetherGui_1.8.0_x64_en-US.msi`: MSI deployment package.
-- `Firstham_AetherGui_1.8.0_x64-portable.zip`: portable Windows executable and required sidecars.
-- `Firstham_AetherGui_1.8.0_android-universal.apk`: Android APK for ARM64 and x86_64 devices.
+- `Aethon_1.9.0_x64-setup.exe`: recommended Windows installer.
+- `Aethon_1.9.0_x64_en-US.msi`: MSI deployment package.
+- `Aethon_1.9.0_x64-portable.zip`: portable Windows executable and required sidecars.
+- `Aethon_1.9.0_android-universal.apk`: Android APK for ARM64 and x86_64 devices.
 - `SHA256SUMS.txt`: SHA-256 hashes for release verification.
 
 Windows 10/11 x64 is supported. Published binaries are currently unsigned and may trigger Microsoft Defender SmartScreen.
