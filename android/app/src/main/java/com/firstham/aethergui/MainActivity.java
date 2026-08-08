@@ -25,7 +25,6 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
-import androidx.core.os.LocaleListCompat;
 
 import com.firstham.aethergui.databinding.ActivityMainBinding;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -38,6 +37,7 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
 import java.text.NumberFormat;
+import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -70,17 +70,14 @@ public final class MainActivity extends AppCompatActivity {
                 long tx = intent.getLongExtra("tx", 0);
                 long rx = intent.getLongExtra("rx", 0);
                 binding.trafficStat.setText(formatBytes(tx + rx));
+            } else if (UpdateConfig.ACTION_STATE.equals(action)) {
+                renderUpdateState();
             }
         }
     };
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         preferences = getSharedPreferences("aether", MODE_PRIVATE);
-        String language = preferences.getString("language", "");
-        LocaleListCompat locales = language == null || language.isEmpty() ? LocaleListCompat.getEmptyLocaleList() : LocaleListCompat.forLanguageTags(language);
-        if (!AppCompatDelegate.getApplicationLocales().toLanguageTags().equals(locales.toLanguageTags())) {
-            AppCompatDelegate.setApplicationLocales(locales);
-        }
         AppCompatDelegate.setDefaultNightMode(themeMode(preferences.getInt("theme", 0)));
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
@@ -104,7 +101,11 @@ public final class MainActivity extends AppCompatActivity {
         restoreSettings();
         setupActions();
         requestNotificationPermission();
+        AppUpdateManager.initialize(this);
         binding.statusVersion.setText(getString(R.string.version_format, BuildConfig.VERSION_NAME));
+        binding.currentVersionValue.setText(BuildConfig.VERSION_NAME);
+        binding.autoDownloadSwitch.setChecked(getSharedPreferences(UpdateConfig.PREFS, MODE_PRIVATE).getBoolean(UpdateConfig.KEY_AUTO_DOWNLOAD, false));
+        renderUpdateState();
         renderState(preferences.getString("state", "disconnected"), preferences.getString("message", getString(R.string.status_ready_message)), preferences.getString("endpoint", ""));
         String logs = getSharedPreferences("service_state", MODE_PRIVATE).getString("logs", "");
         if (logs != null && !logs.isEmpty()) {
@@ -125,11 +126,9 @@ public final class MainActivity extends AppCompatActivity {
         setAdapter(binding.obfuscationInput, R.array.obfuscation_labels);
         setAdapter(binding.logInput, R.array.log_labels);
         setAdapter(binding.themeInput, R.array.theme_labels);
-        setAdapter(binding.languageInput, R.array.language_labels);
         setAdapter(binding.routingInput, R.array.routing_labels);
         binding.protocolInput.setOnItemClickListener((parent, view, position, id) -> updateProtocolVisibility());
         binding.themeInput.setOnItemClickListener((parent, view, position, id) -> { saveSettings(); applyTheme(position); });
-        binding.languageInput.setOnItemClickListener((parent, view, position, id) -> applyLanguage(position));
         binding.routingInput.setOnItemClickListener((parent, view, position, id) -> { updateSplitUi(); saveSettings(); announceReconnect(); });
         updateProtocolVisibility();
     }
@@ -148,7 +147,6 @@ public final class MainActivity extends AppCompatActivity {
         setSelection(binding.obfuscationInput, R.array.obfuscation_labels, "obfuscation", 0);
         setSelection(binding.logInput, R.array.log_labels, "log", 0);
         setSelection(binding.themeInput, R.array.theme_labels, "theme", 0);
-        binding.languageInput.setText(getResources().getStringArray(R.array.language_labels)["fa".equals(preferences.getString("language", "")) ? 1 : 0], false);
         setSelection(binding.routingInput, R.array.routing_labels, "routing", 0);
         binding.socksInput.setText(preferences.getString("socks", "127.0.0.1:1819"));
         binding.peerInput.setText(preferences.getString("peer", ""));
@@ -185,6 +183,21 @@ public final class MainActivity extends AppCompatActivity {
             binding.advancedToggle.setText(show ? R.string.hide_advanced : R.string.show_advanced);
         });
         binding.resetButton.setOnClickListener(v -> resetDefaults());
+        binding.checkUpdatesButton.setOnClickListener(v -> checkForUpdates());
+        binding.downloadUpdateButton.setOnClickListener(v -> {
+            String status = getSharedPreferences(UpdateConfig.PREFS, MODE_PRIVATE).getString("status", "");
+            if ("ready_install".equals(status)) sendBroadcast(new Intent(this, AppUpdateReceiver.class).setAction(UpdateConfig.ACTION_INSTALL));
+            else {
+                Toast.makeText(this, AppUpdateManager.startDownload(this, false) ? R.string.update_download_started : R.string.update_download_failed, Toast.LENGTH_SHORT).show();
+            }
+        });
+        binding.autoDownloadSwitch.setOnCheckedChangeListener((button, checked) -> {
+            getSharedPreferences(UpdateConfig.PREFS, MODE_PRIVATE).edit().putBoolean(UpdateConfig.KEY_AUTO_DOWNLOAD, checked).apply();
+            if (checked) AppUpdateManager.checkNow(this, new AppUpdateManager.Listener() {
+                @Override public void onComplete() { renderUpdateState(); }
+                @Override public void onError(Throwable error) { renderUpdateState(); }
+            });
+        });
         binding.chooseAppsButton.setOnClickListener(v -> showAppPicker());
         binding.splitAppsInput.setOnClickListener(v -> showAppPicker());
         binding.testButton.setOnClickListener(v -> selfTest());
@@ -360,6 +373,48 @@ public final class MainActivity extends AppCompatActivity {
         updateSplitUi();
     }
 
+    private void checkForUpdates() {
+        android.content.SharedPreferences updates = getSharedPreferences(UpdateConfig.PREFS, MODE_PRIVATE);
+        updates.edit().putString("status", "checking").apply();
+        renderUpdateState();
+        binding.checkUpdatesButton.setEnabled(false);
+        AppUpdateManager.checkNow(this, new AppUpdateManager.Listener() {
+            @Override public void onComplete() { binding.checkUpdatesButton.setEnabled(true); renderUpdateState(); }
+            @Override public void onError(Throwable error) {
+                updates.edit().putString("status", "failed").apply();
+                binding.checkUpdatesButton.setEnabled(true);
+                renderUpdateState();
+                Toast.makeText(MainActivity.this, R.string.update_failed, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    private void renderUpdateState() {
+        if (binding == null) return;
+        android.content.SharedPreferences updates = getSharedPreferences(UpdateConfig.PREFS, MODE_PRIVATE);
+        String latest = updates.getString(UpdateConfig.KEY_LATEST_VERSION, "");
+        String status = updates.getString("status", "");
+        binding.latestVersionValue.setText(latest.isEmpty() ? getString(R.string.not_checked) : latest);
+        int statusText;
+        if ("up_to_date".equals(status)) statusText = R.string.update_up_to_date;
+        else if ("available".equals(status)) statusText = R.string.update_available;
+        else if ("downloading".equals(status)) statusText = R.string.update_downloading;
+        else if ("ready_install".equals(status)) statusText = R.string.update_ready_install;
+        else if ("installing".equals(status)) statusText = R.string.update_installing;
+        else if ("checking".equals(status)) statusText = R.string.update_checking;
+        else if ("download_failed".equals(status)) statusText = R.string.update_download_failed;
+        else if ("verification_failed".equals(status)) statusText = R.string.update_verification_failed;
+        else if ("failed".equals(status)) statusText = R.string.update_failed;
+        else statusText = R.string.not_checked;
+        binding.updateStatusValue.setText(statusText);
+        String notes = updates.getString(UpdateConfig.KEY_RELEASE_NOTES, "");
+        binding.releaseNotesValue.setText(notes);
+        binding.releaseNotesValue.setVisibility(notes.isEmpty() ? View.GONE : View.VISIBLE);
+        boolean action = "available".equals(status) || "download_failed".equals(status) || "verification_failed".equals(status) || "ready_install".equals(status);
+        binding.downloadUpdateButton.setVisibility(action ? View.VISIBLE : View.GONE);
+        binding.downloadUpdateButton.setText("ready_install".equals(status) ? R.string.install_update : R.string.download_update);
+    }
+
     private void updateProtocolVisibility() {
         boolean smart = "smart".equals(mode);
         binding.protocolLayout.setVisibility(smart ? View.GONE : View.VISIBLE);
@@ -410,12 +465,6 @@ public final class MainActivity extends AppCompatActivity {
         AppCompatDelegate.setDefaultNightMode(themeMode(choice));
     }
 
-    private void applyLanguage(int choice) {
-        String language = choice == 1 ? "fa" : "";
-        preferences.edit().putString("language", language).apply();
-        AppCompatDelegate.setApplicationLocales(language.isEmpty() ? LocaleListCompat.getEmptyLocaleList() : LocaleListCompat.forLanguageTags(language));
-    }
-
     private static int themeMode(int choice) {
         if (choice == 1) return AppCompatDelegate.MODE_NIGHT_NO;
         if (choice == 2) return AppCompatDelegate.MODE_NIGHT_YES;
@@ -457,7 +506,7 @@ public final class MainActivity extends AppCompatActivity {
     private boolean validSocksAddress(String value) { try { String[] parts = splitSocks(value); int port = Integer.parseInt(parts[1]); return !parts[0].isEmpty() && port > 0 && port <= 65535; } catch (Exception error) { return false; } }
     private String[] splitSocks(String value) { String input = value.trim(); if (input.startsWith("[")) { int end = input.indexOf(']'); if (end < 0 || end + 2 >= input.length() || input.charAt(end + 1) != ':') throw new IllegalArgumentException(); return new String[]{input.substring(1, end), input.substring(end + 2)}; } int split = input.lastIndexOf(':'); if (split <= 0) throw new IllegalArgumentException(); return new String[]{input.substring(0, split), input.substring(split + 1)}; }
     private String formatBytes(long bytes) {
-        NumberFormat numbers = NumberFormat.getNumberInstance(getResources().getConfiguration().getLocales().get(0));
+        NumberFormat numbers = NumberFormat.getNumberInstance(Locale.US);
         numbers.setMaximumFractionDigits(1);
         if (bytes < 1024) return numbers.format(bytes) + " B";
         if (bytes < 1024 * 1024) return numbers.format(bytes / 1024.0) + " KB";
@@ -472,6 +521,7 @@ public final class MainActivity extends AppCompatActivity {
             filter.addAction(AetherVpnService.ACTION_STATUS);
             filter.addAction(AetherVpnService.ACTION_LOG);
             filter.addAction(AetherVpnService.ACTION_STATS);
+            filter.addAction(UpdateConfig.ACTION_STATE);
             ContextCompat.registerReceiver(this, receiver, filter, INTERNAL_PERMISSION, null, ContextCompat.RECEIVER_NOT_EXPORTED);
             receiverRegistered = true;
         }

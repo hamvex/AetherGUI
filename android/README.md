@@ -2,7 +2,7 @@
 
 The Android client is a native Java application using Android `VpnService`. It runs the official Aether 1.5.0 Android executable as a supervised local SOCKS5 core and routes the VPN file descriptor through HEV Socks5 Tunnel 2.16.0.
 
-Version 1.11.0 adds the Aethon VPN Quick Settings tile, Persian RTL support, synchronized default settings, smoother bounded diagnostics logs, the refreshed connection dashboard, and the fixed split-tunneling checkbox interaction. It retains application pickers, Material 3 themes, Smart Connect protocol scoring, and 32-bit ARM support.
+Version 1.11.1 restores the Android client to English-only LTR operation and adds secure update availability checks, periodic background checks, resumable APK downloads, SHA-256 and signing-certificate verification, update notifications, and Android package installation handoff.
 
 Supported APK ABIs:
 

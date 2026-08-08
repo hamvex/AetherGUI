@@ -1,6 +1,7 @@
 mod process;
 pub mod routing;
 mod settings;
+mod update;
 
 use process::{emit_status, ProcessManager};
 use routing::{wait_for_socks, RoutingManager};
@@ -117,37 +118,12 @@ async fn connection_test(settings: Settings) -> Result<String, String> {
         .await
         .map_err(display_err)
 }
-#[tauri::command]
-async fn set_language(app: AppHandle, language: String) -> Result<(), String> {
-    if !matches!(language.as_str(), "en" | "fa") {
-        return Err("Unsupported language".into());
-    }
-    let tray = app
-        .tray_by_id("main")
-        .ok_or_else(|| "Tray icon is not available".to_string())?;
-    tray.set_menu(Some(tray_menu(&app, &language).map_err(display_err)?))
-        .map_err(display_err)?;
-    tray.set_tooltip(Some(tray_tooltip(&language)))
-        .map_err(display_err)
-}
-fn tray_menu(app: &AppHandle, language: &str) -> tauri::Result<Menu<tauri::Wry>> {
-    let (show_text, connect_text, disconnect_text, quit_text) = if language == "fa" {
-        ("نمایش Aethon", "اتصال", "قطع اتصال", "خروج")
-    } else {
-        ("Show Aethon", "Connect", "Disconnect", "Exit")
-    };
-    let show = MenuItem::with_id(app, "show", show_text, true, None::<&str>)?;
-    let connect = MenuItem::with_id(app, "connect", connect_text, true, None::<&str>)?;
-    let disconnect = MenuItem::with_id(app, "disconnect", disconnect_text, true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", quit_text, true, None::<&str>)?;
+fn tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
+    let show = MenuItem::with_id(app, "show", "Show Aethon", true, None::<&str>)?;
+    let connect = MenuItem::with_id(app, "connect", "Connect", true, None::<&str>)?;
+    let disconnect = MenuItem::with_id(app, "disconnect", "Disconnect", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Exit", true, None::<&str>)?;
     Menu::with_items(app, &[&show, &connect, &disconnect, &quit])
-}
-fn tray_tooltip(language: &str) -> &'static str {
-    if language == "fa" {
-        "Aethon - قطع"
-    } else {
-        "Aethon - Disconnected"
-    }
 }
 fn settings_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(app
@@ -240,6 +216,7 @@ pub fn run() {
             process: process.clone(),
             routing: routing.clone(),
         })
+        .manage(update::UpdateState::default())
         .invoke_handler(tauri::generate_handler![
             connect,
             disconnect,
@@ -247,16 +224,15 @@ pub fn run() {
             load_settings,
             save_settings,
             connection_test,
-            set_language,
             repair_network,
             recovery_status,
-            pick_applications
+            pick_applications,
+            update::check_for_update,
+            update::download_update,
+            update::install_update
         ])
         .setup(move |app| {
-            let language = load_settings_value(app.handle())
-                .unwrap_or_default()
-                .language;
-            let menu = tray_menu(app.handle(), &language)?;
+            let menu = tray_menu(app.handle())?;
             let tray_process = setup_process.clone();
             let tray_routing = setup_routing.clone();
             TrayIconBuilder::with_id("main")
@@ -265,7 +241,7 @@ pub fn run() {
                         .cloned()
                         .expect("application icon"),
                 )
-                .tooltip(tray_tooltip(&language))
+                .tooltip("Aethon - Disconnected")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id.as_ref() {

@@ -4,7 +4,8 @@ use std::{collections::HashMap, net::SocketAddr, path::Path};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
-    pub language: String,
+    #[serde(default = "default_automatic_updates")]
+    pub automatic_updates: bool,
     pub connection_mode: String,
     pub routing_mode: String,
     pub dns_leak_protection: bool,
@@ -35,10 +36,14 @@ pub struct Settings {
     pub routes_file: String,
 }
 
+fn default_automatic_updates() -> bool {
+    true
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            language: "en".into(),
+            automatic_updates: true,
             connection_mode: "vpn".into(),
             routing_mode: "bypass-local".into(),
             dns_leak_protection: true,
@@ -73,7 +78,6 @@ impl Default for Settings {
 
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
-        one_of("language", &self.language, &["en", "fa"])?;
         one_of("connection mode", &self.connection_mode, &["vpn", "manual"])?;
         one_of(
             "routing mode",
@@ -107,7 +111,11 @@ impl Settings {
             &self.scan_mode,
             &["turbo", "balanced", "thorough", "stealth", "ironclad"],
         )?;
-        one_of("log level", &self.log_level, &["error", "warn", "info", "debug", "trace"])?;
+        one_of(
+            "log level",
+            &self.log_level,
+            &["error", "warn", "info", "debug", "trace"],
+        )?;
         one_of("IP mode", &self.ip_mode, &["v4", "v6", "both"])?;
         one_of("MASQUE transport", &self.masque_transport, &["h3", "h2"])?;
         let profiles = if self.protocol == "masque" {
@@ -154,8 +162,14 @@ impl Settings {
         }) {
             return Err("DNS resolvers must be comma-separated IP addresses".into());
         }
-        for (label, rules) in [("blocked", &self.route_block), ("direct", &self.route_direct)] {
-            if rules.iter().any(|rule| rule.trim().is_empty() || rule.contains(['\0', ';', '&', '|'])) {
+        for (label, rules) in [
+            ("blocked", &self.route_block),
+            ("direct", &self.route_direct),
+        ] {
+            if rules
+                .iter()
+                .any(|rule| rule.trim().is_empty() || rule.contains(['\0', ';', '&', '|']))
+            {
                 return Err(format!("Invalid {label} routing rule"));
             }
         }
@@ -284,15 +298,13 @@ mod tests {
     }
 
     #[test]
-    fn language_is_persisted_but_not_forwarded_to_core() {
+    fn update_preference_is_persisted_but_not_forwarded_to_core() {
         let mut settings = Settings::default();
-        settings.language = "fa".into();
+        settings.automatic_updates = false;
         let json = serde_json::to_string(&settings).unwrap();
-        assert!(json.contains("\"language\":\"fa\""));
+        assert!(json.contains("\"automaticUpdates\":false"));
         let env = settings.environment(Path::new("aether.toml")).unwrap();
-        assert!(!env.contains_key("AETHER_LANGUAGE"));
-        settings.language = "ar".into();
-        assert!(settings.validate().is_err());
+        assert!(!env.contains_key("AETHER_AUTOMATIC_UPDATES"));
     }
 
     #[test]

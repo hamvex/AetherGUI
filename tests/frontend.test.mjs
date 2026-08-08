@@ -1,14 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { translations } from '../src/i18n.js';
-import { docsByLanguage } from '../src/docs.js';
 
 const read = path => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('minimal frontend keeps connection and diagnostics workflows', async () => {
   const html = await read('../src/index.html');
-  for (const id of ['connect','disconnect','test','connectionMode','routingMode','protocol','scanMode','transport','copyProxy','diagnosticTest','repairNetwork','logs','copyLogs','clearLogs']) assert.match(html,new RegExp(`id="${id}"`));
+  for (const id of ['connect','disconnect','test','connectionMode','routingMode','protocol','scanMode','transport','copyProxy','diagnosticTest','repairNetwork','logs','copyLogs','clearLogs','checkUpdates','updateAction','automaticUpdates']) assert.match(html,new RegExp(`id="${id}"`));
   assert.match(html,/id="view-dashboard"/);
   assert.match(html,/id="view-diagnostics"/);
   assert.equal((html.match(/class="nav-item/g)||[]).length,2);
@@ -22,31 +21,36 @@ test('secondary networking controls remain collapsed under Advanced Settings', a
   for (const id of ['ipMode','obfuscation','logLevel','socksAddress','allowRemote','peer','keepalive','stallTimeout','watchdog','quickReconnect','dnsLeakProtection','killSwitch','ipv6Behavior','tunMtu','splitApplications','routeExclusions','configPath','wgConfigPath','masqueConfigPath']) assert.match(advanced,new RegExp(`id="${id}"`));
 });
 
-test('every static translation key exists in English and Persian', async () => {
+test('every static translation key exists in English', async () => {
   const html = await read('../src/index.html');
   const keys = [...html.matchAll(/data-i18n(?:-placeholder|-tooltip|-aria)?="([^"]+)"/g)].map(match=>match[1]);
   assert.ok(keys.length > 45);
   for (const key of new Set(keys)) {
     assert.ok(translations.en[key],`Missing English translation: ${key}`);
-    assert.ok(translations.fa[key],`Missing Persian translation: ${key}`);
   }
+  assert.deepEqual(Object.keys(translations),['en']);
 });
 
-test('RTL layout and bundled Persian font remain available offline', async () => {
-  const [css,font] = await Promise.all([read('../src/styles.css'),stat(new URL('../src/assets/fonts/Vazirmatn.woff2',import.meta.url))]);
-  assert.match(css,/@font-face/);
-  assert.match(css,/font-family:Vazirmatn/);
-  assert.match(css,/html\[lang="fa"\]/);
+test('Windows UI is English-only and keeps LTR-safe layout rules', async () => {
+  const [html,css,i18n,app] = await Promise.all([read('../src/index.html'),read('../src/styles.css'),read('../src/i18n.js'),read('../src/app.js')]);
+  assert.doesNotMatch(html,/id="language"|dir="rtl"/);
+  assert.doesNotMatch(css,/Vazirmatn|lang="fa"|\.rtl/);
+  assert.doesNotMatch(i18n,/\p{Script=Arabic}/u);
+  assert.doesNotMatch(app,/set_language|getCurrentLanguage|changeLanguage/);
   assert.match(css,/inset-inline-start/);
-  assert.ok(font.size > 100000);
 });
 
-test('language remains persisted and native tray strings are localized', async () => {
-  const [settings,lib,app]=await Promise.all([read('../src-tauri/src/settings.rs'),read('../src-tauri/src/lib.rs'),read('../src/app.js')]);
-  assert.match(settings,/pub language: String/);
-  assert.match(lib,/async fn set_language/);
-  assert.match(app,/save_settings/);
-  assert.match(app,/invoke\('set_language'/);
+test('Windows updater is centralized, checksum verified, and exposed in Settings', async () => {
+  const [settings,lib,update,app,html]=await Promise.all([read('../src-tauri/src/settings.rs'),read('../src-tauri/src/lib.rs'),read('../src-tauri/src/update.rs'),read('../src/app.js'),read('../src/index.html')]);
+  assert.match(settings,/pub automatic_updates: bool/);
+  assert.match(lib,/update::check_for_update/);
+  assert.match(update,/RELEASE_API/);
+  assert.match(update,/DOWNLOAD_PREFIX/);
+  assert.match(update,/Sha256/);
+  assert.match(update,/download_update/);
+  assert.match(update,/install_update/);
+  assert.match(app,/12\*60\*60\*1000/);
+  assert.match(html,/App Updates/);
 });
 
 test('external destinations stay scoped and no remote scripts exist', async () => {
@@ -56,12 +60,12 @@ test('external destinations stay scoped and no remote scripts exist', async () =
   assert.deepEqual(opener.allow.map(item=>item.url).sort(),['https://github.com/CluvexStudio/Aether','https://github.com/hamvex/AetherGUI/releases','https://t.me/hamvex']);
 });
 
-test('application metadata is v1.11.0 with current pinned engines', async () => {
+test('application metadata is v1.11.1 with current pinned engines', async () => {
   const [pkg,tauri,cargo,fetch,routing,notice]=await Promise.all([read('../package.json'),read('../src-tauri/tauri.conf.json'),read('../src-tauri/Cargo.toml'),read('../scripts/fetch-aether.ps1'),read('../scripts/fetch-routing-engine.ps1'),read('../NOTICE.md')]);
-  assert.equal(JSON.parse(pkg).version,'1.11.0');
-  assert.equal(JSON.parse(tauri).version,'1.11.0');
+  assert.equal(JSON.parse(pkg).version,'1.11.1');
+  assert.equal(JSON.parse(tauri).version,'1.11.1');
   assert.equal(JSON.parse(tauri).productName,'Aethon');
-  assert.match(cargo,/version = "1\.11\.0"/);
+  assert.match(cargo,/version = "1\.11\.1"/);
   assert.match(fetch,/"v1\.5\.0"/);
   assert.match(routing,/1\.13\.14/);
   assert.match(notice,/TRADEMARK\.md/);
@@ -87,12 +91,6 @@ test('VPN lifecycle retains handshake, elevation, recovery, and split routing', 
   assert.match(settings,/pub connection_mode/);
   assert.match(main,/--repair-network/);
   assert.match(hooks,/--repair-network/);
-});
-
-test('legacy bilingual guide data remains complete for external documentation builds', () => {
-  assert.equal(docsByLanguage.en.length,17);
-  assert.equal(docsByLanguage.fa.length,17);
-  assert.deepEqual(docsByLanguage.en.map(section=>section.id),docsByLanguage.fa.map(section=>section.id));
 });
 
 test('Android client contains VPNService, exact HEV bridge, Telegram section, and reproducible assets', async()=>{
@@ -141,8 +139,12 @@ test('Android client contains VPNService, exact HEV bridge, Telegram section, an
   assert.match(bridge,/native void TProxyStopService\(\)/);
   assert.match(bridge,/native long\[\] TProxyGetStats\(\)/);
   assert.doesNotMatch(bridge,/TProxyIsRunning/);
-  assert.match(gradle,/versionName '1\.11\.0'/);
-  assert.match(gradle,/versionCode 21/);
+  assert.match(gradle,/versionName '1\.11\.1'/);
+  assert.match(gradle,/versionCode 22/);
+  assert.match(manifest,/REQUEST_INSTALL_PACKAGES/);
+  assert.match(manifest,/android\.intent\.action\.DOWNLOAD_COMPLETE/);
+  assert.doesNotMatch(manifest,/localeConfig/);
+  assert.match(manifest,/supportsRtl="false"/);
   assert.match(gradle,/Release signing credentials are required/);
   assert.match(fetch,/aether-android-arm64\.tar\.gz/);
   assert.match(fetch,/aether-android-armv7\.tar\.gz/);

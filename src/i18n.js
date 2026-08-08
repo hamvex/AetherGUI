@@ -19,54 +19,50 @@ export const translations = {
     'scan.turbo':'Turbo — fastest','scan.balanced':'Balanced — recommended','scan.thorough':'Thorough — wider search','scan.stealth':'Stealth — conservative','ip.v4':'IPv4 — recommended','ip.v6':'IPv6 only','ip.both':'IPv4 + IPv6','obfuscation.firewall':'Firewall — recommended','obfuscation.gfw':'GFW','obfuscation.balanced':'Balanced — recommended','obfuscation.aggressive':'Aggressive','obfuscation.light':'Light','obfuscation.off':'Off',
     'vpn.title':'System-wide VPN Mode','vpn.description':'Route Windows traffic automatically through Aether.','vpn.mode':'VPN Mode','vpn.manualMode':'Manual SOCKS5','vpn.routingMode':'Routing','vpn.publicIp':'Public IP','vpn.traffic':'Traffic','vpn.advanced':'System-wide routing','vpn.dnsLeak':'DNS leak protection','vpn.dnsHelp':'Intercept DNS and resolve it through Aether.','vpn.killSwitch':'Kill Switch','vpn.killHelp':'Keep TUN routing closed if the Aether SOCKS5 service fails.','vpn.ipv6':'IPv6 behavior','vpn.mtu':'TUN MTU','vpn.splitApps':'Split-tunnel applications','vpn.splitPlaceholder':'One absolute .exe path per line','vpn.splitHelp':'Used only by Include or Exclude selected applications.','vpn.exclusions':'Additional route exclusions','routing.full':'All traffic','routing.bypassLocal':'Bypass local networks','routing.splitInclude':'Include selected applications','routing.splitExclude':'Exclude selected applications','ipv6.tunnel':'Route IPv6 through Aether','ipv6.block':'Block IPv6 while connected','diagnostics.repair':'Repair network','diagnostics.selfTest':'Run self-test',
     'toast.defaults':'Recommended defaults restored.','toast.proxyCopied':'Proxy address copied.','toast.logsCopied':'Logs copied.','toast.verified':'Connection verified through Aether.','toast.languageSaved':'Language saved.','toast.error':'Something went wrong.','toast.invalidAddress':'Enter a valid IP address and port.','toast.portInUse':'The SOCKS5 port may already be in use.','toast.connectionFailed':'Connection failed. Review Diagnostics and try another profile.'
-  },
-  fa: {
-    'nav.main':'پیمایش اصلی','nav.connection':'اتصال','nav.diagnostics':'عیب‌یابی','nav.guide':'راهنمای کاربر','nav.about':'درباره','nav.tour':'راهنمای شروع',
-    'language.label':'زبان','language.ltr':'چپ به راست','language.rtl':'راست به چپ','dashboard.title':'اتصال','dashboard.subtitle':'Aether را اجرا کنید و از پروکسی محلی آن در برنامه‌ها استفاده کنید.',
-    'status.disconnected':'قطع','status.scanning':'در حال اسکن','status.connecting':'در حال اتصال','status.connected':'متصل','status.reconnecting':'اتصال مجدد','status.error':'خطا',
-    'connection.label':'اتصال AETHER','connection.readyTitle':'قطع است','connection.readyMessage':'تنظیمات پیشنهادی انتخاب شده‌اند.','connection.scanningTitle':'در حال یافتن endpoint…','connection.scanningMessage':'Aether در حال بررسی endpointهای موجود است.','connection.connectingTitle':'در حال ساخت تونل…','connection.connectingMessage':'یک endpoint سالم پیدا شد.','connection.connectedTitle':'پروکسی آماده است','connection.connectedMessage':'برنامه‌ها اکنون می‌توانند از پروکسی SOCKS5 محلی استفاده کنند.','connection.reconnectingTitle':'در حال بازیابی اتصال…','connection.reconnectingMessage':'Aether مسیر تأییدشدهٔ قبلی را امتحان می‌کند.','connection.errorTitle':'اتصال نیاز به بررسی دارد','connection.errorMessage':'بخش عیب‌یابی را بررسی و پروفایل دیگری امتحان کنید.',
-    'actions.connect':'اتصال','actions.disconnect':'قطع اتصال','actions.verify':'بررسی','actions.verifyConnection':'بررسی اتصال','actions.copy':'کپی','actions.reset':'بازنشانی','actions.copyLogs':'کپی لاگ‌ها','actions.clear':'پاک‌کردن','actions.close':'بستن','actions.back':'قبلی','actions.next':'بعدی','actions.start':'شروع اتصال',
-    'facts.endpoint':'نقطهٔ پایانی','facts.proxy':'پروکسی SOCKS5','facts.elapsed':'زمان اتصال','facts.notSelected':'انتخاب نشده',
-    'proxy.title':'پروکسی محلی','proxy.description':'این مشخصات SOCKS5 را در v2rayN، ‏Proxifier یا برنامه‌های دیگر وارد کنید.',
-    'settings.title':'پروفایل اتصال','settings.subtitle':'معمولاً همین سه انتخاب کافی است.','settings.protocol':'پروتکل','settings.scan':'حالت اسکن','settings.transport':'انتقال MASQUE','settings.recommendedHint':'برای بیشتر کاربران MASQUE، ‏Balanced و HTTP/3 پیشنهاد می‌شود.','settings.ipMode':'اسکن IP','settings.obfuscation':'مبهم‌سازی','settings.socks':'آدرس شنوندهٔ SOCKS5','settings.peer':'Endpoint سفارشی','settings.allowRemote':'اجازهٔ شنوندهٔ غیرمحلی','settings.keepalive':'Keepalive وایرگارد','settings.timeout':'مهلت توقف','settings.watchdog':'Watchdog','settings.quickReconnect':'اتصال مجدد سریع','settings.baseConfig':'پیکربندی پایه','settings.wgConfig':'پیکربندی WireGuard','settings.masqueConfig':'پیکربندی MASQUE','settings.dns':'\u062d\u0644\u200c\u06a9\u0646\u0646\u062f\u0647\u200c\u0647\u0627\u06cc DNS تونل','settings.routesFile':'\u0641\u0627\u06cc\u0644 قوانین مسیریابی','settings.routeBlock':'\u0645\u0642\u0635\u062f\u0647\u0627\u06cc مسدود','settings.routeDirect':'\u0645\u0642\u0635\u062f\u0647\u0627\u06cc مستقیم',
-    'recommended.masque':'پیشنهادی: MASQUE','recommended.gool':'پیش‌فرض: gool / WARP-in-WARP','common.recommended':'پیشنهادی','advanced.title':'تنظیمات پیشرفته','advanced.subtitle':'جزئیات شبکه، ایمنی و فایل‌های پیکربندی','advanced.network':'شبکه','advanced.reliability':'پایداری و ایمنی','advanced.files':'فایل‌های پیکربندی',
-    'tooltip.protocol':'فناوری تونلی که Aether استفاده می‌کند. MASQUE بهترین گزینه برای شروع است.','tooltip.scan':'سرعت و گستردگی جست‌وجوی endpoint مناسب را تعیین می‌کند.','tooltip.transport':'HTTP/3 از UDP/QUIC استفاده می‌کند. HTTP/2 مبتنی بر TCP است و هنگام مسدودبودن UDP می‌تواند کار کند.','tooltip.ipMode':'خانواده‌های آدرس IP مورد استفاده در اسکن را تعیین می‌کند.','tooltip.obfuscation':'الگوی ترافیک را برای پایداری بیشتر در شبکه‌های فیلترشده تغییر می‌دهد.','tooltip.socks':'آدرس محلی‌ای که برنامه‌های دیگر برای دسترسی به Aether استفاده می‌کنند.','tooltip.peer':'جست‌وجوی خودکار را رد می‌کند و از IP و پورت مشخص استفاده می‌کند.','tooltip.keepalive':'فاصلهٔ بسته‌های keepalive وایرگارد برحسب ثانیه.','tooltip.timeout':'مدتی که رابط پیش از گیرکرده دانستن تلاش اتصال صبر می‌کند.',
-    'help.ipMode':'IPv4 مطمئن‌ترین گزینهٔ پیش‌فرض است.','help.socks':'برای استفادهٔ معمول این آدرس را روی localhost نگه دارید.','help.peer':'پیشنهاد: خالی بگذارید.','help.allowRemote':'این گزینه می‌تواند پروکسی را در معرض دستگاه‌های دیگر قرار دهد.','help.watchdog':'پردازش هسته‌ای را که گیر کرده متوقف می‌کند.','help.quickReconnect':'ابتدا آخرین endpoint تأییدشده را امتحان می‌کند.','help.configFiles':'رابط فقط مسیر فایل‌ها را ذخیره می‌کند، نه کلید یا اطلاعات ورود.','help.obfuscationMasque':'برای MASQUE حالت Firewall پیشنهاد می‌شود.','help.obfuscationOther':'برای این پروتکل حالت Balanced پیشنهاد می‌شود.','help.dns':'\u0622\u062f\u0631\u0633\u200c\u0647\u0627\u06cc IP را با ویرگول جدا کنید؛ این DNSها داخل تونل استفاده می‌شوند.','help.routesFile':'فایل اختیاری شامل قوانین [block] و [direct].',
-    'placeholder.peer':'برای اسکن خودکار خالی بگذارید','placeholder.defaultPath':'استفاده از مسیر پیش‌فرض برنامه','placeholder.optional':'اختیاری','unit.seconds':'ثانیه',
-    'diagnostics.title':'عیب‌یابی','diagnostics.subtitle':'پروکسی را بررسی کنید یا خروجی زندهٔ Aether را ببینید.','diagnostics.verifyTitle':'بررسی اتصال','diagnostics.verifyDescription':'یک درخواست HTTPS از طریق پروکسی SOCKS5 تنظیم‌شده ارسال می‌کند.','diagnostics.result':'نتیجهٔ Cloudflare Trace','diagnostics.logs':'لاگ‌های زنده','diagnostics.logsHelp':'برای بررسی شکست یا توقف اتصال کاربرد دارد.','diagnostics.waiting':'در انتظار Aether…',
-    'docs.title':'راهنمای کاربر','docs.subtitle':'راه‌اندازی، مفاهیم، تنظیم پروکسی و رفع اشکال.','docs.search':'جست‌وجو در راهنما','docs.sections':'بخش‌های راهنما','docs.noResults':'بخشی مطابق جست‌وجو پیدا نشد.','docs.contents':'فهرست',
-    'about.title':'درباره','about.subtitle':'مشخصات برنامه و پیوندهای پروژه.','about.description':'رابط جمع‌وجور ویندوز برای هستهٔ رسمی شبکهٔ Aether.','about.appVersion':'برنامه','about.coreVersion':'هستهٔ Aether','about.platform':'سیستم‌عامل','about.basedOn':'بر پایهٔ CluvexStudio/Aether','about.attribution':'پروژهٔ اصلی Aether همچنان موتور شبکه است. این رابط یک frontend اضافی است و جایگزین CLI نمی‌شود.','about.viewUpstream':'مشاهدهٔ پروژهٔ اصلی','about.telegram':'عضویت در کانال تلگرام','about.releases':'بررسی نسخهٔ جدید',
-    'wizard.welcomeLabel':'خوش آمدید','wizard.welcomeTitle':'به Firstham AetherGui خوش آمدید','wizard.welcomeText':'یک رابط ساده برای Aether. برای شروع زبان را انتخاب کنید.','wizard.basicsLabel':'مفاهیم پایه','wizard.basicsTitle':'Aether یک پروکسی محلی می‌سازد','wizard.basicsText':'برنامه‌ها ترافیک را با SOCKS5 به Aether می‌فرستند و Aether آن را از تونل انتخابی عبور می‌دهد.','wizard.apps':'برنامه‌های شما','wizard.protocolLabel':'پروتکل','wizard.protocolTitle':'با MASQUE شروع کنید','wizard.protocolText':'MASQUE با HTTP/3 پیشنهاد می‌شود. اگر UDP مسدود یا ناپایدار است HTTP/2 را امتحان کنید.','wizard.scanLabel':'حالت اسکن','wizard.scanTitle':'Balanced بهترین پیش‌فرض است','wizard.scanText':'Balanced سرعت مناسب و پوشش قابل‌اعتماد دارد. اگر endpoint پیدا نشد Thorough را امتحان کنید.','wizard.readyLabel':'آماده','wizard.readyTitle':'متصل شوید و بررسی کنید','wizard.readyText':'اتصال را بزنید، منتظر وضعیت سبز متصل بمانید و سپس پروکسی را از بخش عیب‌یابی بررسی کنید.',
-    'scan.turbo':'Turbo — سریع‌ترین','scan.balanced':'Balanced — پیشنهادی','scan.thorough':'Thorough — جست‌وجوی گسترده','scan.stealth':'Stealth — محافظه‌کارانه','ip.v4':'IPv4 — پیشنهادی','ip.v6':'فقط IPv6','ip.both':'IPv4 + IPv6','obfuscation.firewall':'Firewall — پیشنهادی','obfuscation.gfw':'GFW','obfuscation.balanced':'Balanced — پیشنهادی','obfuscation.aggressive':'Aggressive','obfuscation.light':'Light','obfuscation.off':'خاموش',
-    'vpn.title':'حالت VPN سراسری','vpn.description':'ترافیک ویندوز را به‌صورت خودکار از Aether عبور می‌دهد.','vpn.mode':'VPN سراسری','vpn.manualMode':'پروکسی SOCKS5 دستی','vpn.routingMode':'مسیریابی','vpn.publicIp':'IP عمومی','vpn.traffic':'ترافیک','vpn.advanced':'مسیریابی سراسری','vpn.dnsLeak':'محافظت از نشت DNS','vpn.dnsHelp':'درخواست‌های DNS را از داخل Aether حل می‌کند.','vpn.killSwitch':'قطع اضطراری اینترنت','vpn.killHelp':'اگر سرویس SOCKS5 قطع شود مسیر TUN را بسته نگه می‌دارد.','vpn.ipv6':'رفتار IPv6','vpn.mtu':'MTU رابط TUN','vpn.splitApps':'برنامه‌های تونل انتخابی','vpn.splitPlaceholder':'در هر خط مسیر کامل یک فایل exe.','vpn.splitHelp':'فقط در حالت شامل یا مستثنی‌کردن برنامه‌های انتخابی استفاده می‌شود.','vpn.exclusions':'مسیرهای مستثنی اضافی','routing.full':'تمام ترافیک','routing.bypassLocal':'عبور مستقیم شبکه محلی','routing.splitInclude':'فقط برنامه‌های انتخابی','routing.splitExclude':'به‌جز برنامه‌های انتخابی','ipv6.tunnel':'عبور IPv6 از Aether','ipv6.block':'مسدودکردن IPv6 هنگام اتصال','diagnostics.repair':'تعمیر شبکه','diagnostics.selfTest':'اجرای خودآزمایی',
-    'toast.defaults':'تنظیمات پیشنهادی بازنشانی شد.','toast.proxyCopied':'آدرس پروکسی کپی شد.','toast.logsCopied':'لاگ‌ها کپی شدند.','toast.verified':'اتصال از طریق Aether تأیید شد.','toast.languageSaved':'زبان ذخیره شد.','toast.error':'خطایی رخ داد.','toast.invalidAddress':'یک IP و پورت معتبر وارد کنید.','toast.portInUse':'ممکن است پورت SOCKS5 توسط برنامهٔ دیگری استفاده شود.','toast.connectionFailed':'اتصال ناموفق بود. بخش عیب‌یابی را بررسی و پروفایل دیگری امتحان کنید.'
   }
 };
 
-Object.assign(translations.en,{'recovery.prompt':'An unfinished VPN session was detected. Repair Windows networking now?','recovery.done':'Network recovery completed.'});
-Object.assign(translations.fa,{'recovery.prompt':'یک نشست VPN ناتمام پیدا شد. تنظیمات شبکهٔ ویندوز اکنون تعمیر شود؟','recovery.done':'بازیابی شبکه کامل شد.'});
-Object.assign(translations.en,{'vpn.addApps':'Add applications','routing.disabled':'Disabled','routing.preparing':'Preparing','routing.requesting-elevation':'Requesting administrator permission','routing.starting-adapter':'Starting virtual adapter','routing.configuring-routes':'Configuring routes','routing.connected':'Connected','routing.reconnecting':'Reconnecting','routing.restoring':'Restoring network settings','routing.error':'Error'});
-Object.assign(translations.fa,{'vpn.addApps':'افزودن برنامه‌ها','routing.disabled':'غیرفعال','routing.preparing':'در حال آماده‌سازی','routing.requesting-elevation':'درخواست دسترسی مدیر','routing.starting-adapter':'راه‌اندازی رابط مجازی','routing.configuring-routes':'پیکربندی مسیرها','routing.connected':'متصل','routing.reconnecting':'اتصال مجدد','routing.restoring':'بازیابی تنظیمات شبکه','routing.error':'خطا'});
+Object.assign(translations.en, {
+  'recovery.prompt':'An unfinished VPN session was detected. Repair Windows networking now?',
+  'recovery.done':'Network recovery completed.',
+  'vpn.addApps':'Add applications',
+  'routing.disabled':'Disabled',
+  'routing.preparing':'Preparing',
+  'routing.requesting-elevation':'Requesting administrator permission',
+  'routing.starting-adapter':'Starting virtual adapter',
+  'routing.configuring-routes':'Configuring routes',
+  'routing.connected':'Connected',
+  'routing.reconnecting':'Reconnecting',
+  'routing.restoring':'Restoring network settings',
+  'routing.error':'Error',
+  'settings.logLevel':'Log level',
+  'scan.ironclad':'Ironclad — verified tunnel',
+  'updates.title':'App Updates',
+  'updates.current':'Current version',
+  'updates.latest':'Latest available version',
+  'updates.status':'Update status',
+  'updates.upToDate':'Up to date',
+  'updates.available':'Update available',
+  'updates.checking':'Checking for updates',
+  'updates.downloading':'Downloading update',
+  'updates.ready':'Ready to install',
+  'updates.installing':'Installing update',
+  'updates.failed':'Update failed',
+  'updates.check':'Check for Updates',
+  'updates.download':'Download update',
+  'updates.install':'Install update',
+  'updates.automatic':'Automatically download updates',
+  'updates.automaticHelp':'Download verified Windows updates when Aethon is running.',
+  'updates.releaseNotes':'Release notes',
+  'updates.noNotes':'No release notes are available.'
+});
 
-Object.assign(translations.en,{'settings.logLevel':'Log level','scan.ironclad':'Ironclad — verified tunnel'});
-Object.assign(translations.fa,{'settings.logLevel':'سطح گزارش','scan.ironclad':'Ironclad — بررسی کامل تونل'});
-
-let currentLanguage = 'en';
-
-export function setCurrentLanguage(language) {
-  currentLanguage = language === 'fa' ? 'fa' : 'en';
-  document.documentElement.lang = currentLanguage;
-  document.documentElement.dir = currentLanguage === 'fa' ? 'rtl' : 'ltr';
-  document.body.classList.toggle('rtl', currentLanguage === 'fa');
+export function t(key) {
+  return translations.en[key] ?? key;
 }
-
-export function getCurrentLanguage() { return currentLanguage; }
-
-export function t(key, language = currentLanguage) {
-  return translations[language]?.[key] ?? translations.en[key] ?? key;
-}
-
 export function applyTranslations(root = document) {
+  document.documentElement.lang = 'en';
+  document.documentElement.dir = 'ltr';
   root.querySelectorAll('[data-i18n]').forEach(element => { element.textContent = t(element.dataset.i18n); });
   root.querySelectorAll('[data-i18n-placeholder]').forEach(element => { element.placeholder = t(element.dataset.i18nPlaceholder); });
   root.querySelectorAll('[data-i18n-tooltip]').forEach(element => { const value = t(element.dataset.i18nTooltip); element.dataset.tooltip = value; element.title = value; element.setAttribute('aria-label', value); });

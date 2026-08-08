@@ -124,7 +124,7 @@ jobs:
           body: |
             Aethon - independent Windows and Android clients for Aether.
 
-            Version 1.11.0 adds the synchronized Android Quick Settings tile, Persian RTL support, smooth bounded diagnostics logs, refreshed dashboard layouts, fixed split-tunneling selection, and Turbo/gool fresh-install defaults on both clients.
-            Aethon_1.11.0_all-platforms.zip contains every Windows x64 and Android ARMv7, ARM64, x86_64, universal APK, and Play bundle build in one labeled archive.
+            Version 1.11.1 restores an English-only LTR interface on Android and Windows and adds secure update management with startup, periodic, and manual checks, release notes, automatic downloads, progress reporting, SHA-256 verification, and platform-native installation handoff.
+            Aethon_1.11.1_all-platforms.zip contains every Windows x64 and Android ARMv7, ARM64, x86_64, universal APK, and Play bundle build in one labeled archive.
             The bundled Aether 1.5.0 core and sing-box 1.13.14 TUN engine are fetched from official releases and SHA-256 verified during the build.
             Windows 10/11 x64 and Android 8.0+ are supported. Windows binaries are unsigned and may trigger a SmartScreen warning; Android APKs are release-signed.

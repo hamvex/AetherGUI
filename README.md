@@ -1,141 +1,168 @@
 # Aethon
 
-<p align="center">
-  <img src="src-tauri/icons/icon.png" width="160" alt="Aethon logo">
-</p>
+Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.11.1 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
 
-Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.11.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
+[Releases](https://github.com/hamvex/AetherGUI/releases) · [Security policy](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
-[Persian documentation](README.fa.md) | [Releases](https://github.com/hamvex/AetherGUI/releases)
+## Version 1.11.1 release notes
 
-## What's new in 1.11.0
+### English-only interface restoration
 
-- Added the Android “Aethon VPN” Quick Settings tile. It toggles the existing VPN service, reflects connected/disconnected/unavailable state, and routes VPN permission prompts through the main activity.
-- Added complete Android Persian language resources with persisted language selection, RTL-aware layouts, localized statistics, and Android 13+ locale configuration.
-- Improved Android diagnostics with bounded, batched live logs, smooth newest-entry following, and reduced storage churn.
-- Removed obsolete Android header and diagnostics copy, fixed dashboard metric overlap, enlarged the connection indicator, and compacted the Diagnostics and connection cards.
-- Fixed Android Split Tunneling checkbox selection so checkbox taps select immediately without interfering with list scrolling.
-- Changed fresh-install defaults on both clients to Turbo scanning and gool / WARP-in-WARP while preserving user selections across launches.
-- Updated the Windows dashboard with the same default protocol/scan profile, larger status indicator, safer metric wrapping, compact Diagnostics copy, and batched live log rendering.
-- Added focused default/tile lifecycle tests and verified Android debug/release resources with lint.
+- Removed the recently added Persian/Farsi application translations from Android and Windows.
+- Restored English as the only application language and enforced left-to-right layouts.
+- Removed Android locale overrides, Persian resources, RTL support, and the language selector.
+- Removed the Windows language selector, localized tray strings, Persian guide, and bundled Persian font.
+- Preserved the existing dashboard design, spacing, VPN features, diagnostics, and routing behavior.
 
-- Added Android include-only and exclude-app split tunneling with a searchable installed-app picker.
-- Added Material 3 System, Light, and Dark themes across the Android interface.
-- Added Smart Connect benchmarking across MASQUE, WireGuard, and gool using connection success, handshake speed, latency, and stability scoring.
-- Added signed 32-bit ARMv7 APK support alongside ARM64, x86_64, the universal APK, and the Play bundle.
-- Increased Android `versionCode` to `20` while preserving the package ID and release certificate for installation over previous signed releases.
-- Retains the disconnect, Windows VPN routing, Android security, Aethon branding, and logo improvements introduced in 1.9.0.
+### Application updates
 
-## Features
+- Added automatic update checks at startup and every 12 hours while Aethon is running.
+- Added manual **Check for Updates** controls to Android and Windows settings.
+- Added current version, latest version, update status, and GitHub release notes.
+- Added an **Automatically download updates** preference.
+- Android automatic downloads use Wi-Fi and Android DownloadManager for resumable transfers.
+- Windows downloads the official x64 setup installer and reports progress inside the application.
+- Added duplicate Android notification prevention and Android download progress notifications.
+- Added SHA-256 verification on both platforms.
+- Android additionally verifies that the downloaded APK uses the same signing certificate as the installed application.
+- Installation uses Android FileProvider/package installer APIs and the verified Windows setup executable.
+- Update URLs are restricted to the official `hamvex/AetherGUI` GitHub repository.
 
-- System-wide Windows VPN mode using a checksum-verified sing-box 1.13.14 TUN engine.
-- Full tunnel, local-network bypass, and executable-based split tunneling.
-- DNS leak protection, explicit IPv6 tunneling or blocking, and an optional session kill switch.
-- Manual SOCKS5 mode at `127.0.0.1:1819` for applications that support a proxy directly.
-- MASQUE over HTTP/3 or HTTP/2, WireGuard, and gool / WARP-in-WARP.
-- Turbo, Balanced, Thorough, Stealth, and Ironclad endpoint scanning.
-- Protocol-specific obfuscation, custom endpoints, configuration files, and reconnect controls.
-- Live logs with selectable Error, Warning, Info, Debug, and Trace verbosity.
-- Cloudflare connection self-test, public IP reporting, and Windows network recovery.
-- Single-instance protection, localized system tray actions, and clean sidecar shutdown.
+### Versions and compatibility
 
-## Download
+- Windows version: `1.11.1`
+- Android version name: `1.11.1`
+- Android version code: `22`
+- Aether core: `1.5.0`
+- sing-box routing engine: `1.13.14`
+- Windows: Windows 10/11 x64
+- Android: Android 8.0 or newer; ARMv7, ARM64, and x86_64
 
-Download the latest files from the [Aethon 1.11.0 GitHub Release](https://github.com/hamvex/AetherGUI/releases/tag/v1.11.0):
+Existing VPN services, state management, Quick Settings behavior, routing recovery, Smart Connect, split tunneling, and diagnostics remain in place.
 
-- [`Aethon_1.11.0_all-platforms.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_all-platforms.zip): universal release archive containing Windows x64 and Android ARMv7, ARM64, x86_64, universal APK, and Play bundle artifacts.
-- [`Aethon_1.11.0_x64-setup.exe`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_x64-setup.exe): recommended Windows x64 installer.
-- [`Aethon_1.11.0_x64_en-US.msi`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_x64_en-US.msi): Windows x64 MSI package.
-- [`Aethon_1.11.0_x64-portable.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_x64-portable.zip): portable Windows x64 build and required sidecars.
-- [`Aethon_1.11.0_android-universal.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-universal.apk): Android APK containing ARMv7, ARM64, and x86_64 native libraries.
-- [`Aethon_1.11.0_android-armv7.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-armv7.apk): APK for compatible 32-bit ARM Android devices.
-- [`Aethon_1.11.0_android-arm64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-arm64.apk): smaller APK for most modern physical Android devices.
-- [`Aethon_1.11.0_android-x86_64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-x86_64.apk): APK for compatible emulators and x86_64 devices.
-- [`Aethon_1.11.0_android-play.aab`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-play.aab): signed bundle for Google Play Console.
-- [`SHA256SUMS.txt`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/SHA256SUMS.txt): SHA-256 hashes for release verification.
+## Downloads
 
-Windows 10/11 x64 is supported. Published binaries are currently unsigned and may trigger Microsoft Defender SmartScreen.
+Download the release files from [Aethon 1.11.1](https://github.com/hamvex/AetherGUI/releases/tag/v1.11.1):
 
-Android 8.0 or newer is supported. Android asks for system VPN permission when VPN Mode starts. Split tunneling uses Android application package names rather than Windows executable paths.
+- [`Aethon_1.11.1_all-platforms.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/Aethon_1.11.1_all-platforms.zip) — universal archive containing all Windows x64 and Android builds.
+- [`Aethon_1.11.1_x64-setup.exe`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/Aethon_1.11.1_x64-setup.exe) — recommended Windows installer.
+- [`Aethon_1.11.1_x64_en-US.msi`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/Aethon_1.11.1_x64_en-US.msi) — Windows MSI.
+- [`Aethon_1.11.1_x64-portable.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/Aethon_1.11.1_x64-portable.zip) — portable Windows package.
+- [`Aethon_1.11.1_android-universal.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/Aethon_1.11.1_android-universal.apk) — Android universal APK containing ARMv7, ARM64, and x86_64 libraries.
+- [`Aethon_1.11.1_android-armv7.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/Aethon_1.11.1_android-armv7.apk) — 32-bit ARM APK.
+- [`Aethon_1.11.1_android-arm64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/Aethon_1.11.1_android-arm64.apk) — 64-bit ARM APK.
+- [`Aethon_1.11.1_android-x86_64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/Aethon_1.11.1_android-x86_64.apk) — x86_64 APK.
+- [`Aethon_1.11.1_android-play.aab`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/Aethon_1.11.1_android-play.aab) — Play App Bundle.
+- [`SHA256SUMS.txt`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.1/SHA256SUMS.txt) — release checksums.
 
-## Windows installation and usage
+Windows binaries are currently unsigned and may trigger a SmartScreen warning. Android release packages are signed with the established Aethon Android signing certificate.
 
-1. Download and run `Aethon_1.11.0_x64-setup.exe`. Existing installations can be upgraded by running the newer installer.
-2. The fresh-install defaults are **VPN Mode**, **gool / WARP-in-WARP**, and **Turbo**. Change them whenever needed; selections persist.
-3. Select **Connect** and approve the narrowly scoped Windows elevation request used to create the TUN adapter.
-4. Wait for the Connected state. The status panel displays the endpoint, routing mode, elapsed time, public IP, and proxy address.
-5. Open **Diagnostics** to run the self-test or inspect live Aether and routing logs.
-6. Select **Disconnect** to stop Aether, close the virtual adapter, and restore Windows routing.
+## Update source configuration
 
-Use Manual SOCKS5 mode when only selected proxy-aware applications should connect through Aethon. Configure those applications with host `127.0.0.1` and port `1819`.
+Both clients use the latest GitHub Release endpoint:
 
-The portable ZIP must be fully extracted before use. Keep `Aethon.exe`, `aether.exe`, and `sing-box.exe` together in the same directory.
-
-## Android installation and usage
-
-1. Download the universal APK, the ARM64 APK for most modern phones and tablets, or ARMv7 for a compatible 32-bit device.
-2. Install it over the previous signed version; uninstalling the old version is not required.
-3. Open Aethon, keep **Device VPN**, **gool / WARP-in-WARP**, and **Turbo**, then select **Connect securely**.
-4. Approve Android's standard VPN permission dialog. Notification permission is used only for connection status and the foreground VPN service.
-5. Select **Disconnect** in the application or its persistent VPN notification to close the VPN safely.
-
-The Android application ID remains `io.github.hamvex.aethergui` for update compatibility. Release APKs keep the established signing certificate; packages signed by a different key cannot replace an installed release.
-
-## Architecture
-
-The GUI does not duplicate Aether's scanning, tunnel, obfuscation, identity, or SOCKS5 implementation. It runs the verified official core as a hidden supervised sidecar and maps validated settings to documented Aether environment variables.
-
-- `src/`: dependency-free HTML, CSS, JavaScript, localization, and frontend assets.
-- `src-tauri/src/settings.rs`: settings validation, persistence, and Aether environment mapping.
-- `src-tauri/src/process.rs`: core lifecycle supervision, status parsing, watchdog, and logs.
-- `src-tauri/src/routing.rs`: elevated TUN routing, split tunneling, DNS handling, and recovery.
-- `scripts/fetch-aether.ps1`: downloads and checksum-verifies Aether 1.5.0.
-- `scripts/fetch-routing-engine.ps1`: downloads and verifies the pinned sing-box release.
-- `.github/workflows/release.yml`: tests, Windows builds, installer packaging, and tagged releases.
-
-### Android architecture
-
-The Android client is a separate native Java application under `android/`. Android `VpnService` creates the system TUN interface, the official Aether Android executable provides the local SOCKS5 tunnel, and the pinned HEV Socks5 Tunnel JNI library connects the VPN file descriptor to Aether. The application remains unprivileged and uses the standard Android VPN permission flow.
-
-The Android build pins HEV 2.16.0 and compiles its JNI libraries with Android NDK 27.2.12479018 for ARMv7, ARM64, and x86_64. On Windows, the fetch script materializes upstream symlink placeholders before `ndk-build`, ensuring local and CI builds produce real JNI libraries.
-
-## Safety notes
-
-The GUI remains unelevated during normal operation. Windows elevation is requested only for the routing helper that creates the virtual adapter and applies routes.
-
-The kill switch is session-scoped. It keeps strict TUN routing active while Aether reconnects, but it is not a persistent boot-time firewall. After an interrupted session, use the Diagnostics **Repair network** command or run:
-
-```powershell
-aether-gui.exe --repair-network
+```text
+https://api.github.com/repos/hamvex/AetherGUI/releases/latest
 ```
 
-TLS validation remains enabled. GUI input is not executed through a command shell. Settings contain paths and connection preferences, not Aether private keys or certificates. A non-loopback SOCKS5 listener requires explicit risk acknowledgement.
+Future releases must include:
 
-## Development
+- `Aethon_<version>_x64-setup.exe`
+- `Aethon_<version>_android-universal.apk`
+- SHA-256 asset digests supplied by GitHub or a `SHA256SUMS.txt` asset
+- Release notes in the GitHub release body
+- Android APKs signed with the same established signing key
 
-Requirements: Windows 10/11 x64, Node.js 20+, Rust stable with the MSVC target, Visual Studio C++ Build Tools, and WebView2.
+No custom update backend is required. If the Android APK is distributed through Google Play, use of `REQUEST_INSTALL_PACKAGES` and direct self-updates should be reviewed against current Play policy.
+
+## Windows usage
+
+1. Install the x64 setup package or extract the portable archive.
+2. Launch Aethon.
+3. Keep **VPN Mode** selected for system-wide routing, or choose **Manual SOCKS5** for proxy-only use.
+4. Select a protocol and scan mode, then press **Connect**.
+5. Use Diagnostics for live logs, connection testing, and network recovery.
+
+The local SOCKS5 listener defaults to `127.0.0.1:1819`. VPN mode may request administrator permission when configuring the TUN adapter and protected routes.
+
+## Android usage
+
+1. Install the universal APK or the APK matching the device architecture.
+2. Approve Android VPN permission on first connection.
+3. Select the desired mode and protocol.
+4. Press **Connect**.
+5. Optionally add the **Aethon VPN** Quick Settings tile.
+
+The Android application ID remains `io.github.hamvex.aethergui` for update compatibility.
+
+## Building
+
+### Prerequisites
+
+- Windows 10/11 x64
+- Node.js 22
+- Rust stable with the `x86_64-pc-windows-msvc` target
+- Visual Studio Build Tools with MSVC
+- Java 17
+- Android SDK and NDK `27.2.12479018`
+- WiX Toolset prerequisites used by Tauri
+
+### Windows
 
 ```powershell
 npm ci
 npm run fetch:core
 npm run fetch:routing
-npm run fetch:android
 npm test
 cargo test --manifest-path src-tauri/Cargo.toml --locked
-npm run dev
+npm run build
 ```
 
-Production build:
+Windows output is written under `src-tauri/target/release`.
+
+### Android
+
+Release signing credentials are required for distributable Android builds:
 
 ```powershell
-npm run build
-npm run build:android
+$env:ANDROID_KEYSTORE_PATH = ".android-signing/firstham-aethergui.jks"
+$env:ANDROID_KEYSTORE_PASSWORD = "<password>"
+$env:ANDROID_KEY_ALIAS = "<alias>"
+$env:ANDROID_KEY_PASSWORD = "<password>"
+npm run fetch:android
+Set-Location android
+./gradlew.bat assembleRelease bundleRelease lintRelease
 ```
 
-The executable is generated at `src-tauri/target/release/aether-gui.exe`. Installer bundles are generated under `src-tauri/target/release/bundle/`.
+Android output is written under `android/app/build/outputs`.
 
-## License and trademark
+### Universal release archive
 
-Aethon is licensed under GNU AGPL v3.0. Aether is developed by CluvexStudio and remains the networking engine. This repository is an independent graphical frontend and is not endorsed by CluvexStudio.
+After both platform builds complete:
 
-The Aether name and branding are governed by the upstream [Aether Trademark Policy](TRADEMARK.md). Derivative clients using the Aether name or branding may require prior written permission from the Aether maintainers.
+```powershell
+npm run package:release
+```
+
+This creates Windows x64 installers, portable files, architecture-specific Android packages, checksums, and `Aethon_1.11.1_all-platforms.zip` under `release`.
+
+## Verification
+
+```powershell
+npm test
+cargo test --manifest-path src-tauri/Cargo.toml --locked
+Set-Location android
+./gradlew.bat testDebugUnitTest lintDebug lintRelease
+```
+
+## Project layout
+
+- `src/` — Windows frontend.
+- `src-tauri/` — Windows native process, routing, settings, and updater code.
+- `android/` — native Android client.
+- `scripts/` — verified dependency fetching and release packaging.
+- `.github/workflows/release.yml` — Windows/Android CI and tagged release publishing.
+
+## Attribution
+
+Aethon is an independent frontend and is not the upstream Aether project. Aether remains the networking engine and is distributed under GPL-3.0. See [NOTICE.md](NOTICE.md), [TRADEMARK.md](TRADEMARK.md), and [LICENSE](LICENSE).

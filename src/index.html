@@ -28,8 +28,7 @@
 
       <div class="rail-footer">
         <div class="mini-status"><span id="sidebar-dot" class="state-dot disconnected"></span><span id="sidebar-state" data-i18n="status.disconnected">Disconnected</span></div>
-        <label class="language-control" for="language"><span data-i18n="language.label">Language</span><select id="language"><option value="en">EN</option><option value="fa">FA</option></select></label>
-        <div class="version-row"><span>App 1.11.0</span><span>Core 1.5.0</span></div>
+        <div class="version-row"><span>App 1.11.1</span><span>Core 1.5.0</span></div>
       </div>
     </aside>
 
@@ -134,6 +133,20 @@
               </section>
             </div>
           </details>
+        </section>
+
+        <section class="panel update-panel" aria-labelledby="updates-title">
+          <div class="panel-heading">
+            <div><h3 id="updates-title" data-i18n="updates.title">App Updates</h3><p id="update-status" data-i18n="updates.upToDate">Up to date</p></div>
+            <div class="update-actions"><button id="checkUpdates" class="button secondary" data-i18n="updates.check">Check for Updates</button><button id="updateAction" class="button primary hidden" data-i18n="updates.download">Download update</button></div>
+          </div>
+          <div class="update-grid">
+            <div><span data-i18n="updates.current">Current version</span><strong id="current-version">1.11.1</strong></div>
+            <div><span data-i18n="updates.latest">Latest available version</span><strong id="latest-version">—</strong></div>
+            <div><span data-i18n="updates.status">Update status</span><strong id="update-status-value" data-i18n="updates.upToDate">Up to date</strong></div>
+          </div>
+          <label class="check update-toggle"><input type="checkbox" id="automaticUpdates" checked><span><b data-i18n="updates.automatic">Automatically download updates</b><small data-i18n="updates.automaticHelp">Download verified Windows updates when Aethon is running.</small></span></label>
+          <div class="release-notes"><b data-i18n="updates.releaseNotes">Release notes</b><p id="update-notes" data-i18n="updates.noNotes">No release notes are available.</p></div>
         </section>
 
         <footer class="app-footer"><span>Independent frontend · Aether is a CluvexStudio project</span><div><button class="link-button" data-external="https://github.com/CluvexStudio/Aether">Upstream</button><button class="link-button" data-external="https://github.com/hamvex/AetherGUI/releases">Releases</button></div></footer>
