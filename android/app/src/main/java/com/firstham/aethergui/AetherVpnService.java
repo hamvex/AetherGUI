@@ -44,6 +44,7 @@ public final class AetherVpnService extends VpnService {
     public static final String ACTION_STATUS = "com.firstham.aethergui.STATUS";
     public static final String ACTION_LOG = "com.firstham.aethergui.LOG";
     public static final String ACTION_STATS = "com.firstham.aethergui.STATS";
+    public static final String ACTION_CLEAR_LOGS = "com.firstham.aethergui.CLEAR_LOGS";
     private static final String INTERNAL_PERMISSION = "io.github.hamvex.aethergui.permission.INTERNAL";
     private static final String CHANNEL_ID = "aether_vpn";
     private static final int NOTIFICATION_ID = 1819;
@@ -55,6 +56,9 @@ public final class AetherVpnService extends VpnService {
     private final ScheduledExecutorService telemetry = Executors.newSingleThreadScheduledExecutor();
     private final AtomicLong generation = new AtomicLong();
     private final Object runtimeLock = new Object();
+    private final Object logLock = new Object();
+    private final StringBuilder logHistory = new StringBuilder();
+    private final StringBuilder pendingLogs = new StringBuilder();
     private volatile Process aetherProcess;
     private volatile ParcelFileDescriptor vpnInterface;
     private volatile boolean bridgeStarted;
@@ -66,13 +70,17 @@ public final class AetherVpnService extends VpnService {
     private volatile String currentMessage = "Ready to connect";
     private volatile String currentEndpoint = "";
     private volatile long connectedAt;
+    private volatile long lastLogPersistedAt;
     private SharedPreferences stateStore;
 
     @Override public void onCreate() {
         super.onCreate();
         stateStore = getSharedPreferences("service_state", MODE_PRIVATE);
+        String savedLogs = stateStore.getString("logs", "");
+        if (savedLogs != null) logHistory.append(savedLogs);
         createNotificationChannel();
         telemetry.scheduleWithFixedDelay(this::publishStats, 1, 1, TimeUnit.SECONDS);
+        telemetry.scheduleWithFixedDelay(this::flushLogs, 75, 75, TimeUnit.MILLISECONDS);
     }
 
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
@@ -84,9 +92,19 @@ public final class AetherVpnService extends VpnService {
             if (!active) stopSelf(startId);
             return active ? START_STICKY : START_NOT_STICKY;
         }
+        if (ACTION_CLEAR_LOGS.equals(action)) {
+            synchronized (logLock) {
+                logHistory.setLength(0);
+                pendingLogs.setLength(0);
+            }
+            stateStore.edit().remove("logs").apply();
+            if (!active) stopSelf(startId);
+            return active ? START_STICKY : START_NOT_STICKY;
+        }
         if (ACTION_STOP.equals(action)) {
             generation.incrementAndGet();
             stopping = true;
+            updateState("disconnecting", getString(R.string.service_disconnecting));
             worker.execute(() -> stopConnection(true));
             return START_NOT_STICKY;
         }
@@ -94,7 +112,8 @@ public final class AetherVpnService extends VpnService {
             Intent request = new Intent(intent);
             long session = generation.incrementAndGet();
             stopping = true;
-            startForegroundCompat(notification("Preparing a secure connection", false));
+            updateState("starting", getString(R.string.service_preparing));
+            startForegroundCompat(notification(getString(R.string.service_preparing), false));
             worker.execute(() -> {
                 stopConnection(false);
                 if (generation.get() != session) return;
@@ -112,29 +131,29 @@ public final class AetherVpnService extends VpnService {
         try {
             String connectionMode = value(request, "connectionMode", "vpn");
             if ("smart".equals(connectionMode)) {
-                updateState("smart-testing", "Testing MASQUE, WireGuard, and gool");
+                updateState("smart-testing", getString(R.string.service_smart_testing));
                 String protocol = chooseSmartProtocol(request, session);
                 request.putExtra("protocol", protocol);
                 stateStore.edit().putString("smartProtocol", protocol).apply();
                 sendLog("Smart Connect selected " + protocolLabel(protocol));
                 currentEndpoint = "";
             }
-            updateState("starting", "Launching the official Aether 1.5.0 core");
+            updateState("starting", getString(R.string.service_launching));
             startAether(request);
-            updateState("scanning", "Scanning for a verified gateway");
+            updateState("scanning", getString(R.string.service_scanning));
             if (!waitForSocks(value(request, "socks", "127.0.0.1:1819"), SOCKS_TIMEOUT_MS)) {
                 throw new IllegalStateException(aetherExitMessage("Aether did not open its SOCKS5 listener"));
             }
 
             if ("manual".equals(connectionMode)) {
                 connectedAt = System.currentTimeMillis();
-                updateState("connected", "Local SOCKS5 proxy is ready");
-                updateNotification("SOCKS5 proxy is connected");
+                updateState("connected", getString(R.string.service_proxy_ready));
+                updateNotification(getString(R.string.service_proxy_connected));
             } else {
                 establishVpn(request);
                 connectedAt = System.currentTimeMillis();
-                updateState("connected", "Your device traffic is protected");
-                updateNotification("smart".equals(connectionMode) ? "Protected with Smart Connect" : "Protected through Aether");
+                updateState("connected", getString(R.string.service_protected));
+                updateNotification(getString("smart".equals(connectionMode) ? R.string.service_smart_protected : R.string.service_aethon_protected));
             }
             monitorAether(request, session);
         } catch (Throwable error) {
@@ -143,8 +162,8 @@ public final class AetherVpnService extends VpnService {
             sendLog("Error: " + safeMessage(error));
             if (killSwitch && vpnInterface != null && !stopping) {
                 stopAetherOnly();
-                updateState("blocked", "Tunnel stopped; network remains blocked by fail-closed mode");
-                updateNotification("Traffic blocked — reconnect or disconnect");
+                updateState("blocked", getString(R.string.service_blocked));
+                updateNotification(getString(R.string.service_blocked_notification));
             } else {
                 stopRuntime();
                 updateState("error", safeMessage(error));
@@ -192,8 +211,8 @@ public final class AetherVpnService extends VpnService {
         builder.directory(getFilesDir());
         builder.redirectErrorStream(true);
         Map<String, String> env = builder.environment();
-        env.put("AETHER_PROTOCOL", value(request, "protocol", "masque"));
-        env.put("AETHER_SCAN", value(request, "scan", "balanced"));
+        env.put("AETHER_PROTOCOL", value(request, "protocol", ConnectionDefaults.PROTOCOL));
+        env.put("AETHER_SCAN", value(request, "scan", ConnectionDefaults.SCAN));
         env.put("AETHER_IP", value(request, "ipMode", "v4"));
         env.put("AETHER_NOIZE", value(request, "obfuscation", "firewall"));
         env.put("AETHER_LOG_LEVEL", value(request, "logLevel", "info"));
@@ -222,9 +241,9 @@ public final class AetherVpnService extends VpnService {
                 sendLog("[Aether] " + line);
                 String lower = line.toLowerCase(Locale.US);
                 if (!smartBenchmarking) {
-                    if (lower.contains("identity ready")) updateState("scanning", "Identity ready; finding the best gateway");
-                    if (lower.contains("hunting for")) updateState("scanning", "Testing reachable gateways");
-                    if (lower.contains("validated") || lower.contains("passed handshake")) updateState("securing", "Gateway verified; securing the tunnel");
+                    if (lower.contains("identity ready")) updateState("scanning", getString(R.string.service_identity_ready));
+                    if (lower.contains("hunting for")) updateState("scanning", getString(R.string.service_testing_gateways));
+                    if (lower.contains("validated") || lower.contains("passed handshake")) updateState("securing", getString(R.string.service_gateway_verified));
                 }
                 if (lower.contains("socks5 server listening")) {
                     int index = lower.indexOf("listening on");
@@ -246,13 +265,13 @@ public final class AetherVpnService extends VpnService {
             if (!request.getBooleanExtra("quickReconnect", true)) {
                 throw new IllegalStateException("Aether stopped unexpectedly (exit " + exitCode + ")");
             }
-            updateState("reconnecting", "Aether stopped; reconnecting to the last verified gateway");
+            updateState("reconnecting", getString(R.string.service_reconnecting));
             Thread.sleep(1500);
             startAether(request);
             if (!waitForSocks(value(request, "socks", "127.0.0.1:1819"), SOCKS_TIMEOUT_MS)) {
                 throw new IllegalStateException(aetherExitMessage("Aether could not reconnect"));
             }
-            updateState("connected", "Connection restored");
+            updateState("connected", getString(R.string.service_restored));
         }
     }
 
@@ -283,7 +302,7 @@ public final class AetherVpnService extends VpnService {
             for (int index = 0; index < protocols.length; index++) {
                 if (stopping || generation.get() != session) throw new InterruptedException("Smart Connect was cancelled");
                 String protocol = protocols[index];
-                updateState("smart-testing", "Testing " + protocolLabel(protocol) + " (" + (index + 1) + "/" + protocols.length + ")");
+                updateState("smart-testing", getString(R.string.service_testing_protocol, protocolLabel(protocol), index + 1, protocols.length));
                 Intent trial = new Intent(request).putExtra("protocol", protocol).putExtra("quickReconnect", false);
                 SmartResult result = benchmarkProtocol(trial, protocol);
                 sendLog(result.summary());
@@ -507,7 +526,7 @@ public final class AetherVpnService extends VpnService {
         connectedAt = 0;
         currentEndpoint = "";
         if (userInitiated) {
-            updateState("disconnected", "Disconnected safely");
+            updateState("disconnected", getString(R.string.service_disconnected));
         }
         if (userInitiated) {
             stopForeground(STOP_FOREGROUND_REMOVE);
@@ -554,6 +573,7 @@ public final class AetherVpnService extends VpnService {
         currentMessage = message == null ? "" : message;
         stateStore.edit().putString("state", currentState).putString("message", currentMessage).putString("endpoint", currentEndpoint).apply();
         sendStatus(currentState, currentMessage);
+        AethonTileService.requestUpdate(this);
     }
 
     private void sendStatus(String state, String message) {
@@ -565,17 +585,43 @@ public final class AetherVpnService extends VpnService {
     private void sendLog(String line) {
         if (line == null || line.trim().isEmpty()) return;
         Log.i(TAG, line);
-        String previous = stateStore.getString("logs", "");
-        String next = previous + (previous.isEmpty() ? "" : "\n") + line;
-        if (next.length() > 24000) next = next.substring(next.length() - 24000);
-        stateStore.edit().putString("logs", next).apply();
-        Intent intent = new Intent(ACTION_LOG).setPackage(getPackageName()).putExtra("line", line);
+        synchronized (logLock) {
+            if (logHistory.length() > 0) logHistory.append('\n');
+            logHistory.append(line);
+            trimLog(logHistory, 24_000);
+            if (pendingLogs.length() > 0) pendingLogs.append('\n');
+            pendingLogs.append(line);
+        }
+    }
+
+    private void flushLogs() {
+        String batch;
+        String history;
+        synchronized (logLock) {
+            if (pendingLogs.length() == 0) return;
+            batch = pendingLogs.toString();
+            pendingLogs.setLength(0);
+            history = logHistory.toString();
+        }
+        long now = System.currentTimeMillis();
+        if (now - lastLogPersistedAt >= 500) {
+            stateStore.edit().putString("logs", history).apply();
+            lastLogPersistedAt = now;
+        }
+        Intent intent = new Intent(ACTION_LOG).setPackage(getPackageName()).putExtra("lines", batch);
         sendBroadcast(intent, INTERNAL_PERMISSION);
     }
 
+    private static void trimLog(StringBuilder value, int maxLength) {
+        if (value.length() <= maxLength) return;
+        int cut = value.length() - maxLength;
+        int newline = value.indexOf("\n", cut);
+        value.delete(0, newline >= 0 ? newline + 1 : cut);
+    }
+
     private void createNotificationChannel() {
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Aethon VPN", NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("Aethon connection status");
+        NotificationChannel channel = new NotificationChannel(CHANNEL_ID, getString(R.string.notification_channel), NotificationManager.IMPORTANCE_LOW);
+        channel.setDescription(getString(R.string.notification_channel_summary));
         getSystemService(NotificationManager.class).createNotificationChannel(channel);
     }
 
@@ -585,15 +631,15 @@ public final class AetherVpnService extends VpnService {
         Intent stop = new Intent(this, AetherVpnService.class).setAction(ACTION_STOP);
         PendingIntent disconnect = PendingIntent.getService(this, 1, stop, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Aethon")
+                .setSmallIcon(R.drawable.ic_aethon_mono)
+                .setContentTitle(getString(R.string.app_name))
                 .setContentText(text)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(content)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
                 .setPriority(NotificationCompat.PRIORITY_LOW);
-        if (connected || active) builder.addAction(0, "Disconnect", disconnect);
+        if (connected || active) builder.addAction(0, getString(R.string.disconnect), disconnect);
         return builder.build();
     }
 
@@ -619,6 +665,16 @@ public final class AetherVpnService extends VpnService {
     @Override public void onDestroy() {
         stopping = true;
         stopRuntime();
+        flushLogs();
+        synchronized (logLock) {
+            stateStore.edit().putString("logs", logHistory.toString()).apply();
+        }
+        if (VpnConnectionController.canDisconnect(currentState)) {
+            currentState = "disconnected";
+            currentMessage = getString(R.string.service_disconnected);
+            stateStore.edit().putString("state", currentState).putString("message", currentMessage).putString("endpoint", "").apply();
+            AethonTileService.requestUpdate(this);
+        }
         telemetry.shutdownNow();
         worker.shutdownNow();
         super.onDestroy();

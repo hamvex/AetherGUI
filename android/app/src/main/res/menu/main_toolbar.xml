@@ -1,4 +1,3 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item android:id="@+id/action_diagnostics" android:icon="@drawable/ic_diagnostics" android:title="@string/menu_diagnostics" app:showAsAction="always" />
     <item android:id="@+id/action_telegram" android:icon="@drawable/ic_telegram" android:title="@string/menu_telegram" app:showAsAction="always" />
 </menu>

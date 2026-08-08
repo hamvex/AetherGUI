@@ -39,5 +39,6 @@
         android:id="@+id/app_selected"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:clickable="false" />
+        android:clickable="true"
+        android:focusable="false" />
 </LinearLayout>

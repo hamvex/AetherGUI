@@ -11,6 +11,7 @@ import android.net.VpnService;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.method.ScrollingMovementMethod;
 import android.content.res.Configuration;
 import android.view.MenuItem;
 import android.view.View;
@@ -24,6 +25,7 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.os.LocaleListCompat;
 
 import com.firstham.aethergui.databinding.ActivityMainBinding;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
@@ -35,7 +37,7 @@ import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
-import java.util.Locale;
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -54,6 +56,7 @@ public final class MainActivity extends AppCompatActivity {
     private String mode = "vpn";
     private String state = "disconnected";
     private boolean receiverRegistered;
+    private final StringBuilder visibleLogs = new StringBuilder();
 
     private final BroadcastReceiver receiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
@@ -61,22 +64,29 @@ public final class MainActivity extends AppCompatActivity {
             if (AetherVpnService.ACTION_STATUS.equals(action)) {
                 renderState(intent.getStringExtra("state"), intent.getStringExtra("message"), intent.getStringExtra("endpoint"));
             } else if (AetherVpnService.ACTION_LOG.equals(action)) {
-                appendLog(intent.getStringExtra("line"));
+                String lines = intent.getStringExtra("lines");
+                appendLog(lines == null ? intent.getStringExtra("line") : lines);
             } else if (AetherVpnService.ACTION_STATS.equals(action)) {
                 long tx = intent.getLongExtra("tx", 0);
                 long rx = intent.getLongExtra("rx", 0);
-                binding.trafficStat.setText(getString(R.string.traffic_label) + "\n" + formatBytes(tx + rx));
+                binding.trafficStat.setText(formatBytes(tx + rx));
             }
         }
     };
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         preferences = getSharedPreferences("aether", MODE_PRIVATE);
+        String language = preferences.getString("language", "");
+        LocaleListCompat locales = language == null || language.isEmpty() ? LocaleListCompat.getEmptyLocaleList() : LocaleListCompat.forLanguageTags(language);
+        if (!AppCompatDelegate.getApplicationLocales().toLanguageTags().equals(locales.toLanguageTags())) {
+            AppCompatDelegate.setApplicationLocales(locales);
+        }
         AppCompatDelegate.setDefaultNightMode(themeMode(preferences.getInt("theme", 0)));
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
         diagnosticExecutor = Executors.newSingleThreadExecutor();
+        binding.logText.setMovementMethod(new ScrollingMovementMethod());
 
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         ViewCompat.setOnApplyWindowInsetsListener(binding.root, (view, insets) -> {
@@ -94,10 +104,17 @@ public final class MainActivity extends AppCompatActivity {
         restoreSettings();
         setupActions();
         requestNotificationPermission();
-        binding.statusVersion.setText("v" + BuildConfig.VERSION_NAME);
+        binding.statusVersion.setText(getString(R.string.version_format, BuildConfig.VERSION_NAME));
         renderState(preferences.getString("state", "disconnected"), preferences.getString("message", getString(R.string.status_ready_message)), preferences.getString("endpoint", ""));
         String logs = getSharedPreferences("service_state", MODE_PRIVATE).getString("logs", "");
-        if (logs != null && !logs.isEmpty()) binding.logText.setText(logs);
+        if (logs != null && !logs.isEmpty()) {
+            visibleLogs.append(logs);
+            binding.logText.setText(logs);
+        }
+        if (getIntent().getBooleanExtra(AethonTileService.EXTRA_CONNECT_FROM_TILE, false)) {
+            getIntent().removeExtra(AethonTileService.EXTRA_CONNECT_FROM_TILE);
+            binding.root.post(this::connect);
+        }
     }
 
     private void setupDropdowns() {
@@ -108,9 +125,11 @@ public final class MainActivity extends AppCompatActivity {
         setAdapter(binding.obfuscationInput, R.array.obfuscation_labels);
         setAdapter(binding.logInput, R.array.log_labels);
         setAdapter(binding.themeInput, R.array.theme_labels);
+        setAdapter(binding.languageInput, R.array.language_labels);
         setAdapter(binding.routingInput, R.array.routing_labels);
         binding.protocolInput.setOnItemClickListener((parent, view, position, id) -> updateProtocolVisibility());
         binding.themeInput.setOnItemClickListener((parent, view, position, id) -> { saveSettings(); applyTheme(position); });
+        binding.languageInput.setOnItemClickListener((parent, view, position, id) -> applyLanguage(position));
         binding.routingInput.setOnItemClickListener((parent, view, position, id) -> { updateSplitUi(); saveSettings(); announceReconnect(); });
         updateProtocolVisibility();
     }
@@ -122,13 +141,14 @@ public final class MainActivity extends AppCompatActivity {
     private void restoreSettings() {
         mode = preferences.getString("mode", "vpn");
         binding.modeGroup.check("manual".equals(mode) ? R.id.proxy_mode_button : "smart".equals(mode) ? R.id.smart_mode_button : R.id.vpn_mode_button);
-        setSelection(binding.protocolInput, R.array.protocol_labels, "protocol", 0);
-        setSelection(binding.scanInput, R.array.scan_labels, "scan", 0);
+        setSelection(binding.protocolInput, R.array.protocol_labels, "protocol", ConnectionDefaults.PROTOCOL_INDEX);
+        setSelection(binding.scanInput, R.array.scan_labels, "scan", ConnectionDefaults.SCAN_INDEX);
         setSelection(binding.transportInput, R.array.transport_labels, "transport", 0);
         setSelection(binding.ipInput, R.array.ip_labels, "ip", 0);
         setSelection(binding.obfuscationInput, R.array.obfuscation_labels, "obfuscation", 0);
         setSelection(binding.logInput, R.array.log_labels, "log", 0);
         setSelection(binding.themeInput, R.array.theme_labels, "theme", 0);
+        binding.languageInput.setText(getResources().getStringArray(R.array.language_labels)["fa".equals(preferences.getString("language", "")) ? 1 : 0], false);
         setSelection(binding.routingInput, R.array.routing_labels, "routing", 0);
         binding.socksInput.setText(preferences.getString("socks", "127.0.0.1:1819"));
         binding.peerInput.setText(preferences.getString("peer", ""));
@@ -168,17 +188,18 @@ public final class MainActivity extends AppCompatActivity {
         binding.chooseAppsButton.setOnClickListener(v -> showAppPicker());
         binding.splitAppsInput.setOnClickListener(v -> showAppPicker());
         binding.testButton.setOnClickListener(v -> selfTest());
-        binding.clearLogsButton.setOnClickListener(v -> binding.logText.setText(R.string.logs_waiting));
+        binding.clearLogsButton.setOnClickListener(v -> {
+            visibleLogs.setLength(0);
+            binding.logText.setText(R.string.logs_waiting);
+            getSharedPreferences("service_state", MODE_PRIVATE).edit().remove("logs").apply();
+            if (isActive()) startService(new Intent(this, AetherVpnService.class).setAction(AetherVpnService.ACTION_CLEAR_LOGS));
+        });
         View.OnClickListener telegram = v -> openTelegram();
         binding.telegramCard.setOnClickListener(telegram);
         binding.telegramButton.setOnClickListener(telegram);
     }
 
     private boolean onToolbarItem(MenuItem item) {
-        if (item.getItemId() == R.id.action_diagnostics) {
-            binding.scroll.smoothScrollTo(0, binding.diagnosticsCard.getTop());
-            return true;
-        }
         if (item.getItemId() == R.id.action_telegram) {
             openTelegram();
             return true;
@@ -223,28 +244,12 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void startTunnelService() {
-        Intent intent = new Intent(this, AetherVpnService.class).setAction(AetherVpnService.ACTION_START);
-        intent.putExtra("connectionMode", mode)
-                .putExtra("protocol", new String[]{"masque", "wg", "gool"}[selectedIndex(binding.protocolInput)])
-                .putExtra("scan", new String[]{"balanced", "turbo", "thorough", "stealth", "ironclad"}[selectedIndex(binding.scanInput)])
-                .putExtra("transport", selectedIndex(binding.transportInput) == 1 ? "h2" : "h3")
-                .putExtra("ipMode", new String[]{"v4", "v6", "both"}[selectedIndex(binding.ipInput)])
-                .putExtra("obfuscation", new String[]{"firewall", "gfw", "balanced", "aggressive", "off"}[selectedIndex(binding.obfuscationInput)])
-                .putExtra("logLevel", new String[]{"info", "warn", "error", "debug", "trace"}[selectedIndex(binding.logInput)])
-                .putExtra("routing", new String[]{"bypass-local", "full", "split-include", "split-exclude"}[selectedIndex(binding.routingInput)])
-                .putExtra("socks", text(binding.socksInput))
-                .putExtra("peer", text(binding.peerInput))
-                .putExtra("mtu", parseMtu())
-                .putExtra("splitApps", text(binding.splitAppsInput))
-                .putExtra("dnsLeak", binding.dnsSwitch.isChecked())
-                .putExtra("killSwitch", binding.killswitchSwitch.isChecked())
-                .putExtra("quickReconnect", binding.reconnectSwitch.isChecked());
-        startForegroundService(intent);
+        VpnConnectionController.connect(this, preferences);
     }
 
     private void disconnect() {
-        renderState("disconnecting", "Closing the tunnel safely", "");
-        startService(new Intent(this, AetherVpnService.class).setAction(AetherVpnService.ACTION_STOP));
+        renderState("disconnecting", getString(R.string.service_disconnecting), "");
+        VpnConnectionController.disconnect(this);
     }
 
     private void selfTest() {
@@ -286,16 +291,16 @@ public final class MainActivity extends AppCompatActivity {
         String title;
         String phase;
         boolean active = isActive();
-        if ("connected".equals(state)) { title = "You are protected"; phase = "CONNECTED"; }
-        else if ("starting".equals(state)) { title = "Starting Aether"; phase = "STARTING"; }
-        else if ("smart-testing".equals(state)) { title = getString(R.string.smart_mode); phase = "TESTING"; }
-        else if ("scanning".equals(state)) { title = "Finding a gateway"; phase = "SCANNING"; }
-        else if ("securing".equals(state)) { title = "Securing your route"; phase = "SECURING"; }
-        else if ("reconnecting".equals(state)) { title = "Reconnecting"; phase = "RECONNECTING"; }
-        else if ("disconnecting".equals(state)) { title = "Disconnecting"; phase = "CLOSING"; }
-        else if ("blocked".equals(state)) { title = "Traffic is blocked"; phase = "FAIL CLOSED"; }
-        else if ("error".equals(state)) { title = "Connection needs attention"; phase = "ERROR"; }
-        else { title = getString(R.string.status_disconnected); phase = "READY"; }
+        if ("connected".equals(state)) { title = getString(R.string.status_protected); phase = getString(R.string.phase_connected); }
+        else if ("starting".equals(state)) { title = getString(R.string.status_starting); phase = getString(R.string.phase_starting); }
+        else if ("smart-testing".equals(state)) { title = getString(R.string.smart_mode); phase = getString(R.string.phase_testing); }
+        else if ("scanning".equals(state)) { title = getString(R.string.status_scanning); phase = getString(R.string.phase_scanning); }
+        else if ("securing".equals(state)) { title = getString(R.string.status_securing); phase = getString(R.string.phase_securing); }
+        else if ("reconnecting".equals(state)) { title = getString(R.string.status_reconnecting); phase = getString(R.string.phase_reconnecting); }
+        else if ("disconnecting".equals(state)) { title = getString(R.string.status_disconnecting); phase = getString(R.string.phase_closing); }
+        else if ("blocked".equals(state)) { title = getString(R.string.status_blocked); phase = getString(R.string.phase_blocked); }
+        else if ("error".equals(state)) { title = getString(R.string.status_error); phase = getString(R.string.phase_error); }
+        else { title = getString(R.string.status_disconnected); phase = getString(R.string.phase_ready); }
         binding.statusTitle.setText(title);
         binding.statusPhase.setText(phase);
         binding.statusMessage.setText(message == null ? "" : message);
@@ -303,32 +308,48 @@ public final class MainActivity extends AppCompatActivity {
         binding.connectButton.setIconResource(active ? android.R.drawable.ic_media_pause : R.drawable.ic_power);
         binding.progress.setVisibility(active && !"connected".equals(state) ? View.VISIBLE : View.GONE);
         binding.statusDot.setColorFilter("connected".equals(state) ? ContextCompat.getColor(this, R.color.green) : "error".equals(state) || "blocked".equals(state) ? ContextCompat.getColor(this, R.color.red) : Color.WHITE);
-        if (endpoint != null && !endpoint.isEmpty()) binding.protocolStat.setText(getString(R.string.protocol_label) + "\n" + endpoint);
+        if (endpoint != null && !endpoint.isEmpty()) binding.protocolStat.setText(endpoint);
         preferences.edit().putString("state", state).putString("message", message == null ? "" : message).putString("endpoint", endpoint == null ? "" : endpoint).apply();
     }
 
     private void appendLog(String line) {
         if (line == null || line.isEmpty()) return;
-        String existing = binding.logText.getText().toString();
-        if (existing.equals(getString(R.string.logs_waiting))) existing = "";
-        String next = existing + (existing.isEmpty() ? "" : "\n") + line;
-        if (next.length() > 18_000) next = next.substring(next.length() - 18_000);
-        binding.logText.setText(next);
-        binding.logText.post(() -> { android.text.Layout layout = binding.logText.getLayout(); if (layout != null) binding.logText.scrollTo(0, layout.getHeight()); });
+        boolean follow = isLogAtBottom();
+        if (visibleLogs.length() > 0) visibleLogs.append('\n');
+        visibleLogs.append(line);
+        if (visibleLogs.length() > 24_000) {
+            int cut = visibleLogs.length() - 24_000;
+            int newline = visibleLogs.indexOf("\n", cut);
+            visibleLogs.delete(0, newline >= 0 ? newline + 1 : cut);
+        }
+        binding.logText.setText(visibleLogs);
+        if (follow) binding.logText.post(this::scrollLogsToBottom);
+    }
+
+    private boolean isLogAtBottom() {
+        android.text.Layout layout = binding.logText.getLayout();
+        if (layout == null) return true;
+        return layout.getHeight() - (binding.logText.getScrollY() + binding.logText.getHeight() - binding.logText.getCompoundPaddingBottom()) < 48;
+    }
+
+    private void scrollLogsToBottom() {
+        android.text.Layout layout = binding.logText.getLayout();
+        if (layout == null) return;
+        binding.logText.scrollTo(0, Math.max(0, layout.getHeight() - binding.logText.getHeight() + binding.logText.getCompoundPaddingBottom()));
     }
 
     private void resetDefaults() {
-        binding.protocolInput.setText(getResources().getStringArray(R.array.protocol_labels)[0], false);
-        binding.scanInput.setText(getResources().getStringArray(R.array.scan_labels)[0], false);
+        binding.protocolInput.setText(getResources().getStringArray(R.array.protocol_labels)[ConnectionDefaults.PROTOCOL_INDEX], false);
+        binding.scanInput.setText(getResources().getStringArray(R.array.scan_labels)[ConnectionDefaults.SCAN_INDEX], false);
         binding.transportInput.setText(getResources().getStringArray(R.array.transport_labels)[0], false);
         binding.ipInput.setText(getResources().getStringArray(R.array.ip_labels)[0], false);
         binding.obfuscationInput.setText(getResources().getStringArray(R.array.obfuscation_labels)[0], false);
         binding.logInput.setText(getResources().getStringArray(R.array.log_labels)[0], false);
         binding.themeInput.setText(getResources().getStringArray(R.array.theme_labels)[0], false);
         binding.routingInput.setText(getResources().getStringArray(R.array.routing_labels)[0], false);
-        binding.socksInput.setText("127.0.0.1:1819");
+        binding.socksInput.setText(R.string.default_socks_address);
         binding.peerInput.setText("");
-        binding.mtuInput.setText("1500");
+        binding.mtuInput.setText(R.string.default_mtu);
         binding.splitAppsInput.setText("");
         binding.dnsSwitch.setChecked(true);
         binding.killswitchSwitch.setChecked(false);
@@ -343,12 +364,13 @@ public final class MainActivity extends AppCompatActivity {
         boolean smart = "smart".equals(mode);
         binding.protocolLayout.setVisibility(smart ? View.GONE : View.VISIBLE);
         binding.transportLayout.setVisibility(!smart && selectedIndex(binding.protocolInput) == 0 ? View.VISIBLE : View.GONE);
-        binding.protocolStat.setText(getString(R.string.protocol_label) + "\n" + (smart ? "AUTO" : selectedText(binding.protocolInput)));
+        if (smart) binding.protocolStat.setText(R.string.auto_protocol);
+        else binding.protocolStat.setText(selectedText(binding.protocolInput));
     }
 
     private void updateModeUi() {
-        String value = "manual".equals(mode) ? "SOCKS5" : "smart".equals(mode) ? "SMART" : "VPN";
-        binding.modeStat.setText(getString(R.string.mode_label) + "\n" + value);
+        String value = "manual".equals(mode) ? getString(R.string.mode_socks_short) : "smart".equals(mode) ? getString(R.string.mode_smart_short) : getString(R.string.mode_vpn_short);
+        binding.modeStat.setText(value);
         binding.modeSummary.setText("smart".equals(mode) ? R.string.smart_mode_summary : R.string.status_ready_message);
         updateProtocolVisibility();
     }
@@ -388,6 +410,12 @@ public final class MainActivity extends AppCompatActivity {
         AppCompatDelegate.setDefaultNightMode(themeMode(choice));
     }
 
+    private void applyLanguage(int choice) {
+        String language = choice == 1 ? "fa" : "";
+        preferences.edit().putString("language", language).apply();
+        AppCompatDelegate.setApplicationLocales(language.isEmpty() ? LocaleListCompat.getEmptyLocaleList() : LocaleListCompat.forLanguageTags(language));
+    }
+
     private static int themeMode(int choice) {
         if (choice == 1) return AppCompatDelegate.MODE_NIGHT_NO;
         if (choice == 2) return AppCompatDelegate.MODE_NIGHT_YES;
@@ -417,19 +445,25 @@ public final class MainActivity extends AppCompatActivity {
 
     private void openTelegram() {
         try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.channel_url)))); }
-        catch (Exception error) { Toast.makeText(this, "Telegram: @hamvex", Toast.LENGTH_SHORT).show(); }
+        catch (Exception error) { Toast.makeText(this, R.string.telegram_fallback, Toast.LENGTH_SHORT).show(); }
     }
 
-    private boolean isActive() { return "starting".equals(state) || "smart-testing".equals(state) || "scanning".equals(state) || "securing".equals(state) || "connected".equals(state) || "reconnecting".equals(state) || "disconnecting".equals(state) || "blocked".equals(state); }
+    private boolean isActive() { return VpnConnectionController.canDisconnect(state); }
     private int selectedIndex(MaterialAutoCompleteTextView view) { Object tag = view.getTag(); return tag instanceof Integer ? (Integer) tag : findIndex(view); }
     private int findIndex(MaterialAutoCompleteTextView view) { String value = selectedText(view); String[] all = view.getAdapter() == null ? new String[0] : getAdapterValues(view); for (int i = 0; i < all.length; i++) if (all[i].equals(value)) return i; return 0; }
     private String[] getAdapterValues(MaterialAutoCompleteTextView view) { String[] values = new String[view.getAdapter().getCount()]; for (int i = 0; i < values.length; i++) values[i] = String.valueOf(view.getAdapter().getItem(i)); return values; }
     private String selectedText(MaterialAutoCompleteTextView view) { return view.getText() == null ? "" : view.getText().toString(); }
     private String text(com.google.android.material.textfield.TextInputEditText view) { return view.getText() == null ? "" : view.getText().toString().trim(); }
-    private int parseMtu() { try { return Math.max(1280, Math.min(9000, Integer.parseInt(text(binding.mtuInput)))); } catch (Exception error) { return 1500; } }
     private boolean validSocksAddress(String value) { try { String[] parts = splitSocks(value); int port = Integer.parseInt(parts[1]); return !parts[0].isEmpty() && port > 0 && port <= 65535; } catch (Exception error) { return false; } }
     private String[] splitSocks(String value) { String input = value.trim(); if (input.startsWith("[")) { int end = input.indexOf(']'); if (end < 0 || end + 2 >= input.length() || input.charAt(end + 1) != ':') throw new IllegalArgumentException(); return new String[]{input.substring(1, end), input.substring(end + 2)}; } int split = input.lastIndexOf(':'); if (split <= 0) throw new IllegalArgumentException(); return new String[]{input.substring(0, split), input.substring(split + 1)}; }
-    private String formatBytes(long bytes) { if (bytes < 1024) return bytes + " B"; if (bytes < 1024 * 1024) return String.format(Locale.US, "%.1f KB", bytes / 1024.0); if (bytes < 1024L * 1024L * 1024L) return String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0)); return String.format(Locale.US, "%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0)); }
+    private String formatBytes(long bytes) {
+        NumberFormat numbers = NumberFormat.getNumberInstance(getResources().getConfiguration().getLocales().get(0));
+        numbers.setMaximumFractionDigits(1);
+        if (bytes < 1024) return numbers.format(bytes) + " B";
+        if (bytes < 1024 * 1024) return numbers.format(bytes / 1024.0) + " KB";
+        if (bytes < 1024L * 1024L * 1024L) return numbers.format(bytes / (1024.0 * 1024.0)) + " MB";
+        return numbers.format(bytes / (1024.0 * 1024.0 * 1024.0)) + " GB";
+    }
 
     @Override protected void onStart() {
         super.onStart();

@@ -43,7 +43,7 @@ final class SplitAppPicker {
         TextView empty = root.findViewById(R.id.app_empty);
         TextView count = root.findViewById(R.id.selected_count);
         TextInputEditText search = root.findViewById(R.id.app_search);
-        AppAdapter adapter = new AppAdapter(context, entries, selected);
+        AppAdapter adapter = new AppAdapter(context, entries, selected, () -> updateCount(context, count, selected));
         list.setAdapter(adapter);
         list.setEmptyView(empty);
         list.setOnItemClickListener((parent, view, position, id) -> {
@@ -119,11 +119,13 @@ final class SplitAppPicker {
         private final List<AppEntry> all;
         private final List<AppEntry> shown = new ArrayList<>();
         private final Set<String> selected;
+        private final Runnable selectionChanged;
 
-        AppAdapter(Context context, List<AppEntry> entries, Set<String> selected) {
+        AppAdapter(Context context, List<AppEntry> entries, Set<String> selected, Runnable selectionChanged) {
             inflater = LayoutInflater.from(context);
             all = entries;
             this.selected = selected;
+            this.selectionChanged = selectionChanged;
             shown.addAll(entries);
         }
 
@@ -151,7 +153,14 @@ final class SplitAppPicker {
             holder.icon.setImageDrawable(entry.icon);
             holder.name.setText(entry.name);
             holder.packageName.setText(entry.packageName);
+            holder.selected.setOnCheckedChangeListener(null);
             holder.selected.setChecked(selected.contains(entry.packageName));
+            holder.selected.setOnCheckedChangeListener((button, checked) -> {
+                if (checked) selected.add(entry.packageName);
+                else selected.remove(entry.packageName);
+                selectionChanged.run();
+                notifyDataSetChanged();
+            });
             convertView.setAlpha(entry.missing ? 0.68f : 1f);
             return convertView;
         }

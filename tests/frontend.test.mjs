@@ -56,12 +56,12 @@ test('external destinations stay scoped and no remote scripts exist', async () =
   assert.deepEqual(opener.allow.map(item=>item.url).sort(),['https://github.com/CluvexStudio/Aether','https://github.com/hamvex/AetherGUI/releases','https://t.me/hamvex']);
 });
 
-test('application metadata is v1.10.0 with current pinned engines', async () => {
+test('application metadata is v1.11.0 with current pinned engines', async () => {
   const [pkg,tauri,cargo,fetch,routing,notice]=await Promise.all([read('../package.json'),read('../src-tauri/tauri.conf.json'),read('../src-tauri/Cargo.toml'),read('../scripts/fetch-aether.ps1'),read('../scripts/fetch-routing-engine.ps1'),read('../NOTICE.md')]);
-  assert.equal(JSON.parse(pkg).version,'1.10.0');
-  assert.equal(JSON.parse(tauri).version,'1.10.0');
+  assert.equal(JSON.parse(pkg).version,'1.11.0');
+  assert.equal(JSON.parse(tauri).version,'1.11.0');
   assert.equal(JSON.parse(tauri).productName,'Aethon');
-  assert.match(cargo,/version = "1\.10\.0"/);
+  assert.match(cargo,/version = "1\.11\.0"/);
   assert.match(fetch,/"v1\.5\.0"/);
   assert.match(routing,/1\.13\.14/);
   assert.match(notice,/TRADEMARK\.md/);
@@ -69,6 +69,9 @@ test('application metadata is v1.10.0 with current pinned engines', async () => 
 
 test('Aether v1.5 capabilities include Ironclad scanning and log levels', async()=>{
   const [app,settings]=await Promise.all([read('../src/app.js'),read('../src-tauri/src/settings.rs')]);
+  assert.match(app,/protocol:'gool',scanMode:'turbo'/);
+  assert.match(settings,/protocol: "gool"\.into\(\)/);
+  assert.match(settings,/scan_mode: "turbo"\.into\(\)/);
   assert.match(app,/ironclad/);
   assert.match(app,/logLevel/);
   assert.match(settings,/AETHER_LOG_LEVEL/);
@@ -138,8 +141,8 @@ test('Android client contains VPNService, exact HEV bridge, Telegram section, an
   assert.match(bridge,/native void TProxyStopService\(\)/);
   assert.match(bridge,/native long\[\] TProxyGetStats\(\)/);
   assert.doesNotMatch(bridge,/TProxyIsRunning/);
-  assert.match(gradle,/versionName '1\.10\.0'/);
-  assert.match(gradle,/versionCode 20/);
+  assert.match(gradle,/versionName '1\.11\.0'/);
+  assert.match(gradle,/versionCode 21/);
   assert.match(gradle,/Release signing credentials are required/);
   assert.match(fetch,/aether-android-arm64\.tar\.gz/);
   assert.match(fetch,/aether-android-armv7\.tar\.gz/);

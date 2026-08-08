@@ -1,6 +1,6 @@
 [package]
 name = "aether-gui"
-version = "1.10.0"
+version = "1.11.0"
 description = "Aethon - an independent Windows desktop frontend for Aether"
 authors = ["hamvex"]
 edition = "2021"

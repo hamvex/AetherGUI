@@ -9,7 +9,7 @@ const { invoke } = tauri.core;
 const { listen } = tauri.event;
 const { openUrl } = tauri.opener;
 const $ = id => document.getElementById(id);
-const defaults = {language:'en',connectionMode:'vpn',routingMode:'bypass-local',dnsLeakProtection:true,ipv6Behavior:'tunnel',killSwitch:false,tunMtu:1500,splitApplications:[],routeExclusions:[],protocol:'masque',scanMode:'balanced',logLevel:'info',ipMode:'v4',obfuscation:'firewall',masqueTransport:'h3',socksAddress:'127.0.0.1:1819',allowRemoteListener:false,peer:'',wgKeepalive:5,stallTimeout:90,watchdog:true,configPath:'',wgConfigPath:'',masqueConfigPath:'',quickReconnect:true};
+const defaults = {language:'en',connectionMode:'vpn',routingMode:'bypass-local',dnsLeakProtection:true,ipv6Behavior:'tunnel',killSwitch:false,tunMtu:1500,splitApplications:[],routeExclusions:[],protocol:'gool',scanMode:'turbo',logLevel:'info',ipMode:'v4',obfuscation:'balanced',masqueTransport:'h3',socksAddress:'127.0.0.1:1819',allowRemoteListener:false,peer:'',wgKeepalive:5,stallTimeout:90,watchdog:true,configPath:'',wgConfigPath:'',masqueConfigPath:'',quickReconnect:true};
 let settings = {...defaults};
 let state = 'disconnected';
 let activeEndpoint = '';
@@ -107,7 +107,8 @@ function setState(next, endpoint) {
   const active=!['disconnected','error'].includes(next);$('connect').classList.toggle('hidden',active);$('disconnect').classList.toggle('hidden',!active);$('test').classList.toggle('hidden',next!=='connected');$('test').disabled=next!=='connected';$('diagnosticTest').disabled=next!=='connected';
 }
 
-function addLog(line){if(logs.length===0&&$('logs').textContent===t('diagnostics.waiting'))logs=[];logs.push(line);if(logs.length>2000)logs.splice(0,logs.length-2000);$('logs').textContent=logs.join('\n');$('logs').scrollTop=$('logs').scrollHeight}
+let pendingLogLines=[];let logFlushScheduled=false;
+function addLog(line){if(!line)return;if(logs.length===0&&$('logs').textContent===t('diagnostics.waiting'))logs=[];pendingLogLines.push(line);if(logFlushScheduled)return;logFlushScheduled=true;requestAnimationFrame(()=>{logFlushScheduled=false;logs.push(...pendingLogLines);pendingLogLines=[];if(logs.length>2000)logs.splice(0,logs.length-2000);const follow=$('logs').scrollHeight-$('logs').scrollTop-$('logs').clientHeight<48;$('logs').textContent=logs.join('\n');if(follow)$('logs').scrollTop=$('logs').scrollHeight})}
 async function connect(){try{showView('dashboard');settings=readSettings();await invoke('save_settings',{settings});logs=[];$('logs').textContent='';await invoke('connect',{settings})}catch(error){setState('error');showError(error)}}
 async function disconnect(){try{await invoke('disconnect');setState('disconnected');$('elapsed').textContent='00:00:00'}catch(error){showError(error)}}
 async function testConnection(){const buttons=[$('test'),$('diagnosticTest')];buttons.forEach(button=>button.disabled=true);try{const result=await invoke('connection_test',{settings:readSettings()});const list=$('trace');list.replaceChildren();for(const line of result.trim().split(/\r?\n/)){const[key,...rest]=line.split('=');const value=rest.join('=');const term=document.createElement('dt');const description=document.createElement('dd');term.textContent=key;description.textContent=value;list.append(term,description);if(key==='ip')$('public-ip').textContent=value}$('testResult').classList.remove('hidden');showView('diagnostics');toast(t('toast.verified'))}catch(error){showError(error)}finally{buttons.forEach(button=>button.disabled=state!=='connected')}}

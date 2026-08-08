@@ -10,6 +10,8 @@ src-tauri/binaries/*.exe
 .vscode/
 .idea/
 release-v*/
+release/
+portable/
 android/.gradle/
 android/local.properties
 android/app/build/

@@ -2,7 +2,7 @@
 
 The Android client is a native Java application using Android `VpnService`. It runs the official Aether 1.5.0 Android executable as a supervised local SOCKS5 core and routes the VPN file descriptor through HEV Socks5 Tunnel 2.16.0.
 
-Version 1.10.0 adds application pickers for include/exclude split tunneling, Material 3 system/light/dark themes, Smart Connect protocol scoring, and 32-bit ARM support.
+Version 1.11.0 adds the Aethon VPN Quick Settings tile, Persian RTL support, synchronized default settings, smoother bounded diagnostics logs, the refreshed connection dashboard, and the fixed split-tunneling checkbox interaction. It retains application pickers, Material 3 themes, Smart Connect protocol scoring, and 32-bit ARM support.
 
 Supported APK ABIs:
 
@@ -24,4 +24,4 @@ The fetch script recursively clones and verifies HEV 2.16.0, expands Windows sym
 .\gradlew.bat assembleRelease lintRelease
 ```
 
-The application uses Android package names for Include/Exclude split tunneling. Android's system VPN permission is requested only when VPN Mode starts.
+Fresh installations use Turbo scan mode and gool / WARP-in-WARP. User selections are persisted. The application uses Android package names for Include/Exclude split tunneling. Android's system VPN permission is requested only when VPN Mode starts; Quick Settings permission prompts open the existing Aethon activity.

@@ -4,11 +4,20 @@
   <img src="src-tauri/icons/icon.png" width="160" alt="Aethon logo">
 </p>
 
-Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.10.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
+Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 1.11.0 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
 
 [Persian documentation](README.fa.md) | [Releases](https://github.com/hamvex/AetherGUI/releases)
 
-## What's new in 1.10.0
+## What's new in 1.11.0
+
+- Added the Android “Aethon VPN” Quick Settings tile. It toggles the existing VPN service, reflects connected/disconnected/unavailable state, and routes VPN permission prompts through the main activity.
+- Added complete Android Persian language resources with persisted language selection, RTL-aware layouts, localized statistics, and Android 13+ locale configuration.
+- Improved Android diagnostics with bounded, batched live logs, smooth newest-entry following, and reduced storage churn.
+- Removed obsolete Android header and diagnostics copy, fixed dashboard metric overlap, enlarged the connection indicator, and compacted the Diagnostics and connection cards.
+- Fixed Android Split Tunneling checkbox selection so checkbox taps select immediately without interfering with list scrolling.
+- Changed fresh-install defaults on both clients to Turbo scanning and gool / WARP-in-WARP while preserving user selections across launches.
+- Updated the Windows dashboard with the same default protocol/scan profile, larger status indicator, safer metric wrapping, compact Diagnostics copy, and batched live log rendering.
+- Added focused default/tile lifecycle tests and verified Android debug/release resources with lint.
 
 - Added Android include-only and exclude-app split tunneling with a searchable installed-app picker.
 - Added Material 3 System, Light, and Dark themes across the Android interface.
@@ -32,18 +41,18 @@ Aethon is an independent Windows and Android client for the official [CluvexStud
 
 ## Download
 
-Download the latest files from the [Aethon 1.10.0 GitHub Release](https://github.com/hamvex/AetherGUI/releases/tag/v1.10.0):
+Download the latest files from the [Aethon 1.11.0 GitHub Release](https://github.com/hamvex/AetherGUI/releases/tag/v1.11.0):
 
-- [`Aethon_1.10.0_all-platforms.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/Aethon_1.10.0_all-platforms.zip): every Windows and Android build in one labeled archive.
-- [`Aethon_1.10.0_x64-setup.exe`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/Aethon_1.10.0_x64-setup.exe): recommended Windows x64 installer.
-- [`Aethon_1.10.0_x64_en-US.msi`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/Aethon_1.10.0_x64_en-US.msi): Windows x64 MSI package.
-- [`Aethon_1.10.0_x64-portable.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/Aethon_1.10.0_x64-portable.zip): portable Windows x64 build and required sidecars.
-- [`Aethon_1.10.0_android-universal.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/Aethon_1.10.0_android-universal.apk): Android APK containing ARMv7, ARM64, and x86_64 native libraries.
-- [`Aethon_1.10.0_android-armv7.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/Aethon_1.10.0_android-armv7.apk): APK for compatible 32-bit ARM Android devices.
-- [`Aethon_1.10.0_android-arm64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/Aethon_1.10.0_android-arm64.apk): smaller APK for most modern physical Android devices.
-- [`Aethon_1.10.0_android-x86_64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/Aethon_1.10.0_android-x86_64.apk): APK for compatible emulators and x86_64 devices.
-- [`Aethon_1.10.0_android-play.aab`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/Aethon_1.10.0_android-play.aab): signed bundle for Google Play Console.
-- [`SHA256SUMS.txt`](https://github.com/hamvex/AetherGUI/releases/download/v1.10.0/SHA256SUMS.txt): SHA-256 hashes for release verification.
+- [`Aethon_1.11.0_all-platforms.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_all-platforms.zip): universal release archive containing Windows x64 and Android ARMv7, ARM64, x86_64, universal APK, and Play bundle artifacts.
+- [`Aethon_1.11.0_x64-setup.exe`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_x64-setup.exe): recommended Windows x64 installer.
+- [`Aethon_1.11.0_x64_en-US.msi`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_x64_en-US.msi): Windows x64 MSI package.
+- [`Aethon_1.11.0_x64-portable.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_x64-portable.zip): portable Windows x64 build and required sidecars.
+- [`Aethon_1.11.0_android-universal.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-universal.apk): Android APK containing ARMv7, ARM64, and x86_64 native libraries.
+- [`Aethon_1.11.0_android-armv7.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-armv7.apk): APK for compatible 32-bit ARM Android devices.
+- [`Aethon_1.11.0_android-arm64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-arm64.apk): smaller APK for most modern physical Android devices.
+- [`Aethon_1.11.0_android-x86_64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-x86_64.apk): APK for compatible emulators and x86_64 devices.
+- [`Aethon_1.11.0_android-play.aab`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/Aethon_1.11.0_android-play.aab): signed bundle for Google Play Console.
+- [`SHA256SUMS.txt`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.0/SHA256SUMS.txt): SHA-256 hashes for release verification.
 
 Windows 10/11 x64 is supported. Published binaries are currently unsigned and may trigger Microsoft Defender SmartScreen.
 
@@ -51,8 +60,8 @@ Android 8.0 or newer is supported. Android asks for system VPN permission when V
 
 ## Windows installation and usage
 
-1. Download and run `Aethon_1.10.0_x64-setup.exe`. Existing installations can be upgraded by running the newer installer.
-2. Keep **VPN Mode**, **MASQUE**, **Balanced**, and **HTTP/3** selected for the recommended configuration.
+1. Download and run `Aethon_1.11.0_x64-setup.exe`. Existing installations can be upgraded by running the newer installer.
+2. The fresh-install defaults are **VPN Mode**, **gool / WARP-in-WARP**, and **Turbo**. Change them whenever needed; selections persist.
 3. Select **Connect** and approve the narrowly scoped Windows elevation request used to create the TUN adapter.
 4. Wait for the Connected state. The status panel displays the endpoint, routing mode, elapsed time, public IP, and proxy address.
 5. Open **Diagnostics** to run the self-test or inspect live Aether and routing logs.
@@ -66,7 +75,7 @@ The portable ZIP must be fully extracted before use. Keep `Aethon.exe`, `aether.
 
 1. Download the universal APK, the ARM64 APK for most modern phones and tablets, or ARMv7 for a compatible 32-bit device.
 2. Install it over the previous signed version; uninstalling the old version is not required.
-3. Open Aethon, keep **Device VPN**, **MASQUE**, **Balanced**, and **HTTP/3**, then select **Connect securely**.
+3. Open Aethon, keep **Device VPN**, **gool / WARP-in-WARP**, and **Turbo**, then select **Connect securely**.
 4. Approve Android's standard VPN permission dialog. Notification permission is used only for connection status and the foreground VPN service.
 5. Select **Disconnect** in the application or its persistent VPN notification to close the VPN safely.
 

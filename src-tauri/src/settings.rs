@@ -47,11 +47,11 @@ impl Default for Settings {
             tun_mtu: 1500,
             split_applications: Vec::new(),
             route_exclusions: Vec::new(),
-            protocol: "masque".into(),
-            scan_mode: "balanced".into(),
+            protocol: "gool".into(),
+            scan_mode: "turbo".into(),
             log_level: "info".into(),
             ip_mode: "v4".into(),
-            obfuscation: "firewall".into(),
+            obfuscation: "balanced".into(),
             masque_transport: "h3".into(),
             socks_address: "127.0.0.1:1819".into(),
             allow_remote_listener: false,
@@ -247,17 +247,16 @@ mod tests {
         let env = Settings::default()
             .environment(Path::new("C:/data/aether.toml"))
             .unwrap();
-        assert_eq!(env["AETHER_PROTOCOL"], "masque");
-        assert_eq!(env["AETHER_MASQUE_HTTP2"], "0");
+        assert_eq!(env["AETHER_PROTOCOL"], "gool");
         assert_eq!(env["AETHER_SOCKS"], "127.0.0.1:1819");
     }
     #[test]
     fn protocol_profiles_are_enforced() {
         let mut s = Settings::default();
         s.protocol = "wg".into();
-        assert!(s.validate().is_err());
-        s.obfuscation = "aggressive".into();
         assert!(s.validate().is_ok());
+        s.obfuscation = "firewall".into();
+        assert!(s.validate().is_err());
     }
     #[test]
     fn non_loopback_listener_is_rejected() {
@@ -299,6 +298,8 @@ mod tests {
     #[test]
     fn wireguard_and_h2_use_exact_core_names() {
         let mut settings = Settings::default();
+        settings.protocol = "masque".into();
+        settings.obfuscation = "firewall".into();
         settings.masque_transport = "h2".into();
         let h2 = settings.environment(Path::new("aether.toml")).unwrap();
         assert_eq!(h2["AETHER_MASQUE_HTTP2"], "1");
