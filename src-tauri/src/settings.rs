@@ -77,6 +77,20 @@ impl Default for Settings {
 }
 
 impl Settings {
+    /// Migrate protocol-specific values from older Windows UI versions before validation.
+    pub fn normalize_protocol_options(&mut self) {
+        if self.protocol == "masque" {
+            if !["firewall", "gfw", "off"].contains(&self.obfuscation.as_str()) {
+                self.obfuscation = "firewall".into();
+            }
+        } else if !["balanced", "aggressive", "light", "off"].contains(&self.obfuscation.as_str()) {
+            self.obfuscation = "balanced".into();
+        }
+        if !["h3", "h2"].contains(&self.masque_transport.as_str()) {
+            self.masque_transport = "h3".into();
+        }
+    }
+
     pub fn validate(&self) -> Result<(), String> {
         one_of("connection mode", &self.connection_mode, &["vpn", "manual"])?;
         one_of(
@@ -271,6 +285,19 @@ mod tests {
         assert!(s.validate().is_ok());
         s.obfuscation = "firewall".into();
         assert!(s.validate().is_err());
+    }
+    #[test]
+    fn masque_legacy_obfuscation_is_migrated_without_touching_scan_mode() {
+        let mut settings = Settings::default();
+        settings.protocol = "masque".into();
+        settings.obfuscation = "balanced".into();
+        settings.scan_mode = "ironclad".into();
+        settings.masque_transport = "invalid".into();
+        settings.normalize_protocol_options();
+        assert_eq!(settings.obfuscation, "firewall");
+        assert_eq!(settings.masque_transport, "h3");
+        assert_eq!(settings.scan_mode, "ironclad");
+        assert!(settings.validate().is_ok());
     }
     #[test]
     fn non_loopback_listener_is_rejected() {

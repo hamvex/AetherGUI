@@ -18,17 +18,15 @@
       </div>
 
       <nav data-i18n-aria="nav.main" aria-label="Main navigation">
-        <button class="nav-item active" data-view="dashboard" aria-current="page">
-          <span class="nav-symbol">●</span><span data-i18n="nav.connection">Connection</span>
-        </button>
-        <button class="nav-item" data-view="diagnostics">
-          <span class="nav-symbol">≡</span><span data-i18n="nav.diagnostics">Diagnostics</span>
-        </button>
+        <button class="nav-item active" data-view="dashboard" aria-current="page"><span class="nav-symbol">⌂</span><span data-i18n="nav.connection">Connection</span></button>
+        <button class="nav-item" data-view="settings"><span class="nav-symbol">⚙</span><span>Settings</span></button>
+        <button class="nav-item" data-view="diagnostics"><span class="nav-symbol">≡</span><span data-i18n="nav.diagnostics">Diagnostics</span></button>
+        <button class="nav-item" data-view="updates"><span class="nav-symbol">↻</span><span>Updates</span><span id="update-badge" class="nav-badge hidden">1</span></button>
       </nav>
 
       <div class="rail-footer">
         <div class="mini-status"><span id="sidebar-dot" class="state-dot disconnected"></span><span id="sidebar-state" data-i18n="status.disconnected">Disconnected</span></div>
-        <div class="version-row"><span>App 1.11.1</span><span>Core 1.5.0</span></div>
+        <div class="version-row"><span>App 1.11.2</span><span>Core 1.5.0</span></div>
       </div>
     </aside>
 
@@ -63,9 +61,13 @@
           </div>
         </section>
 
-        <section class="panel profile-panel settings-panel">
+      </section>
+
+      <section id="view-settings" class="view" aria-labelledby="settings-page-title">
+        <header class="topbar"><div><p class="eyebrow">PREFERENCES</p><h2 id="settings-page-title">Settings</h2><p>Connection and privacy options for Aethon.</p></div></header>
+        <section class="panel settings-panel profile-panel">
           <div class="panel-heading">
-            <div><h3 data-i18n="settings.title">Connection profile</h3><p data-i18n="settings.subtitle">Three choices are usually all you need.</p></div>
+            <div><h3 data-i18n="settings.title">Connection</h3><p data-i18n="settings.subtitle">Choose the essentials for your connection.</p></div>
             <button id="reset" class="button ghost" data-i18n="actions.reset">Reset defaults</button>
           </div>
 
@@ -86,62 +88,25 @@
               <div class="segmented" id="protocol"><button data-value="masque">MASQUE</button><button data-value="wg">WireGuard</button><button data-value="gool" class="active">gool / WARP-in-WARP</button></div>
             </div>
             <div class="field"><label for="scanMode" data-i18n="settings.scan">Scan mode</label><select id="scanMode"></select></div>
-            <div class="field" id="transport-field"><label data-i18n="settings.transport">MASQUE transport</label><div class="segmented" id="transport"><button data-value="h3" class="active">HTTP/3</button><button data-value="h2">HTTP/2</button></div></div>
+            <div class="field"><label for="peer" data-i18n="settings.peer">Custom endpoint</label><input id="peer" data-i18n-placeholder="placeholder.peer" placeholder="Automatic" spellcheck="false"></div>
+            <div class="field hidden" id="transport-field"><label data-i18n="settings.transport">MASQUE transport</label><div class="segmented" id="transport"><button data-value="h3" class="active">HTTP/3</button><button data-value="h2">HTTP/2</button></div></div>
           </div>
 
-          <details class="advanced" id="advancedSettings">
-            <summary><span><b data-i18n="advanced.title">Advanced Settings</b><small data-i18n="advanced.subtitle">Network details, safety, and configuration files</small></span><span class="chevron">⌄</span></summary>
-            <div class="advanced-content">
-              <section class="advanced-group">
-                <h4 data-i18n="advanced.network">Network</h4>
-                <div class="grid-3">
-                  <div class="field"><label for="ipMode" data-i18n="settings.ipMode">IP scan</label><select id="ipMode"></select></div>
-                  <div class="field"><label for="obfuscation" data-i18n="settings.obfuscation">Obfuscation</label><select id="obfuscation"></select><small id="obfuscation-help"></small></div>
-                  <div class="field"><label for="logLevel" data-i18n="settings.logLevel">Log level</label><select id="logLevel"></select></div>
-                </div>
-                <div class="grid-2">
-                  <div class="field"><label for="socksAddress" data-i18n="settings.socks">SOCKS5 listen address</label><input id="socksAddress" value="127.0.0.1:1819" spellcheck="false"></div>
-                  <div class="field"><label for="peer" data-i18n="settings.peer">Custom endpoint</label><input id="peer" data-i18n-placeholder="placeholder.peer" placeholder="Leave empty for automatic scan" spellcheck="false"></div>
-                </div>
-                <label class="check warning"><input type="checkbox" id="allowRemote"><span><b data-i18n="settings.allowRemote">Allow a non-local listener</b><small data-i18n="help.allowRemote">This can expose the proxy to other devices.</small></span></label>
-              </section>
+          <section class="privacy-settings"><h4>Privacy &amp; Network</h4><div class="privacy-grid"><label class="check"><input type="checkbox" id="dnsLeakProtection" checked><span><b data-i18n="vpn.dnsLeak">DNS leak protection</b><small data-i18n="vpn.dnsHelp">Resolve DNS through Aethon.</small></span></label><label class="check warning"><input type="checkbox" id="killSwitch"><span><b data-i18n="vpn.killSwitch">Kill Switch</b><small data-i18n="vpn.killHelp">Hold traffic if Aethon fails.</small></span></label><div class="field"><label for="ipv6Behavior" data-i18n="vpn.ipv6">IPv6 behavior</label><select id="ipv6Behavior"></select></div></div></section>
 
-              <section class="advanced-group">
-                <h4 data-i18n="vpn.advanced">System-wide routing</h4>
-                <div class="toggle-list">
-                  <label class="check"><input type="checkbox" id="dnsLeakProtection" checked><span><b data-i18n="vpn.dnsLeak">DNS leak protection</b><small data-i18n="vpn.dnsHelp">Intercept DNS and resolve it through Aether.</small></span></label>
-                  <label class="check warning"><input type="checkbox" id="killSwitch"><span><b data-i18n="vpn.killSwitch">Kill Switch</b><small data-i18n="vpn.killHelp">Keep TUN routing closed if Aether fails.</small></span></label>
-                </div>
-                <div class="grid-2"><div class="field"><label for="ipv6Behavior" data-i18n="vpn.ipv6">IPv6 behavior</label><select id="ipv6Behavior"></select></div><div class="field"><label for="tunMtu" data-i18n="vpn.mtu">TUN MTU</label><input id="tunMtu" type="number" min="1280" max="9000" value="1500"></div></div>
-                <div class="field"><label for="splitApplications" data-i18n="vpn.splitApps">Split-tunnel applications</label><textarea id="splitApplications" rows="3" data-i18n-placeholder="vpn.splitPlaceholder" placeholder="One absolute .exe path per line"></textarea><button class="button secondary small inline-action" id="addApplications" type="button" data-i18n="vpn.addApps">Add applications</button></div>
-                <div class="field"><label for="routeExclusions" data-i18n="vpn.exclusions">Additional route exclusions</label><textarea id="routeExclusions" rows="2" placeholder="203.0.113.0/24"></textarea></div>
-              </section>
-
-              <section class="advanced-group">
-                <h4 data-i18n="advanced.reliability">Reliability and safety</h4>
-                <div class="grid-2">
-                  <div class="field" id="keepalive-field"><label for="keepalive" data-i18n="settings.keepalive">WireGuard keepalive</label><div class="number-input"><input id="keepalive" type="number" min="1" max="65535" value="5"><span data-i18n="unit.seconds">seconds</span></div></div>
-                  <div class="field"><label for="stallTimeout" data-i18n="settings.timeout">Stall timeout</label><div class="number-input"><input id="stallTimeout" type="number" min="10" max="3600" value="90"><span data-i18n="unit.seconds">seconds</span></div></div>
-                </div>
-                <div class="toggle-list"><label class="check"><input type="checkbox" id="watchdog" checked><span><b data-i18n="settings.watchdog">Watchdog</b><small data-i18n="help.watchdog">Stop a core process that becomes stuck.</small></span></label><label class="check"><input type="checkbox" id="quickReconnect" checked><span><b data-i18n="settings.quickReconnect">Quick reconnect</b><small data-i18n="help.quickReconnect">Try the last verified endpoint first.</small></span></label></div>
-              </section>
-
-              <section class="advanced-group config-group">
-                <h4 data-i18n="advanced.files">Configuration files</h4>
-                <div class="field"><label for="configPath" data-i18n="settings.baseConfig">Base configuration</label><input id="configPath" data-i18n-placeholder="placeholder.defaultPath" placeholder="Use application default"></div>
-                <div class="grid-2"><div class="field"><label for="wgConfigPath" data-i18n="settings.wgConfig">WireGuard configuration</label><input id="wgConfigPath" data-i18n-placeholder="placeholder.optional" placeholder="Optional"></div><div class="field"><label for="masqueConfigPath" data-i18n="settings.masqueConfig">MASQUE configuration</label><input id="masqueConfigPath" data-i18n-placeholder="placeholder.optional" placeholder="Optional"></div></div>
-              </section>
-            </div>
-          </details>
         </section>
 
+      </section>
+
+      <section id="view-updates" class="view" aria-labelledby="updates-title">
+        <header class="topbar"><div><p class="eyebrow">RELEASES</p><h2>App Update</h2><p>Windows application updates and release information.</p></div></header>
         <section class="panel update-panel" aria-labelledby="updates-title">
           <div class="panel-heading">
             <div><h3 id="updates-title" data-i18n="updates.title">App Updates</h3><p id="update-status" data-i18n="updates.upToDate">Up to date</p></div>
             <div class="update-actions"><button id="checkUpdates" class="button secondary" data-i18n="updates.check">Check for Updates</button><button id="updateAction" class="button primary hidden" data-i18n="updates.download">Download update</button></div>
           </div>
           <div class="update-grid">
-            <div><span data-i18n="updates.current">Current version</span><strong id="current-version">1.11.1</strong></div>
+            <div><span data-i18n="updates.current">Current version</span><strong id="current-version">1.11.2</strong></div>
             <div><span data-i18n="updates.latest">Latest available version</span><strong id="latest-version">—</strong></div>
             <div><span data-i18n="updates.status">Update status</span><strong id="update-status-value" data-i18n="updates.upToDate">Up to date</strong></div>
           </div>
@@ -149,7 +114,6 @@
           <div class="release-notes"><b data-i18n="updates.releaseNotes">Release notes</b><p id="update-notes" data-i18n="updates.noNotes">No release notes are available.</p></div>
         </section>
 
-        <footer class="app-footer"><span>Independent frontend · Aether is a CluvexStudio project</span><div><button class="link-button" data-external="https://github.com/CluvexStudio/Aether">Upstream</button><button class="link-button" data-external="https://github.com/hamvex/AetherGUI/releases">Releases</button></div></footer>
       </section>
 
       <section id="view-diagnostics" class="view" aria-labelledby="diagnostics-title">

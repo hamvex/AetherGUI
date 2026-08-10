@@ -31,8 +31,6 @@ function setOptions(element, options, selected) {
 
 function renderChoiceOptions() {
   setOptions($('scanMode'), [['turbo',t('scan.turbo')],['balanced',t('scan.balanced')],['thorough',t('scan.thorough')],['stealth',t('scan.stealth')],['ironclad',t('scan.ironclad')]], settings.scanMode);
-  setOptions($('logLevel'), [['error','Error'],['warn','Warning'],['info','Info'],['debug','Debug'],['trace','Trace']], settings.logLevel);
-  setOptions($('ipMode'), [['v4',t('ip.v4')],['v6',t('ip.v6')],['both',t('ip.both')]], settings.ipMode);
   setOptions($('routingMode'), [['full',t('routing.full')],['bypass-local',t('routing.bypassLocal')],['split-include',t('routing.splitInclude')],['split-exclude',t('routing.splitExclude')]], settings.routingMode);
   setOptions($('ipv6Behavior'), [['tunnel',t('ipv6.tunnel')],['block',t('ipv6.block')]], settings.ipv6Behavior);
   syncProtocol();
@@ -40,20 +38,12 @@ function renderChoiceOptions() {
 
 function syncProtocol() {
   settings.protocol = segmentValue('protocol') || settings.protocol;
-  const masque = settings.protocol === 'masque';
-  $('transport-field').classList.toggle('hidden', !masque);
-  $('keepalive-field').classList.toggle('hidden', masque);
-  const options = masque
-    ? [['firewall',t('obfuscation.firewall')],['gfw',t('obfuscation.gfw')],['off',t('obfuscation.off')]]
-    : [['balanced',t('obfuscation.balanced')],['aggressive',t('obfuscation.aggressive')],['light',t('obfuscation.light')],['off',t('obfuscation.off')]];
-  if (!options.some(([value]) => value === settings.obfuscation)) settings.obfuscation = options[0][0];
-  setOptions($('obfuscation'), options, settings.obfuscation);
-  $('obfuscation-help').textContent = t(masque ? 'help.obfuscationMasque' : 'help.obfuscationOther');
+  $('transport-field').classList.toggle('hidden', settings.protocol !== 'masque');
 }
 function syncConnectionMode(){settings.connectionMode=segmentValue('connectionMode')||settings.connectionMode;const manual=settings.connectionMode==='manual';$('manualProxy').classList.toggle('hidden',!manual);$('routingMode').disabled=manual;$('vpn-description').textContent=t(manual?'proxy.description':'vpn.description');const key=settings.routingMode==='bypass-local'?'bypassLocal':settings.routingMode==='split-include'?'splitInclude':settings.routingMode==='split-exclude'?'splitExclude':'full';$('routing-display').textContent=manual?t('vpn.manualMode'):t(`routing.${key}`)}
 
 function readSettings() {
-  return {automaticUpdates:$('automaticUpdates').checked,connectionMode:segmentValue('connectionMode'),routingMode:$('routingMode').value,dnsLeakProtection:$('dnsLeakProtection').checked,ipv6Behavior:$('ipv6Behavior').value,killSwitch:$('killSwitch').checked,tunMtu:Number($('tunMtu').value),splitApplications:$('splitApplications').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),routeExclusions:$('routeExclusions').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean),protocol:segmentValue('protocol'),scanMode:$('scanMode').value,logLevel:$('logLevel').value,ipMode:$('ipMode').value,obfuscation:$('obfuscation').value,masqueTransport:segmentValue('transport'),socksAddress:$('socksAddress').value.trim(),allowRemoteListener:$('allowRemote').checked,peer:$('peer').value.trim(),wgKeepalive:Number($('keepalive').value),stallTimeout:Number($('stallTimeout').value),watchdog:$('watchdog').checked,configPath:$('configPath').value.trim(),wgConfigPath:$('wgConfigPath').value.trim(),masqueConfigPath:$('masqueConfigPath').value.trim(),quickReconnect:$('quickReconnect').checked};
+  return {...settings,automaticUpdates:$('automaticUpdates').checked,connectionMode:segmentValue('connectionMode'),routingMode:$('routingMode').value,dnsLeakProtection:$('dnsLeakProtection').checked,ipv6Behavior:$('ipv6Behavior').value,killSwitch:$('killSwitch').checked,protocol:segmentValue('protocol'),scanMode:$('scanMode').value,masqueTransport:segmentValue('transport')||settings.masqueTransport,peer:$('peer').value.trim()};
 }
 
 function renderSettings(saved) {
@@ -61,7 +51,7 @@ function renderSettings(saved) {
   selectSegment('connectionMode',settings.connectionMode);
   selectSegment('protocol',settings.protocol);
   selectSegment('transport',settings.masqueTransport);
-  $('automaticUpdates').checked=settings.automaticUpdates;$('routingMode').value=settings.routingMode;$('dnsLeakProtection').checked=settings.dnsLeakProtection;$('ipv6Behavior').value=settings.ipv6Behavior;$('killSwitch').checked=settings.killSwitch;$('tunMtu').value=settings.tunMtu;$('splitApplications').value=settings.splitApplications.join('\n');$('routeExclusions').value=settings.routeExclusions.join('\n');$('socksAddress').value=settings.socksAddress;$('allowRemote').checked=settings.allowRemoteListener;$('peer').value=settings.peer;$('keepalive').value=settings.wgKeepalive;$('stallTimeout').value=settings.stallTimeout;$('watchdog').checked=settings.watchdog;$('quickReconnect').checked=settings.quickReconnect;$('configPath').value=settings.configPath;$('wgConfigPath').value=settings.wgConfigPath;$('masqueConfigPath').value=settings.masqueConfigPath;$('logLevel').value=settings.logLevel;$('socks-display').textContent=settings.socksAddress;
+  $('automaticUpdates').checked=settings.automaticUpdates;$('routingMode').value=settings.routingMode;$('dnsLeakProtection').checked=settings.dnsLeakProtection;$('killSwitch').checked=settings.killSwitch;$('peer').value=settings.peer;$('socks-display').textContent=settings.socksAddress;
   applyTranslations();
   renderChoiceOptions();
   setState(state, activeEndpoint);
@@ -122,11 +112,13 @@ async function checkUpdates(manual = false) {
     $('latest-version').textContent = updateInfo.latestVersion;
     $('update-notes').textContent = updateInfo.releaseNotes?.trim() || t('updates.noNotes');
     if (updateInfo.available) {
+      $('update-badge').classList.remove('hidden');
       setUpdateStatus('updates.available');
       $('updateAction').classList.remove('hidden');
       $('updateAction').textContent = t('updates.download');
       if (settings.automaticUpdates) await downloadUpdate();
     } else {
+      $('update-badge').classList.add('hidden');
       setUpdateStatus('updates.upToDate');
       $('updateAction').classList.add('hidden');
       if (manual) toast(t('updates.upToDate'));
@@ -148,7 +140,7 @@ async function testConnection(){const buttons=[$('test'),$('diagnosticTest')];bu
 function showView(name){document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===`view-${name}`));document.querySelectorAll('.nav-item').forEach(item=>{const active=item.dataset.view===name;item.classList.toggle('active',active);if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current')});window.scrollTo({top:0,behavior:'instant'})}
 
 $('protocol').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('protocol',event.target.dataset.value);settings.protocol=event.target.dataset.value;syncProtocol();queueSave()});
-$('transport').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('transport',event.target.dataset.value);queueSave()});
+$('transport').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('transport',event.target.dataset.value);settings.masqueTransport=event.target.dataset.value;queueSave()});
 $('connectionMode').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('connectionMode',event.target.dataset.value);settings.connectionMode=event.target.dataset.value;syncConnectionMode();queueSave()});
 document.querySelector('.settings-panel').querySelectorAll('input,select,textarea').forEach(element=>element.addEventListener('change',()=>{queueSave();syncConnectionMode()}));
 $('routingMode').addEventListener('change',()=>{settings.routingMode=$('routingMode').value;syncConnectionMode()});
@@ -160,7 +152,6 @@ $('reset').addEventListener('click',()=>{renderSettings(defaults);queueSave();to
 $('copyProxy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(readSettings().socksAddress);toast(t('toast.proxyCopied'))}catch(error){showError(error)}});
 $('clearLogs').addEventListener('click',()=>{logs=[];$('logs').textContent=''});$('copyLogs').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(logs.join('\n'));toast(t('toast.logsCopied'))}catch(error){showError(error)}});$('closeTest').addEventListener('click',()=>$('testResult').classList.add('hidden'));
 $('repairNetwork').addEventListener('click',async()=>{try{await invoke('repair_network');toast(t('diagnostics.repair'))}catch(error){showError(error)}});
-$('addApplications').addEventListener('click',async()=>{try{const paths=await invoke('pick_applications');if(paths.length){const existing=$('splitApplications').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);$('splitApplications').value=[...new Set([...existing,...paths])].join('\n');queueSave()}}catch(error){showError(error)}});
 document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>showView(item.dataset.view)));
 document.querySelectorAll('[data-external]').forEach(button=>button.addEventListener('click',async()=>{try{await openUrl(button.dataset.external)}catch(error){showError(error)}}));
 

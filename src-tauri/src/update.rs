@@ -56,7 +56,7 @@ struct UpdateProgress {
 
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .user_agent("Aethon-Update/1.11.1")
+        .user_agent("Aethon-Update/1.11.2")
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|error| error.to_string())

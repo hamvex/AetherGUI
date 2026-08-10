@@ -1,4 +1,7 @@
-use crate::settings::Settings;
+use crate::{
+    process::{emit_status, ProcessManager},
+    settings::Settings,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -36,6 +39,8 @@ struct RoutingRequest {
     split_applications: Vec<String>,
     route_exclusions: Vec<String>,
     session_dir: PathBuf,
+    tun_interface: String,
+    previous_session_dir: Option<PathBuf>,
 }
 
 struct Session {
@@ -44,6 +49,7 @@ struct Session {
 #[derive(Default)]
 pub struct RoutingManager {
     session: Mutex<Option<Session>>,
+    lifecycle: Mutex<()>,
 }
 
 impl RoutingManager {
@@ -51,9 +57,28 @@ impl RoutingManager {
         self: &Arc<Self>,
         app: AppHandle,
         settings: &Settings,
+        process: Arc<ProcessManager>,
     ) -> Result<(), String> {
         if settings.connection_mode != "vpn" {
             return Ok(());
+        }
+        let _operation = self.lifecycle.lock().await;
+        let existing_dir = self
+            .session
+            .lock()
+            .await
+            .as_ref()
+            .map(|session| session.dir.clone());
+        if let Some(dir) = existing_dir {
+            match read_status(&dir).map(|status| status.state) {
+                Ok(state) if !matches!(state.as_str(), "error" | "disabled") => {
+                    return Err("An Aethon routing session is already active".into());
+                }
+                _ => {
+                    self.session.lock().await.take();
+                    cleanup_owned_adapters(None);
+                }
+            }
         }
         wait_for_socks(
             &settings.socks_address,
@@ -66,6 +91,7 @@ impl RoutingManager {
             .map_err(display_err)?
             .join("routing");
         fs::create_dir_all(&base).map_err(display_err)?;
+        let previous_session_dir = read_recovery_session(&base);
         let session_id = format!(
             "{}-{}",
             std::process::id(),
@@ -76,6 +102,21 @@ impl RoutingManager {
         );
         let dir = base.join(&session_id);
         fs::create_dir_all(&dir).map_err(display_err)?;
+        let tun_interface = format!(
+            "AethonTun-{}-{}",
+            std::process::id() % 10000,
+            session_id
+                .rsplit('-')
+                .next()
+                .unwrap_or("0")
+                .chars()
+                .rev()
+                .take(6)
+                .collect::<String>()
+                .chars()
+                .rev()
+                .collect::<String>()
+        );
         let request = RoutingRequest {
             session_id,
             gui_pid: std::process::id(),
@@ -88,6 +129,8 @@ impl RoutingManager {
             split_applications: settings.split_applications.clone(),
             route_exclusions: settings.route_exclusions.clone(),
             session_dir: dir.clone(),
+            tun_interface,
+            previous_session_dir,
         };
         request.validate()?;
         let request_path = dir.join("request.json");
@@ -102,10 +145,19 @@ impl RoutingManager {
             "requesting-admin",
             "Administrator permission is required to start the virtual adapter",
         );
-        launch_elevated("--routing-helper", &request_path)?;
         *self.session.lock().await = Some(Session {
             dir: request.session_dir.clone(),
         });
+        if let Err(error) = launch_elevated("--routing-helper", &request_path) {
+            let _ = write_status(
+                &request.session_dir,
+                "error",
+                &format!("Routing helper could not start: {error}"),
+                0,
+            );
+            self.session.lock().await.take();
+            return Err(error);
+        }
         for _ in 0..90 {
             sleep(Duration::from_millis(500)).await;
             if let Ok(status) = read_status(&request.session_dir) {
@@ -113,6 +165,7 @@ impl RoutingManager {
                 if status.state == "connected" {
                     let monitor_dir = request.session_dir.clone();
                     let monitor_app = app.clone();
+                    let monitor_manager = self.clone();
                     tauri::async_runtime::spawn(async move {
                         let mut last = String::new();
                         loop {
@@ -122,7 +175,18 @@ impl RoutingManager {
                                     last = value.state.clone();
                                     let _ = monitor_app.emit("routing-status", &value);
                                 }
-                                if matches!(value.state.as_str(), "disabled" | "error") {
+                                if value.state == "error" {
+                                    let _ = process.stop().await;
+                                    let _ = monitor_manager.stop(&monitor_app).await;
+                                    emit_status(
+                                        &monitor_app,
+                                        "disconnected",
+                                        None,
+                                        Some(value.message.clone()),
+                                    );
+                                    break;
+                                }
+                                if value.state == "disabled" {
                                     break;
                                 }
                             }
@@ -131,14 +195,15 @@ impl RoutingManager {
                     return Ok(());
                 }
                 if status.state == "error" {
-                    return Err(status.message);
+                    return Err(sanitize_diagnostic(&status.message));
                 }
             }
         }
-        Err("The routing helper did not become ready".into())
+        Err("The routing helper did not become ready; check Diagnostics for routing.log".into())
     }
 
     pub async fn stop(&self, app: &AppHandle) -> Result<(), String> {
+        let _operation = self.lifecycle.lock().await;
         let session = self.session.lock().await.take();
         let Some(session) = session else {
             return Ok(());
@@ -148,10 +213,8 @@ impl RoutingManager {
             "restoring",
             "Restoring routes, DNS, and the virtual adapter",
         );
-        let control_result = atomic_json(
-            &session.dir.join("control.json"),
-            &json!({"action":"stop"}),
-        );
+        let control_result =
+            atomic_json(&session.dir.join("control.json"), &json!({"action":"stop"}));
         for _ in 0..40 {
             sleep(Duration::from_millis(250)).await;
             if read_status(&session.dir)
@@ -212,6 +275,20 @@ impl RoutingRequest {
                 != Some("routing")
         {
             return Err("Invalid routing session path".into());
+        }
+        if self.tun_interface.len() > 32
+            || !self
+                .tun_interface
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-')
+            || !self.tun_interface.starts_with("AethonTun-")
+        {
+            return Err("Invalid Aethon TUN interface name".into());
+        }
+        if let Some(previous) = &self.previous_session_dir {
+            if previous.parent() != self.session_dir.parent() || previous.file_name().is_none() {
+                return Err("Invalid previous routing session path".into());
+            }
         }
         for path in &self.split_applications {
             let p = Path::new(path);
@@ -283,7 +360,7 @@ fn sing_box_config(request: &RoutingRequest) -> Value {
     json!({
       "log":{"level":"info","timestamp":true},
       "dns":{"servers":[{"type":"https","tag":"secure-dns","server":"1.1.1.1","server_port":443,"path":"/dns-query","tls":{"enabled":true,"server_name":"cloudflare-dns.com"},"detour":"aether"}],"final":"secure-dns","strategy":"prefer_ipv4"},
-      "inbounds":[{"type":"tun","tag":"tun-in","interface_name":"FirsthamAether","address":["172.19.0.1/30","fdfe:dcba:9876::1/126"],"mtu":request.tun_mtu,"auto_route":true,"strict_route":request.dns_leak_protection,"stack":"mixed"}],
+      "inbounds":[{"type":"tun","tag":"tun-in","interface_name":request.tun_interface,"address":["172.19.0.1/30","fdfe:dcba:9876::1/126"],"mtu":request.tun_mtu,"auto_route":true,"strict_route":request.dns_leak_protection,"stack":"mixed"}],
       "outbounds":[{"type":"socks","tag":"aether","server":socket.ip().to_string(),"server_port":socket.port(),"version":"5"},{"type":"direct","tag":"direct"}],
       "route":{"auto_detect_interface":true,"find_process":true,"rules":rules,"final":final_outbound}
     })
@@ -299,119 +376,353 @@ pub fn helper_main(request_path: &Path) -> Result<(), String> {
     {
         return Err("Request path is outside its session directory".into());
     }
-    write_status(
-        &request.session_dir,
-        "preparing",
-        "Validating the embedded routing engine",
-        0,
-    )?;
-    let engine = resolve_beside_current("sing-box.exe")?;
-    let config_path = request.session_dir.join("sing-box.json");
-    atomic_json(&config_path, &sing_box_config(&request))?;
-    write_status(
-        &request.session_dir,
-        "starting-adapter",
-        "Starting the FirsthamAether virtual adapter",
-        0,
-    )?;
-    let log = fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(request.session_dir.join("routing.log"))
-        .map_err(display_err)?;
-    let err = log.try_clone().map_err(display_err)?;
-    let mut child = Command::new(engine)
-        .args(["run", "-c"])
-        .arg(&config_path)
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(log))
-        .stderr(Stdio::from(err))
-        .spawn()
-        .map_err(display_err)?;
-    write_status(
-        &request.session_dir,
-        "configuring-routes",
-        "Configuring routes and protected DNS",
-        child.id(),
-    )?;
-    std::thread::sleep(Duration::from_secs(2));
-    if let Some(exit) = child.try_wait().map_err(display_err)? {
-        return Err(format!("Routing engine exited during startup: {exit}"));
-    }
-    write_status(
-        &request.session_dir,
-        "connected",
-        "System-wide routing is active",
-        child.id(),
-    )?;
-    let mut health_tick = 0u8;
-    let mut socks_down = false;
-    loop {
-        if request.session_dir.join("control.json").exists() || !process_alive(request.gui_pid) {
-            break;
+    let result = (|| -> Result<(), String> {
+        if let Some(previous) = &request.previous_session_dir {
+            recover_owned_session(previous);
         }
-        if let Some(exit) = child.try_wait().map_err(display_err)? {
-            write_status(
-                &request.session_dir,
-                "error",
-                &format!("Routing engine exited unexpectedly: {exit}"),
-                0,
-            )?;
-            return Err("Routing engine stopped".into());
-        }
-        health_tick = health_tick.wrapping_add(1);
-        if health_tick % 5 == 0 {
-            if !sync_socks_ready(&request.socks_address) {
-                socks_down = true;
-                if request.kill_switch {
-                    write_status(
-                        &request.session_dir,
-                        "reconnecting",
-                        "Kill Switch is holding system traffic while Aether recovers",
-                        child.id(),
-                    )?;
-                } else {
-                    write_status(
-                        &request.session_dir,
-                        "restoring",
-                        "Aether is unavailable; fail-open is restoring normal networking",
-                        child.id(),
-                    )?;
-                    break;
-                }
-            } else if socks_down {
-                socks_down = false;
-                write_status(
-                    &request.session_dir,
-                    "connected",
-                    "Aether recovered and system-wide routing resumed",
-                    child.id(),
-                )?;
+        let _helper_lock = acquire_helper_lock()?;
+        write_status(
+            &request.session_dir,
+            "preparing",
+            "Validating the embedded routing engine",
+            0,
+        )?;
+        cleanup_owned_adapters(None);
+        let engine = resolve_beside_current("sing-box.exe")?;
+        let config_path = request.session_dir.join("sing-box.json");
+        atomic_json(&config_path, &sing_box_config(&request))?;
+        write_status(
+            &request.session_dir,
+            "starting-adapter",
+            "Starting the Aethon virtual adapter",
+            0,
+        )?;
+        let log = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(request.session_dir.join("routing.log"))
+            .map_err(display_err)?;
+        let err = log.try_clone().map_err(display_err)?;
+        let mut engine_command = Command::new(engine);
+        engine_command
+            .args(["run", "-c"])
+            .arg(&config_path)
+            .stdin(Stdio::null())
+            .stdout(Stdio::from(log))
+            .stderr(Stdio::from(err));
+        hide_command_window(&mut engine_command);
+        let child = match engine_command.spawn() {
+            Ok(child) => child,
+            Err(error) => {
+                cleanup_owned_adapters(None);
+                return Err(display_err(error));
             }
+        };
+        let mut child = SessionChild::new(child);
+        write_status(
+            &request.session_dir,
+            "configuring-routes",
+            "Configuring routes and protected DNS",
+            child.id(),
+        )?;
+        wait_for_tun_ready(
+            &mut child,
+            &request.session_dir.join("routing.log"),
+            &request.tun_interface,
+        )?;
+        write_status(
+            &request.session_dir,
+            "connected",
+            "System-wide routing is active",
+            child.id(),
+        )?;
+        let mut health_tick = 0u8;
+        let mut socks_down = false;
+        loop {
+            if request.session_dir.join("control.json").exists() || !process_alive(request.gui_pid)
+            {
+                break;
+            }
+            if let Some(exit) = child.try_wait().map_err(display_err)? {
+                let reason = read_log_tail(&request.session_dir.join("routing.log"));
+                return Err(format!(
+                    "Routing engine exited unexpectedly. Exit code: {}.{}",
+                    exit.code().unwrap_or(1),
+                    reason
+                ));
+            }
+            health_tick = health_tick.wrapping_add(1);
+            if health_tick % 5 == 0 {
+                if !sync_socks_ready(&request.socks_address) {
+                    socks_down = true;
+                    if request.kill_switch {
+                        write_status(
+                            &request.session_dir,
+                            "reconnecting",
+                            "Kill Switch is holding system traffic while Aether recovers",
+                            child.id(),
+                        )?;
+                    } else {
+                        write_status(
+                            &request.session_dir,
+                            "restoring",
+                            "Aether is unavailable; fail-open is restoring normal networking",
+                            child.id(),
+                        )?;
+                        break;
+                    }
+                } else if socks_down {
+                    socks_down = false;
+                    write_status(
+                        &request.session_dir,
+                        "connected",
+                        "Aether recovered and system-wide routing resumed",
+                        child.id(),
+                    )?;
+                }
+            }
+            std::thread::sleep(Duration::from_millis(400));
         }
-        std::thread::sleep(Duration::from_millis(400));
+        write_status(
+            &request.session_dir,
+            "restoring",
+            "Closing the adapter and restoring Windows routes",
+            child.id(),
+        )?;
+        let _ = child.kill();
+        let _ = child.wait();
+        child.disarm();
+        cleanup_owned_adapters(None);
+        write_status(
+            &request.session_dir,
+            "disabled",
+            "Windows networking was restored",
+            0,
+        )?;
+        if let Some(base) = request.session_dir.parent() {
+            let _ = fs::remove_file(base.join("recovery.json"));
+        }
+        if let Some(path) = cli_recovery_path() {
+            let _ = fs::remove_file(path);
+        }
+        Ok(())
+    })();
+    if let Err(error) = &result {
+        let message = sanitize_diagnostic(error);
+        let _ = write_status(&request.session_dir, "error", &message, 0);
+        cleanup_owned_adapters(None);
     }
-    write_status(
-        &request.session_dir,
-        "restoring",
-        "Closing the adapter and restoring Windows routes",
-        child.id(),
-    )?;
-    let _ = child.kill();
-    let _ = child.wait();
-    write_status(
-        &request.session_dir,
+    result
+}
+
+fn wait_for_tun_ready(
+    child: &mut std::process::Child,
+    log_path: &Path,
+    interface_name: &str,
+) -> Result<(), String> {
+    let deadline = std::time::Instant::now() + Duration::from_secs(20);
+    loop {
+        if let Some(exit) = child.try_wait().map_err(display_err)? {
+            return Err(format!(
+                "Routing engine exited unexpectedly. Exit code: {}.{}",
+                exit.code().unwrap_or(1),
+                read_log_tail(log_path)
+            ));
+        }
+        if tun_adapter_ready(interface_name) {
+            return Ok(());
+        }
+        if std::time::Instant::now() >= deadline {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(format!(
+                "Routing engine did not create a ready Aethon TUN adapter.{}",
+                read_log_tail(log_path)
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+}
+
+struct SessionChild {
+    child: std::process::Child,
+    armed: bool,
+}
+
+impl SessionChild {
+    fn new(child: std::process::Child) -> Self {
+        Self { child, armed: true }
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl std::ops::Deref for SessionChild {
+    type Target = std::process::Child;
+
+    fn deref(&self) -> &Self::Target {
+        &self.child
+    }
+}
+
+impl std::ops::DerefMut for SessionChild {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.child
+    }
+}
+
+impl Drop for SessionChild {
+    fn drop(&mut self) {
+        if self.armed {
+            let _ = self.child.kill();
+            let _ = self.child.wait();
+        }
+    }
+}
+
+fn tun_adapter_ready(interface_name: &str) -> bool {
+    #[cfg(windows)]
+    {
+        let mut command = Command::new("netsh.exe");
+        command.args([
+            "interface",
+            "show",
+            "interface",
+            &format!("name={interface_name}"),
+        ]);
+        hide_command_window(&mut command);
+        command
+            .stderr(Stdio::null())
+            .output()
+            .map(|output| {
+                output.status.success()
+                    && String::from_utf8_lossy(&output.stdout)
+                        .to_ascii_lowercase()
+                        .contains(&interface_name.to_ascii_lowercase())
+            })
+            .unwrap_or(false)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = interface_name;
+        true
+    }
+}
+
+fn hide_command_window(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = command;
+    }
+}
+
+#[cfg(windows)]
+struct HelperLock(windows_sys::Win32::Foundation::HANDLE);
+
+#[cfg(windows)]
+impl Drop for HelperLock {
+    fn drop(&mut self) {
+        unsafe { windows_sys::Win32::Foundation::CloseHandle(self.0) };
+    }
+}
+
+#[cfg(not(windows))]
+struct HelperLock;
+
+fn acquire_helper_lock() -> Result<HelperLock, String> {
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::{
+            Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS},
+            System::Threading::CreateMutexW,
+        };
+        let name = wide("Local\\AethonRoutingHelper");
+        for _ in 0..20 {
+            let handle = unsafe { CreateMutexW(std::ptr::null(), 0, name.as_ptr()) };
+            if handle.is_null() {
+                return Err("Could not create the Aethon routing-session lock".into());
+            }
+            if unsafe { GetLastError() } != ERROR_ALREADY_EXISTS {
+                return Ok(HelperLock(handle));
+            }
+            unsafe { CloseHandle(handle) };
+            std::thread::sleep(Duration::from_millis(250));
+        }
+        Err("Another Aethon routing helper is still active".into())
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(HelperLock)
+    }
+}
+
+fn read_log_tail(path: &Path) -> String {
+    let Ok(value) = fs::read_to_string(path) else {
+        return String::new();
+    };
+    let lines: Vec<_> = value.lines().rev().take(12).collect();
+    if lines.is_empty() {
+        return String::new();
+    }
+    let reason = lines.into_iter().rev().collect::<Vec<_>>().join(" ");
+    let sanitized = sanitize_diagnostic(&reason);
+    if sanitized.is_empty() {
+        String::new()
+    } else {
+        format!(" Reason: {sanitized}")
+    }
+}
+
+fn read_recovery_session(base: &Path) -> Option<PathBuf> {
+    let value: Value = serde_json::from_slice(&fs::read(base.join("recovery.json")).ok()?).ok()?;
+    let session = PathBuf::from(value.get("sessionDir")?.as_str()?);
+    (session.parent() == Some(base) && session.file_name().is_some()).then_some(session)
+}
+
+fn recover_owned_session(session_dir: &Path) {
+    let _ = atomic_json(&session_dir.join("control.json"), &json!({"action":"stop"}));
+    if let Ok(status) = read_status(session_dir) {
+        if status.engine_pid > 0 {
+            terminate_pid(status.engine_pid);
+        }
+    }
+    cleanup_owned_adapters(None);
+    let _ = write_status(
+        session_dir,
         "disabled",
-        "Windows networking was restored",
+        "Previous Aethon routing session was recovered",
         0,
-    )?;
-    if let Some(base) = request.session_dir.parent() {
-        let _ = fs::remove_file(base.join("recovery.json"));
+    );
+}
+
+fn sanitize_diagnostic(value: &str) -> String {
+    let mut result = value.to_string();
+    for key in [
+        "password",
+        "passwd",
+        "token",
+        "uuid",
+        "private_key",
+        "private-key",
+        "secret",
+    ] {
+        let lower = result.to_ascii_lowercase();
+        if let Some(start) = lower.find(key) {
+            let end = result[start..]
+                .find([',', ' ', '\n', '}'])
+                .map(|v| start + v)
+                .unwrap_or(result.len());
+            result.replace_range(start..end, "[redacted]");
+        }
     }
-    if let Some(path) = cli_recovery_path() {
-        let _ = fs::remove_file(path);
-    }
-    Ok(())
+    result.chars().take(1200).collect()
 }
 
 pub fn repair_main(session_dir: &Path) -> Result<(), String> {
@@ -420,6 +731,7 @@ pub fn repair_main(session_dir: &Path) -> Result<(), String> {
             terminate_pid(status.engine_pid);
         }
     }
+    cleanup_owned_adapters(None);
     write_status(
         session_dir,
         "disabled",
@@ -531,6 +843,33 @@ fn terminate_pid(pid: u32) {
         }
     }
 }
+
+/// Remove only adapters Aethon creates. The explicit legacy name is included
+/// for upgrades from 1.11.2; physical and third-party adapters are untouched.
+fn cleanup_owned_adapters(keep: Option<&str>) {
+    #[cfg(windows)]
+    {
+        let keep = keep.unwrap_or("").replace('\'', "''");
+        let script = format!(
+            "$keep='{keep}'; Get-PnpDevice -Class Net -ErrorAction SilentlyContinue | Where-Object {{ ($_.FriendlyName -eq 'FirsthamAether' -or $_.FriendlyName -like 'AethonTun-*') -and $_.FriendlyName -ne $keep }} | ForEach-Object {{ & pnputil.exe /remove-device $_.InstanceId | Out-Null }}"
+        );
+        let mut command = Command::new("powershell.exe");
+        command.args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            &script,
+        ]);
+        hide_command_window(&mut command);
+        let _ = command.stdout(Stdio::null()).stderr(Stdio::null()).status();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = keep;
+    }
+}
 fn sync_socks_ready(address: &str) -> bool {
     use std::io::{Read, Write};
     let Ok(addr) = address.parse::<SocketAddr>() else {
@@ -623,6 +962,8 @@ mod tests {
             split_applications: vec![],
             route_exclusions: vec![],
             session_dir: "C:/x".into(),
+            tun_interface: "AethonTun-1-2".into(),
+            previous_session_dir: None,
         }
     }
     #[test]
@@ -633,6 +974,16 @@ mod tests {
         assert!(c.contains("hijack-dns"));
         assert!(c.contains("aether.exe"));
         assert!(c.contains("\"find_process\":true"));
+        assert!(c.contains("AethonTun-1-2"));
+    }
+
+    #[test]
+    fn routing_diagnostics_redact_credentials() {
+        let message =
+            sanitize_diagnostic("startup failed password=hunter2 token=abc123 invalid option");
+        assert!(!message.contains("hunter2"));
+        assert!(!message.contains("abc123"));
+        assert!(message.contains("[redacted]"));
     }
     #[test]
     fn atomic_json_replaces_existing_status() {

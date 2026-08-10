@@ -1,4 +1,4 @@
-param([string]$Version = "1.11.1")
+param([string]$Version = "1.11.2", [string]$AndroidVersion = "1.11.1")
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
@@ -25,11 +25,11 @@ foreach ($file in @("LICENSE", "NOTICE.md", "TRADEMARK.md", "third-party/sing-bo
 Compress-Archive -Path (Join-Path $portableDir "*") -DestinationPath (Join-Path $releaseDir "Aethon_${Version}_x64-portable.zip") -Force
 
 $androidOutputs = @{
-    "android/app/build/outputs/apk/release/app-universal-release.apk" = "Aethon_${Version}_android-universal.apk"
-    "android/app/build/outputs/apk/release/app-armeabi-v7a-release.apk" = "Aethon_${Version}_android-armv7.apk"
-    "android/app/build/outputs/apk/release/app-arm64-v8a-release.apk" = "Aethon_${Version}_android-arm64.apk"
-    "android/app/build/outputs/apk/release/app-x86_64-release.apk" = "Aethon_${Version}_android-x86_64.apk"
-    "android/app/build/outputs/bundle/release/app-release.aab" = "Aethon_${Version}_android-play.aab"
+    "android/app/build/outputs/apk/release/app-universal-release.apk" = "Aethon_${AndroidVersion}_android-universal.apk"
+    "android/app/build/outputs/apk/release/app-armeabi-v7a-release.apk" = "Aethon_${AndroidVersion}_android-armv7.apk"
+    "android/app/build/outputs/apk/release/app-arm64-v8a-release.apk" = "Aethon_${AndroidVersion}_android-arm64.apk"
+    "android/app/build/outputs/apk/release/app-x86_64-release.apk" = "Aethon_${AndroidVersion}_android-x86_64.apk"
+    "android/app/build/outputs/bundle/release/app-release.aab" = "Aethon_${AndroidVersion}_android-play.aab"
 }
 foreach ($entry in $androidOutputs.GetEnumerator()) {
     Copy-Item -LiteralPath (Join-Path $repo $entry.Key) -Destination (Join-Path $releaseDir $entry.Value)

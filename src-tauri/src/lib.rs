@@ -25,6 +25,8 @@ async fn connect(
     state: tauri::State<'_, AppState>,
     settings: Settings,
 ) -> Result<(), String> {
+    let mut settings = settings;
+    settings.normalize_protocol_options();
     state.process.start(app.clone(), settings.clone()).await?;
     if let Err(error) = wait_for_socks(
         &settings.socks_address,
@@ -37,7 +39,11 @@ async fn connect(
     }
     state.process.mark_connected().await;
     if settings.connection_mode == "vpn" {
-        if let Err(error) = state.routing.start(app.clone(), &settings).await {
+        if let Err(error) = state
+            .routing
+            .start(app.clone(), &settings, state.process.clone())
+            .await
+        {
             let _ = state.routing.stop(&app).await;
             let _ = state.process.stop().await;
             emit_status(&app, "disconnected", None, None);
@@ -74,7 +80,9 @@ async fn elapsed(state: tauri::State<'_, AppState>) -> Result<u64, String> {
 }
 #[tauri::command]
 async fn load_settings(app: AppHandle) -> Result<Settings, String> {
-    load_settings_value(&app)
+    let mut settings = load_settings_value(&app)?;
+    settings.normalize_protocol_options();
+    Ok(settings)
 }
 fn load_settings_value(app: &AppHandle) -> Result<Settings, String> {
     let path = settings_path(app)?;
@@ -86,6 +94,8 @@ fn load_settings_value(app: &AppHandle) -> Result<Settings, String> {
 }
 #[tauri::command]
 async fn save_settings(app: AppHandle, settings: Settings) -> Result<(), String> {
+    let mut settings = settings;
+    settings.normalize_protocol_options();
     settings.validate()?;
     let path = settings_path(&app)?;
     if let Some(parent) = path.parent() {

@@ -7,18 +7,31 @@ const read = path => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('minimal frontend keeps connection and diagnostics workflows', async () => {
   const html = await read('../src/index.html');
-  for (const id of ['connect','disconnect','test','connectionMode','routingMode','protocol','scanMode','transport','copyProxy','diagnosticTest','repairNetwork','logs','copyLogs','clearLogs','checkUpdates','updateAction','automaticUpdates']) assert.match(html,new RegExp(`id="${id}"`));
+  for (const id of ['connect','disconnect','test','connectionMode','routingMode','protocol','scanMode','peer','dnsLeakProtection','ipv6Behavior','killSwitch','copyProxy','diagnosticTest','repairNetwork','logs','copyLogs','clearLogs','checkUpdates','updateAction','automaticUpdates']) assert.match(html,new RegExp(`id="${id}"`));
   assert.match(html,/id="view-dashboard"/);
   assert.match(html,/id="view-diagnostics"/);
-  assert.equal((html.match(/class="nav-item/g)||[]).length,2);
+  assert.equal((html.match(/class="nav-item/g)||[]).length,4);
+  for (const view of ['dashboard','updates','settings','diagnostics']) assert.match(html,new RegExp(`id="view-${view}"`));
+  assert.doesNotMatch(html,/data-view="profiles"|id="view-profiles"|Connection Profiles/);
+  const home = html.slice(html.indexOf('id="view-dashboard"'), html.indexOf('id="view-settings"'));
+  assert.doesNotMatch(home,/settings-panel|update-panel/);
   assert.doesNotMatch(html,/view-help|view-about|welcomeWizard/);
+  assert.ok(html.indexOf('data-view="settings"') < html.indexOf('data-view="diagnostics"'));
 });
 
-test('secondary networking controls remain collapsed under Advanced Settings', async () => {
+test('Settings exposes only the compact user-facing controls', async () => {
   const html = await read('../src/index.html');
-  assert.match(html,/<details class="advanced" id="advancedSettings">/);
-  const advanced = html.slice(html.indexOf('id="advancedSettings"'), html.indexOf('</details>', html.indexOf('id="advancedSettings"')));
-  for (const id of ['ipMode','obfuscation','logLevel','socksAddress','allowRemote','peer','keepalive','stallTimeout','watchdog','quickReconnect','dnsLeakProtection','killSwitch','ipv6Behavior','tunMtu','splitApplications','routeExclusions','configPath','wgConfigPath','masqueConfigPath']) assert.match(advanced,new RegExp(`id="${id}"`));
+  for (const id of ['connectionMode','routingMode','protocol','scanMode','peer','transport','transport-field','dnsLeakProtection','ipv6Behavior','killSwitch']) assert.match(html,new RegExp(`id="${id}"`));
+  for (const id of ['ipMode','obfuscation','logLevel','socksAddress','allowRemote','keepalive','stallTimeout','watchdog','quickReconnect','tunMtu','splitApplications','routeExclusions','configPath','wgConfigPath','masqueConfigPath']) assert.doesNotMatch(html,new RegExp(`id="${id}"`));
+});
+
+test('Scan Mode exposes every backend value and is saved with settings', async()=>{
+  const [app,settings]=await Promise.all([read('../src/app.js'),read('../src-tauri/src/settings.rs')]);
+  for (const value of ['turbo','balanced','thorough','stealth','ironclad']) assert.match(app,new RegExp(`'${value}'`));
+  assert.match(app,/scanMode:\$\('scanMode'\)\.value/);
+  assert.match(settings,/AETHER_SCAN/);
+  assert.match(settings,/\["turbo", "balanced", "thorough", "stealth", "ironclad"\]/);
+  assert.match(app,/masqueTransport:segmentValue\('transport'\)/);
 });
 
 test('every static translation key exists in English', async () => {
@@ -60,12 +73,12 @@ test('external destinations stay scoped and no remote scripts exist', async () =
   assert.deepEqual(opener.allow.map(item=>item.url).sort(),['https://github.com/CluvexStudio/Aether','https://github.com/hamvex/AetherGUI/releases','https://t.me/hamvex']);
 });
 
-test('application metadata is v1.11.1 with current pinned engines', async () => {
+test('Windows application metadata is v1.11.2 with current pinned engines', async () => {
   const [pkg,tauri,cargo,fetch,routing,notice]=await Promise.all([read('../package.json'),read('../src-tauri/tauri.conf.json'),read('../src-tauri/Cargo.toml'),read('../scripts/fetch-aether.ps1'),read('../scripts/fetch-routing-engine.ps1'),read('../NOTICE.md')]);
-  assert.equal(JSON.parse(pkg).version,'1.11.1');
-  assert.equal(JSON.parse(tauri).version,'1.11.1');
+  assert.equal(JSON.parse(pkg).version,'1.11.2');
+  assert.equal(JSON.parse(tauri).version,'1.11.2');
   assert.equal(JSON.parse(tauri).productName,'Aethon');
-  assert.match(cargo,/version = "1\.11\.1"/);
+  assert.match(cargo,/version = "1\.11\.2"/);
   assert.match(fetch,/"v1\.5\.0"/);
   assert.match(routing,/1\.13\.14/);
   assert.match(notice,/TRADEMARK\.md/);
@@ -76,7 +89,6 @@ test('Aether v1.5 capabilities include Ironclad scanning and log levels', async(
   assert.match(app,/protocol:'gool',scanMode:'turbo'/);
   assert.match(settings,/protocol: "gool"\.into\(\)/);
   assert.match(settings,/scan_mode: "turbo"\.into\(\)/);
-  assert.match(app,/ironclad/);
   assert.match(app,/logLevel/);
   assert.match(settings,/AETHER_LOG_LEVEL/);
   assert.match(settings,/"ironclad"/);
@@ -88,6 +100,11 @@ test('VPN lifecycle retains handshake, elevation, recovery, and split routing', 
   assert.match(routing,/ShellExecuteW/);
   assert.match(routing,/process_path/);
   assert.match(routing,/strict_route/);
+  assert.match(routing,/CreateMutexW/);
+  assert.match(routing,/wait_for_tun_ready/);
+  assert.match(routing,/CREATE_NO_WINDOW/);
+  assert.match(routing,/previous_session_dir/);
+  assert.match(routing,/SessionChild/);
   assert.match(settings,/pub connection_mode/);
   assert.match(main,/--repair-network/);
   assert.match(hooks,/--repair-network/);
