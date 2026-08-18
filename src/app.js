@@ -1,165 +1,41 @@
-import { applyTranslations, t } from './i18n.js';
-
-const tauri = window.__TAURI__ || {
-  core: { invoke: async command => command === 'load_settings' ? {} : command === 'elapsed' ? 0 : command === 'connection_test' ? 'ip=203.0.113.1\nwarp=on\nhttp=http/3' : undefined },
-  event: { listen: async () => () => {} },
-  opener: { openUrl: async () => {} }
-};
-const { invoke } = tauri.core;
-const { listen } = tauri.event;
-const { openUrl } = tauri.opener;
-const $ = id => document.getElementById(id);
-const defaults = {automaticUpdates:true,connectionMode:'vpn',routingMode:'bypass-local',dnsLeakProtection:true,ipv6Behavior:'tunnel',killSwitch:false,tunMtu:1500,splitApplications:[],routeExclusions:[],protocol:'gool',scanMode:'turbo',logLevel:'info',ipMode:'v4',obfuscation:'balanced',masqueTransport:'h3',socksAddress:'127.0.0.1:1819',allowRemoteListener:false,peer:'',wgKeepalive:5,stallTimeout:90,watchdog:true,configPath:'',wgConfigPath:'',masqueConfigPath:'',quickReconnect:true};
-let settings = {...defaults};
-let state = 'disconnected';
-let activeEndpoint = '';
-let logs = [];
-let saveTimer;
-let updateInfo;
-let updateReady = false;
-let updateDownloading = false;
-
-function selectSegment(id, value) {
-  [...$(id).querySelectorAll('button')].forEach(button => button.classList.toggle('active', button.dataset.value === value));
-}
-function segmentValue(id) { return $(id).querySelector('.active')?.dataset.value; }
-function setOptions(element, options, selected) {
-  element.replaceChildren(...options.map(([value, label]) => {
-    const option = document.createElement('option'); option.value = value; option.textContent = label; option.selected = value === selected; return option;
-  }));
-}
-
-function renderChoiceOptions() {
-  setOptions($('scanMode'), [['turbo',t('scan.turbo')],['balanced',t('scan.balanced')],['thorough',t('scan.thorough')],['stealth',t('scan.stealth')],['ironclad',t('scan.ironclad')]], settings.scanMode);
-  setOptions($('routingMode'), [['full',t('routing.full')],['bypass-local',t('routing.bypassLocal')],['split-include',t('routing.splitInclude')],['split-exclude',t('routing.splitExclude')]], settings.routingMode);
-  setOptions($('ipv6Behavior'), [['tunnel',t('ipv6.tunnel')],['block',t('ipv6.block')]], settings.ipv6Behavior);
-  syncProtocol();
-}
-
-function syncProtocol() {
-  settings.protocol = segmentValue('protocol') || settings.protocol;
-  $('transport-field').classList.toggle('hidden', settings.protocol !== 'masque');
-}
-function syncConnectionMode(){settings.connectionMode=segmentValue('connectionMode')||settings.connectionMode;const manual=settings.connectionMode==='manual';$('manualProxy').classList.toggle('hidden',!manual);$('routingMode').disabled=manual;$('vpn-description').textContent=t(manual?'proxy.description':'vpn.description');const key=settings.routingMode==='bypass-local'?'bypassLocal':settings.routingMode==='split-include'?'splitInclude':settings.routingMode==='split-exclude'?'splitExclude':'full';$('routing-display').textContent=manual?t('vpn.manualMode'):t(`routing.${key}`)}
-
-function readSettings() {
-  return {...settings,automaticUpdates:$('automaticUpdates').checked,connectionMode:segmentValue('connectionMode'),routingMode:$('routingMode').value,dnsLeakProtection:$('dnsLeakProtection').checked,ipv6Behavior:$('ipv6Behavior').value,killSwitch:$('killSwitch').checked,protocol:segmentValue('protocol'),scanMode:$('scanMode').value,masqueTransport:segmentValue('transport')||settings.masqueTransport,peer:$('peer').value.trim()};
-}
-
-function renderSettings(saved) {
-  settings = {...defaults,...saved};
-  selectSegment('connectionMode',settings.connectionMode);
-  selectSegment('protocol',settings.protocol);
-  selectSegment('transport',settings.masqueTransport);
-  $('automaticUpdates').checked=settings.automaticUpdates;$('routingMode').value=settings.routingMode;$('dnsLeakProtection').checked=settings.dnsLeakProtection;$('killSwitch').checked=settings.killSwitch;$('peer').value=settings.peer;$('socks-display').textContent=settings.socksAddress;
-  applyTranslations();
-  renderChoiceOptions();
-  setState(state, activeEndpoint);
-  syncConnectionMode();
-}
-
-function queueSave() {
-  settings=readSettings();$('socks-display').textContent=settings.socksAddress||'—';clearTimeout(saveTimer);saveTimer=setTimeout(()=>invoke('save_settings',{settings}).catch(showError),350);
-}
-
-function localizeError(error) {
-  const raw=typeof error==='string'?error:error?.message||String(error);
-  return raw;
-}
-function showError(error){$('toast').textContent=localizeError(error);$('toast').className='show error';setTimeout(()=>{$('toast').className='';},5000)}
-function toast(text){$('toast').textContent=text;$('toast').className='show';setTimeout(()=>{$('toast').className='';},2600)}
-
-function setState(next, endpoint) {
-  state=next;if(endpoint){activeEndpoint=endpoint;$('endpoint').textContent=endpoint}else if(next==='disconnected'){activeEndpoint='';$('endpoint').textContent=t('facts.notSelected')}
-  const titleKeys={disconnected:'connection.readyTitle',scanning:'connection.scanningTitle',connecting:'connection.connectingTitle',connected:'connection.connectedTitle',reconnecting:'connection.reconnectingTitle',error:'connection.errorTitle'};
-  const messageKeys={disconnected:'connection.readyMessage',scanning:'connection.scanningMessage',connecting:'connection.connectingMessage',connected:'connection.connectedMessage',reconnecting:'connection.reconnectingMessage',error:'connection.errorMessage'};
-  const label=t(`status.${next}`);$('status').className=`status-pill ${next}`;$('status').querySelector('b').textContent=label;$('sidebar-state').textContent=label;$('sidebar-dot').className=`state-dot ${next}`;$('status-title').textContent=t(titleKeys[next]||titleKeys.error);$('status-message').textContent=t(messageKeys[next]||messageKeys.error);$('state-icon').textContent=next==='connected'?'✓':next==='error'?'!':next==='disconnected'?'↗':'…';
-  const active=!['disconnected','error'].includes(next);$('connect').classList.toggle('hidden',active);$('disconnect').classList.toggle('hidden',!active);$('test').classList.toggle('hidden',next!=='connected');$('test').disabled=next!=='connected';$('diagnosticTest').disabled=next!=='connected';
-}
-
-function setUpdateStatus(key, detail = '') {
-  const label = t(key);
-  $('update-status').textContent = detail ? `${label} · ${detail}` : label;
-  $('update-status-value').textContent = detail ? `${label} (${detail})` : label;
-}
-
-async function downloadUpdate() {
-  if (updateDownloading || updateReady) return;
-  updateDownloading = true;
-  $('updateAction').disabled = true;
-  $('updateAction').classList.remove('hidden');
-  setUpdateStatus('updates.downloading');
-  try {
-    await invoke('download_update');
-    updateReady = true;
-    $('updateAction').textContent = t('updates.install');
-    setUpdateStatus('updates.ready');
-  } catch (error) {
-    setUpdateStatus('updates.failed');
-    showError(error);
-  } finally {
-    updateDownloading = false;
-    $('updateAction').disabled = false;
-  }
-}
-
-async function checkUpdates(manual = false) {
-  $('checkUpdates').disabled = true;
-  setUpdateStatus('updates.checking');
-  try {
-    updateInfo = await invoke('check_for_update');
-    $('current-version').textContent = updateInfo.currentVersion;
-    $('latest-version').textContent = updateInfo.latestVersion;
-    $('update-notes').textContent = updateInfo.releaseNotes?.trim() || t('updates.noNotes');
-    if (updateInfo.available) {
-      $('update-badge').classList.remove('hidden');
-      setUpdateStatus('updates.available');
-      $('updateAction').classList.remove('hidden');
-      $('updateAction').textContent = t('updates.download');
-      if (settings.automaticUpdates) await downloadUpdate();
-    } else {
-      $('update-badge').classList.add('hidden');
-      setUpdateStatus('updates.upToDate');
-      $('updateAction').classList.add('hidden');
-      if (manual) toast(t('updates.upToDate'));
-    }
-  } catch (error) {
-    setUpdateStatus('updates.failed');
-    if (manual) showError(error);
-  } finally {
-    $('checkUpdates').disabled = false;
-  }
-}
-
-let pendingLogLines=[];let logFlushScheduled=false;
-function addLog(line){if(!line)return;if(logs.length===0&&$('logs').textContent===t('diagnostics.waiting'))logs=[];pendingLogLines.push(line);if(logFlushScheduled)return;logFlushScheduled=true;requestAnimationFrame(()=>{logFlushScheduled=false;logs.push(...pendingLogLines);pendingLogLines=[];if(logs.length>2000)logs.splice(0,logs.length-2000);const follow=$('logs').scrollHeight-$('logs').scrollTop-$('logs').clientHeight<48;$('logs').textContent=logs.join('\n');if(follow)$('logs').scrollTop=$('logs').scrollHeight})}
-async function connect(){try{showView('dashboard');settings=readSettings();await invoke('save_settings',{settings});logs=[];$('logs').textContent='';await invoke('connect',{settings})}catch(error){setState('error');showError(error)}}
-async function disconnect(){try{await invoke('disconnect');setState('disconnected');$('elapsed').textContent='00:00:00'}catch(error){showError(error)}}
-async function testConnection(){const buttons=[$('test'),$('diagnosticTest')];buttons.forEach(button=>button.disabled=true);try{const result=await invoke('connection_test',{settings:readSettings()});const list=$('trace');list.replaceChildren();for(const line of result.trim().split(/\r?\n/)){const[key,...rest]=line.split('=');const value=rest.join('=');const term=document.createElement('dt');const description=document.createElement('dd');term.textContent=key;description.textContent=value;list.append(term,description);if(key==='ip')$('public-ip').textContent=value}$('testResult').classList.remove('hidden');showView('diagnostics');toast(t('toast.verified'))}catch(error){showError(error)}finally{buttons.forEach(button=>button.disabled=state!=='connected')}}
-
-function showView(name){document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===`view-${name}`));document.querySelectorAll('.nav-item').forEach(item=>{const active=item.dataset.view===name;item.classList.toggle('active',active);if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current')});window.scrollTo({top:0,behavior:'instant'})}
-
-$('protocol').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('protocol',event.target.dataset.value);settings.protocol=event.target.dataset.value;syncProtocol();queueSave()});
-$('transport').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('transport',event.target.dataset.value);settings.masqueTransport=event.target.dataset.value;queueSave()});
-$('connectionMode').addEventListener('click',event=>{if(!event.target.dataset.value)return;selectSegment('connectionMode',event.target.dataset.value);settings.connectionMode=event.target.dataset.value;syncConnectionMode();queueSave()});
-document.querySelector('.settings-panel').querySelectorAll('input,select,textarea').forEach(element=>element.addEventListener('change',()=>{queueSave();syncConnectionMode()}));
-$('routingMode').addEventListener('change',()=>{settings.routingMode=$('routingMode').value;syncConnectionMode()});
-$('automaticUpdates').addEventListener('change',()=>{queueSave();if($('automaticUpdates').checked&&updateInfo?.available)downloadUpdate()});
-$('checkUpdates').addEventListener('click',()=>checkUpdates(true));
-$('updateAction').addEventListener('click',async()=>{if(!updateReady){await downloadUpdate();return}setUpdateStatus('updates.installing');try{await invoke('install_update')}catch(error){setUpdateStatus('updates.failed');showError(error)}});
-$('connect').addEventListener('click',connect);$('disconnect').addEventListener('click',disconnect);$('test').addEventListener('click',testConnection);$('diagnosticTest').addEventListener('click',testConnection);
-$('reset').addEventListener('click',()=>{renderSettings(defaults);queueSave();toast(t('toast.defaults'))});
-$('copyProxy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(readSettings().socksAddress);toast(t('toast.proxyCopied'))}catch(error){showError(error)}});
-$('clearLogs').addEventListener('click',()=>{logs=[];$('logs').textContent=''});$('copyLogs').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(logs.join('\n'));toast(t('toast.logsCopied'))}catch(error){showError(error)}});$('closeTest').addEventListener('click',()=>$('testResult').classList.add('hidden'));
-$('repairNetwork').addEventListener('click',async()=>{try{await invoke('repair_network');toast(t('diagnostics.repair'))}catch(error){showError(error)}});
-document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>showView(item.dataset.view)));
-document.querySelectorAll('[data-external]').forEach(button=>button.addEventListener('click',async()=>{try{await openUrl(button.dataset.external)}catch(error){showError(error)}}));
-
-await listen('update-progress',event=>{if(event.payload.status==='ready'){updateReady=true;$('updateAction').textContent=t('updates.install');setUpdateStatus('updates.ready');return}setUpdateStatus('updates.downloading',event.payload.percent==null?'':`${event.payload.percent}%`)});
-await listen('aether-log',event=>addLog(`[Aether] ${event.payload}`));await listen('aether-status',event=>setState(event.payload.state,event.payload.endpoint));await listen('routing-status',event=>{addLog(`[Routing/${event.payload.state}] ${event.payload.message}`);const key=`routing.${event.payload.state}`;$('routing-display').textContent=t(key);$('traffic-stats').textContent=event.payload.state==='connected'?'TCP + UDP':'—';if(event.payload.public_ip)$('public-ip').textContent=event.payload.public_ip;if(event.payload.state==='error'){setState('error');showError(event.payload.message)}});await listen('tray-connect',connect);
-try{renderSettings(await invoke('load_settings'))}catch(error){renderSettings(defaults);showError(error)}
-try{if(await invoke('recovery_status')&&window.confirm(t('recovery.prompt'))){await invoke('repair_network');toast(t('recovery.done'))}}catch(error){showError(error)}
-setState('disconnected');
-setTimeout(()=>checkUpdates(false),1500);
-setInterval(()=>checkUpdates(false),12*60*60*1000);
-setInterval(async()=>{if(state!=='connected')return;try{const seconds=await invoke('elapsed');const hours=String(Math.floor(seconds/3600)).padStart(2,'0');const minutes=String(Math.floor(seconds%3600/60)).padStart(2,'0');const remaining=String(seconds%60).padStart(2,'0');$('elapsed').textContent=`${hours}:${minutes}:${remaining}`}catch{}},1000);
+import {currentLanguage,setLanguage,t} from './i18n.js';
+const tauri=window.__TAURI__||{core:{invoke:async c=>c==='load_settings'?{}:c==='connection_state'?{state:'disconnected',elapsed:0}:c==='installed_applications'?[]:c==='traffic_totals'?{uploaded:0,downloaded:0}:c==='vpn_probe'?{ping:null,location:''}:undefined},event:{listen:async()=>()=>{}},opener:{openUrl:async()=>{}},dialog:{open:async()=>null}};
+const {invoke}=tauri.core,{listen}=tauri.event,openUrl=tauri.opener?.openUrl||tauri.opener?.open,$=id=>document.getElementById(id);
+const defaults={automaticUpdates:true,language:'en',appearance:'dark',connectionMode:'vpn',routingMode:'bypass-local',dnsLeakProtection:true,ipv6Behavior:'tunnel',killSwitch:false,splitApplications:[],routeExclusions:[],protocol:'gool',scanMode:'turbo',logLevel:'info',ipMode:'v4',obfuscation:'balanced',masqueTransport:'h3',socksAddress:'127.0.0.1:1819',allowRemoteListener:false,peer:'',wgKeepalive:5,stallTimeout:90,watchdog:true,configPath:'',wgConfigPath:'',masqueConfigPath:'',quickReconnect:true};
+let settings={...defaults},state='disconnected',trafficTimer,pingTimer,reconnectTimer,reconnectAttempts=0,desiredConnected=false,operation=null,operationVersion=0,apps=[],selected=new Set();
+function selectSegment(id,value){$(id)?.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.value===value))}
+function segmentValue(id){return $(id)?.querySelector('.active')?.dataset.value}
+function setOptions(el,values,selectedValue){el.replaceChildren(...values.map(([value,label])=>{const o=document.createElement('option');o.value=value;o.textContent=label;o.selected=value===selectedValue;return o}))}
+function formatNumber(value){return new Intl.NumberFormat(currentLanguage(),{minimumFractionDigits:1,maximumFractionDigits:1}).format(value)}
+function formatBytes(value){if(!Number.isFinite(value)||value<0)return'--';if(value<1048576)return formatNumber(value/1024)+' KB';if(value<1073741824)return formatNumber(value/1048576)+' MB';return formatNumber(value/1073741824)+' GB'}
+function renderOptions(){setOptions($('scanMode'),[['turbo','Turbo'],['balanced','Balanced'],['thorough','Thorough'],['stealth','Stealth'],['ironclad','Ironclad']],settings.scanMode);syncProtocol()}
+function syncProtocol(){settings.protocol=segmentValue('protocol')||settings.protocol;$('transportField').classList.toggle('hidden',settings.protocol!=='masque')}
+function updateSelectedCount(){$('selectedCount').textContent=new Intl.NumberFormat(currentLanguage()).format(selected.size)+' '+t('picker.selected')}
+function syncSplit(){const on=$('splitEnabled').checked;$('splitControls').classList.toggle('hidden',!on);settings.routingMode=on?(segmentValue('splitMode')||'split-include'):'bypass-local';updateSelectedCount()}
+function readSettings(){return{...settings,language:currentLanguage(),appearance:$('appearance').value,automaticUpdates:$('automaticUpdates').checked,connectionMode:segmentValue('connectionMode'),routingMode:settings.routingMode,protocol:segmentValue('protocol'),masqueTransport:segmentValue('transport')||settings.masqueTransport,scanMode:$('scanMode').value,dnsLeakProtection:$('dnsLeakProtection').checked,killSwitch:$('killSwitch').checked,quickReconnect:$('quickReconnect').checked,peer:$('peer').value.trim(),splitApplications:[...selected]}}
+function queueSave(){settings=readSettings();clearTimeout(queueSave.timer);queueSave.timer=setTimeout(()=>invoke('save_settings',{settings}).catch(showError),250)}
+function renderSettings(saved){settings={...defaults,...saved};setLanguage(settings.language);selectSegment('connectionMode',settings.connectionMode);selectSegment('protocol',settings.protocol);selectSegment('transport',settings.masqueTransport);selectSegment('splitMode',settings.routingMode==='split-exclude'?'split-exclude':'split-include');selected=new Set(settings.splitApplications||[]);$('splitEnabled').checked=['split-include','split-exclude'].includes(settings.routingMode);$('peer').value=settings.peer||'';$('dnsLeakProtection').checked=settings.dnsLeakProtection;$('killSwitch').checked=settings.killSwitch;$('quickReconnect').checked=settings.quickReconnect;$('automaticUpdates').checked=settings.automaticUpdates;$('appearance').value=settings.appearance;$('language').value=settings.language;document.body.dataset.theme=settings.appearance;renderOptions();syncSplit();$('currentVersion').textContent='1.2.1'}
+function openDrawer(){$('drawer').classList.add('open');$('drawerScrim').classList.add('open')}
+function closeDrawer(){$('drawer').classList.remove('open');$('drawerScrim').classList.remove('open')}
+function showView(name){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.id==='view-'+name));document.querySelectorAll('.nav-item').forEach(v=>v.classList.toggle('active',v.dataset.view===name));$('pageTitle').textContent=name==='connect'?'Aethon VPN':t('nav.'+name);closeDrawer();window.scrollTo({top:0,behavior:'instant'})}
+function setState(next){state=next;const active=!['disconnected','error'].includes(next);$('connectionOrb').className='connection-orb '+next;$('statusPill').className='status-pill '+next;$('orbLabel').textContent=next==='connected'?t('actions.disconnect'):next==='disconnecting'?t('status.disconnecting'):active?t('status.connecting'):t('actions.connect');$('statusTitle').textContent=t('status.'+next);const key=next==='connected'?'connected':next==='reconnecting'?'reconnecting':next==='disconnecting'?'disconnecting':next==='disconnected'?'ready':next==='scanning'||next==='connecting'?'connecting':'error';$('statusMessage')?.replaceChildren(document.createTextNode(t('connection.'+key)));$('drawerState').textContent=t('status.'+next);if(next==='disconnected'||next==='error'){stopTelemetry();$('uploadTraffic').textContent='--';$('downloadTraffic').textContent='--';$('pingValue').textContent=t('traffic.ping')+': --';$('locationValue').textContent=t('traffic.locationUnavailable')}else if(next!=='connected'){$('locationValue').textContent=t('traffic.locationDetecting')}}
+function showError(error){$('toast').textContent=typeof error==='string'?error:error?.message||String(error);$('toast').className='show error';setTimeout(()=>$('toast').className='',5000)}
+function toast(message){$('toast').textContent=message;$('toast').className='show';setTimeout(()=>$('toast').className='',2600)}
+async function connect(){if(operation||!['disconnected','error'].includes(state))return;const version=++operationVersion;operation='connect';desiredConnected=true;settings=readSettings();setState('connecting');try{await invoke('save_settings',{settings});if(version!==operationVersion)return;setState('scanning');await invoke('connect',{settings});if(version===operationVersion)reconnectAttempts=0}catch(error){if(version===operationVersion){setState('error');showError(error)}}finally{if(version===operationVersion)operation=null}}
+async function disconnect(){if(operation==='disconnect'||state==='disconnecting'||state==='disconnected')return;const version=++operationVersion;operation='disconnect';desiredConnected=false;clearTimeout(reconnectTimer);reconnectTimer=null;stopTelemetry();setState('disconnecting');try{await invoke('disconnect')}catch(error){if(version===operationVersion)showError(error)}finally{if(version===operationVersion){operation=null;setState('disconnected')}}}
+function scheduleReconnect(){if(!desiredConnected||!settings.quickReconnect||reconnectAttempts>=5||reconnectTimer||operation)return false;reconnectAttempts++;setState('reconnecting');reconnectTimer=setTimeout(async()=>{reconnectTimer=null;if(!desiredConnected||operation)return;const version=++operationVersion;operation='disconnect';try{await invoke('disconnect')}finally{if(version===operationVersion){operation=null;if(desiredConnected){setState('disconnected');connect()}}}},Math.min(20000,1500*2**(reconnectAttempts-1)));return true}
+function stopTelemetry(){clearInterval(trafficTimer);clearInterval(pingTimer);trafficTimer=pingTimer=null}
+function startTelemetry(){stopTelemetry();const traffic=async()=>{try{const m=await invoke('traffic_totals');$('uploadTraffic').textContent=formatBytes(m.uploaded);$('downloadTraffic').textContent=formatBytes(m.downloaded)}catch{}};const probe=async()=>{try{const m=await invoke('vpn_probe',{settings});if(m.ping!=null)$('pingValue').textContent=t('traffic.ping')+': '+new Intl.NumberFormat(currentLanguage()).format(m.ping)+' ms';if(m.location)$('locationValue').textContent=m.location}catch{}};traffic();probe();trafficTimer=setInterval(traffic,1000);pingTimer=setInterval(probe,15000)}
+async function openTelegram(){try{await openUrl('tg://resolve?domain=hamvex')}catch{try{await openUrl('https://t.me/hamvex')}catch{toast(t('toast.telegram'))}}}
+async function checkUpdates(manual=false){$('checkUpdates').disabled=true;if(manual)$('updateStatus').textContent=t('updates.checking');try{const info=await invoke('check_for_update');$('currentVersion').textContent=info.currentVersion||'1.2.1';$('updateBadge').classList.toggle('hidden',!info.available);if(info.available){$('updateStatus').textContent=t('updates.available');$('updateAction').classList.remove('hidden');$('updateAction').textContent=t('updates.download')}else if(manual){$('updateStatus').textContent=t('updates.upToDate');toast(t('toast.updated'))}}catch(error){if(manual){$('updateStatus').textContent=t('updates.failed');showError(error)}}finally{$('checkUpdates').disabled=false}}
+async function updateAction(){try{if($('updateAction').textContent===t('updates.install')){await invoke('install_update');return}$('updateProgress').classList.remove('hidden');await invoke('download_update');$('updateAction').textContent=t('updates.install');$('updateStatus').textContent=t('updates.ready')}catch(error){showError(error)}}
+function renderApps(){const query=$('appSearch').value.toLowerCase(),visible=apps.filter(a=>(a.name+' '+a.path).toLowerCase().includes(query));$('appList').replaceChildren(...visible.map(app=>{const row=document.createElement('div');row.className='app-row';row.innerHTML='<span class="app-icon">EXE</span><span><b></b><small></small></span><input type="checkbox">';if(app.icon){const image=document.createElement('img');image.className='app-icon';image.alt='';image.src='data:image/png;base64,'+app.icon;row.querySelector('.app-icon').replaceWith(image)}row.querySelector('b').textContent=app.name;row.querySelector('small').textContent=app.path;row.querySelector('input').checked=selected.has(app.path);row.onclick=e=>{if(e.target.tagName!=='INPUT')row.querySelector('input').checked=!row.querySelector('input').checked;row.querySelector('input').checked?selected.add(app.path):selected.delete(app.path);updateSelectedCount()};return row}))}
+async function openApps(){try{apps=await invoke('installed_applications');for(const path of selected)if(!apps.some(a=>a.path===path))apps.push({name:path.split(/[\\/]/).pop(),path,icon:''});renderApps();$('appDialog').classList.remove('hidden')}catch(error){showError(error)}}
+function closeApps(){$('appDialog').classList.add('hidden')}
+$('menuButton').onclick=openDrawer;$('drawerScrim').onclick=closeDrawer;$('telegramButton').onclick=openTelegram;document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>showView(b.dataset.view));$('connectionOrb').onclick=()=>state==='disconnecting'?undefined:['connected','scanning','connecting','reconnecting'].includes(state)?disconnect():connect();
+$('connectionMode').onclick=e=>{if(e.target.dataset.value){selectSegment('connectionMode',e.target.dataset.value);queueSave()}};$('protocol').onclick=e=>{if(e.target.dataset.value){selectSegment('protocol',e.target.dataset.value);syncProtocol();queueSave()}};$('transport').onclick=e=>{if(e.target.dataset.value){selectSegment('transport',e.target.dataset.value);queueSave()}};$('splitMode').onclick=e=>{if(e.target.dataset.value){selectSegment('splitMode',e.target.dataset.value);syncSplit();queueSave()}};$('splitEnabled').onchange=()=>{syncSplit();queueSave()};
+document.querySelectorAll('input,select').forEach(e=>e.addEventListener('change',()=>{if(e.id==='language'){settings.language=e.value;setLanguage(e.value);setState(state);updateSelectedCount()}if(e.id==='appearance')document.body.dataset.theme=e.value;queueSave()}));$('resetSettings').onclick=()=>{renderSettings(defaults);queueSave()};$('openApps').onclick=openApps;$('closeApps').onclick=closeApps;$('applyApps').onclick=()=>{closeApps();queueSave()};$('appSearch').oninput=renderApps;$('selectAll').onclick=()=>{apps.forEach(a=>selected.add(a.path));renderApps();updateSelectedCount()};$('clearAll').onclick=()=>{selected.clear();renderApps();updateSelectedCount()};
+$('manageNotifications').onclick=()=>openUrl('ms-settings:notifications').catch(showError);$('addExecutable').onclick=async()=>{try{const path=await tauri.dialog.open({multiple:false,filters:[{name:'Executable',extensions:['exe']}]});if(path){selected.add(path);if(!apps.some(a=>a.path===path))apps.push({name:path.split(/[\\/]/).pop(),path,icon:''});renderApps();toast(t('picker.added'))}}catch(error){showError(error)}};$('checkUpdates').onclick=()=>checkUpdates(true);$('updateAction').onclick=updateAction;document.querySelectorAll('[data-external]').forEach(b=>b.onclick=()=>openUrl(b.dataset.external).catch(showError));
+await listen('aether-log',e=>console.info('[Aether]',e.payload));await listen('aether-status',e=>{if(operation==='disconnect'&&e.payload.state!=='disconnected')return;if(!desiredConnected&&!['disconnected','error'].includes(e.payload.state))return;if(e.payload.state==='error'&&scheduleReconnect())return;setState(e.payload.state);if(e.payload.state==='connected')startTelemetry()});await listen('routing-status',e=>{if(operation==='disconnect'||!desiredConnected)return;if(e.payload.state==='reconnecting')setState('reconnecting');if(e.payload.state==='error'&&!scheduleReconnect())setState('error');if(e.payload.state==='connected'){reconnectAttempts=0;setState('connected');startTelemetry()}});await listen('update-progress',e=>{if(e.payload.percent!=null){$('updateProgress').classList.remove('hidden');$('updateProgress').value=e.payload.percent}});await listen('tray-connect',connect);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!$('appDialog').classList.contains('hidden'))closeApps();else closeDrawer()}if(e.key==='Backspace'&&!['INPUT','SELECT'].includes(document.activeElement.tagName)&&!$('view-connect').classList.contains('active'))showView('connect')});
+try{renderSettings(await invoke('load_settings'))}catch{renderSettings(defaults)}try{const snapshot=await invoke('connection_state');desiredConnected=snapshot.state!=='disconnected';setState(snapshot.state);if(snapshot.state==='connected')startTelemetry()}catch{setState('disconnected')}if(settings.automaticUpdates)setTimeout(()=>checkUpdates(false),1200);setInterval(()=>{if(settings.automaticUpdates)checkUpdates(false)},12*60*60*1000);

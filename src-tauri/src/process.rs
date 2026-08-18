@@ -1,6 +1,6 @@
 use crate::settings::Settings;
 use serde::Serialize;
-use std::{process::Stdio, sync::Arc, time::Instant};
+use std::{collections::VecDeque, process::Stdio, sync::Arc, time::Instant};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -23,10 +23,11 @@ pub struct ProcessManager {
     generation: Mutex<u64>,
     started: Mutex<Option<Instant>>,
     connected: Mutex<bool>,
+    recent_lines: Mutex<VecDeque<String>>,
 }
 
 impl ProcessManager {
-    pub async fn start(self: &Arc<Self>, app: AppHandle, settings: Settings) -> Result<(), String> {
+    pub async fn start(self: &Arc<Self>, app: AppHandle, settings: Settings) -> Result<u64, String> {
         settings.validate()?;
         let mut child_guard = self.child.lock().await;
         if let Some(child) = child_guard.as_mut() {
@@ -64,6 +65,7 @@ impl ProcessManager {
         let this_generation = *generation;
         *self.started.lock().await = Some(Instant::now());
         *self.connected.lock().await = false;
+        self.recent_lines.lock().await.clear();
         *child_guard = Some(child);
         drop(child_guard);
         drop(generation);
@@ -125,7 +127,7 @@ impl ProcessManager {
                 }
             }
         });
-        Ok(())
+        Ok(this_generation)
     }
 
     pub async fn stop(&self) -> Result<(), String> {
@@ -164,6 +166,47 @@ impl ProcessManager {
             .map(|i| i.elapsed().as_secs())
             .unwrap_or(0)
     }
+
+    pub async fn connection_state(&self) -> &'static str {
+        let running = match self.child.lock().await.as_mut() {
+            Some(child) => child.try_wait().ok().flatten().is_none(),
+            None => false,
+        };
+        if !running {
+            "disconnected"
+        } else if *self.connected.lock().await {
+            "connected"
+        } else {
+            "connecting"
+        }
+    }
+
+    pub async fn generation(&self) -> u64 {
+        *self.generation.lock().await
+    }
+
+    pub async fn is_running(&self) -> bool {
+        self.child
+            .lock()
+            .await
+            .as_mut()
+            .is_some_and(|child| child.try_wait().ok().flatten().is_none())
+    }
+
+    pub async fn diagnostic_tail(&self) -> String {
+        self.recent_lines
+            .lock()
+            .await
+            .iter()
+            .rev()
+            .take(12)
+            .cloned()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .join(" | ")
+    }
 }
 
 fn spawn_reader<R>(app: AppHandle, manager: Arc<ProcessManager>, stream: R)
@@ -173,10 +216,15 @@ where
     tauri::async_runtime::spawn(async move {
         let mut lines = BufReader::new(stream).lines();
         while let Ok(Some(line)) = lines.next_line().await {
-            let _ = app.emit("aether-log", &line);
-            if parse_status(&app, &line) {
-                manager.mark_connected().await;
+            {
+                let mut recent = manager.recent_lines.lock().await;
+                if recent.len() == 80 {
+                    recent.pop_front();
+                }
+                recent.push_back(line.clone());
             }
+            let _ = app.emit("aether-log", &line);
+            parse_status(&app, &line);
         }
     });
 }

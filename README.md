@@ -1,10 +1,10 @@
 # Aethon
 
-Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Windows version 1.11.2 bundles the verified Aether 1.5.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
+Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Windows version 1.2.1 bundles the verified Aether 1.7.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
 
 [Releases](https://github.com/hamvex/AetherGUI/releases) · [Security policy](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
-## Windows 1.11.2 release notes
+## Windows 1.2.1 release notes
 
 ### Windows routing and settings
 
@@ -13,15 +13,13 @@ Aethon is an independent Windows and Android client for the official [CluvexStud
 - Preserved sanitized sing-box exit diagnostics and immediate reconnect cleanup.
 - Restored Scan Mode and protocol-specific MASQUE HTTP/3 or HTTP/2 transport controls.
 - Migrated obsolete MASQUE obfuscation values without confusing them with Scan Mode.
-- Kept the compact Connection, Settings, Diagnostics, and App Update navigation.
+- Kept the compact Connect, Configurations, and Settings navigation.
 
-### English-only interface restoration
+### Android-parity interface
 
-- Removed the recently added Persian/Farsi application translations from Android and Windows.
-- Restored English as the only application language and enforced left-to-right layouts.
+- Added English and Persian application translations with right-to-left layout support.
 - Removed Android locale overrides, Persian resources, RTL support, and the language selector.
-- Removed the Windows language selector, localized tray strings, Persian guide, and bundled Persian font.
-- Preserved the existing dashboard design, spacing, VPN features, diagnostics, and routing behavior.
+- Added the Windows language selector and preserved VPN features and routing behavior.
 
 ### Application updates
 
@@ -39,30 +37,30 @@ Aethon is an independent Windows and Android client for the official [CluvexStud
 
 ### Versions and compatibility
 
-- Windows version: `1.11.2`
-- Android version name: `1.11.1`
-- Android version code: `22`
-- Aether core: `1.5.0`
+- Windows version: `1.2.1`
+- Android version name: `1.2.1`
+- Android version code: `23`
+- Aether core: `1.7.0`
 - sing-box routing engine: `1.13.14`
 - Windows: Windows 10/11 x64
 - Android: Android 8.0 or newer; ARMv7, ARM64, and x86_64
 
-Existing VPN services, state management, Quick Settings behavior, routing recovery, Smart Connect, split tunneling, and diagnostics remain in place.
+Existing VPN services, state management, routing recovery, Smart Connect, and split tunneling remain in place.
 
 ## Downloads
 
-Download the release files from [Aethon 1.11.2](https://github.com/hamvex/AetherGUI/releases/tag/v1.11.2):
+Download the release files from [Aethon 1.2.1](https://github.com/hamvex/AetherGUI/releases/tag/v1.2.1):
 
-- [`Aethon_1.11.2_all-platforms.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/Aethon_1.11.2_all-platforms.zip) — Windows 1.11.2 and Android 1.11.1 release archive.
-- [`Aethon_1.11.2_x64-setup.exe`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/Aethon_1.11.2_x64-setup.exe) — recommended Windows installer.
-- [`Aethon_1.11.2_x64_en-US.msi`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/Aethon_1.11.2_x64_en-US.msi) — Windows MSI.
-- [`Aethon_1.11.2_x64-portable.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/Aethon_1.11.2_x64-portable.zip) — portable Windows package.
-- [`Aethon_1.11.1_android-universal.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/Aethon_1.11.1_android-universal.apk) — Android universal APK containing ARMv7, ARM64, and x86_64 libraries.
-- [`Aethon_1.11.1_android-armv7.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/Aethon_1.11.1_android-armv7.apk) — 32-bit ARM APK.
-- [`Aethon_1.11.1_android-arm64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/Aethon_1.11.1_android-arm64.apk) — 64-bit ARM APK.
-- [`Aethon_1.11.1_android-x86_64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/Aethon_1.11.1_android-x86_64.apk) — x86_64 APK.
-- [`Aethon_1.11.1_android-play.aab`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/Aethon_1.11.1_android-play.aab) — Play App Bundle.
-- [`SHA256SUMS.txt`](https://github.com/hamvex/AetherGUI/releases/download/v1.11.2/SHA256SUMS.txt) — release checksums.
+- [`Aethon_1.2.1_all-platforms.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_all-platforms.zip) — Windows and Android 1.2.1 release archive.
+- [`Aethon_1.2.1_x64-setup.exe`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_x64-setup.exe) — recommended Windows installer.
+- [`Aethon_1.2.1_x64_en-US.msi`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_x64_en-US.msi) — Windows MSI.
+- [`Aethon_1.2.1_x64-portable.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_x64-portable.zip) — portable Windows package.
+- [`Aethon_1.2.1_android-universal.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-universal.apk) — Android universal APK containing ARMv7, ARM64, and x86_64 libraries.
+- [`Aethon_1.2.1_android-armv7.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-armv7.apk) — 32-bit ARM APK.
+- [`Aethon_1.2.1_android-arm64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-arm64.apk) — 64-bit ARM APK.
+- [`Aethon_1.2.1_android-x86_64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-x86_64.apk) — x86_64 APK.
+- [`Aethon_1.2.1_android-play.aab`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-play.aab) — Play App Bundle.
+- [`SHA256SUMS.txt`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/SHA256SUMS.txt) — release checksums.
 
 Windows binaries are currently unsigned and may trigger a SmartScreen warning. Android release packages are signed with the established Aethon Android signing certificate.
 
@@ -153,7 +151,7 @@ After both platform builds complete:
 npm run package:release
 ```
 
-This creates Windows x64 installers, portable files, architecture-specific Android packages, checksums, and `Aethon_1.11.2_all-platforms.zip` under `release`.
+This creates Windows x64 installers, portable files, architecture-specific Android packages, checksums, and `Aethon_1.2.1_all-platforms.zip` under `release`.
 
 ## Verification
 

@@ -1,0 +1,5 @@
+<resources>
+    <string name="upload_label">↑ ترافیک ارسالی</string>
+    <string name="download_label">↓ ترافیک دریافتی</string>
+    <string name="ping_label">پینگ</string>
+</resources>

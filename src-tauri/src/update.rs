@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
-const RELEASE_API: &str = "https://api.github.com/repos/hamvex/AetherGUI/releases/latest";
+const RELEASE_API: &str = "https://api.github.com/repos/hamvex/AetherGUI/releases?per_page=30";
 const DOWNLOAD_PREFIX: &str = "https://github.com/hamvex/AetherGUI/releases/download/";
 const CHECKSUM_ASSET: &str = "SHA256SUMS.txt";
 
@@ -52,11 +52,12 @@ struct UpdateProgress {
     total_bytes: Option<u64>,
     percent: Option<u8>,
     status: &'static str,
+    speed_bytes_per_second: Option<u64>,
 }
 
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .user_agent("Aethon-Update/1.11.2")
+        .user_agent("Aethon-Update/1.2.1")
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|error| error.to_string())
@@ -124,23 +125,34 @@ async fn checksum_from_manifest(
 
 async fn latest_update() -> Result<UpdateInfo, String> {
     let http = client()?;
-    let release = http
+    let releases = http
         .get(RELEASE_API)
         .send()
         .await
         .map_err(|error| format!("Update check failed: {error}"))?
         .error_for_status()
         .map_err(|error| format!("Update check failed: {error}"))?
-        .json::<GithubRelease>()
+        .json::<Vec<GithubRelease>>()
         .await
         .map_err(|error| format!("Invalid update metadata: {error}"))?;
-    let latest = normalized_version(&release.tag_name).to_string();
-    let installer_name = format!("Aethon_{latest}_x64-setup.exe");
-    let asset = release
-        .assets
+    let current = "1.2.1";
+    let (release, latest, installer_name, asset) = releases
         .iter()
-        .find(|asset| asset.name == installer_name)
-        .ok_or_else(|| format!("The release does not include {installer_name}"))?;
+        .filter_map(|release| {
+            let latest = normalized_version(&release.tag_name).to_string();
+            if !is_newer_version(&latest, current) { return None; }
+            let installer_name = format!("Aethon_{latest}_x64-setup.exe");
+            let asset = release.assets.iter().find(|asset| asset.name == installer_name)?;
+            Some((release, latest, installer_name, asset))
+        })
+        .next()
+        .or_else(|| releases.iter().filter_map(|release| {
+            let latest = normalized_version(&release.tag_name).to_string();
+            let installer_name = format!("Aethon_{latest}_x64-setup.exe");
+            let asset = release.assets.iter().find(|asset| asset.name == installer_name)?;
+            Some((release, latest, installer_name, asset))
+        }).next())
+        .ok_or("No compatible Windows update package is available")?;
     if !asset.browser_download_url.starts_with(DOWNLOAD_PREFIX) {
         return Err("The installer URL is not an official Aethon release URL".into());
     }
@@ -154,12 +166,11 @@ async fn latest_update() -> Result<UpdateInfo, String> {
         }
         _ => checksum_from_manifest(&http, &release, &installer_name).await?,
     };
-    let current = env!("CARGO_PKG_VERSION").to_string();
     Ok(UpdateInfo {
-        available: is_newer_version(&latest, &current),
-        current_version: current,
+        available: is_newer_version(&latest, current),
+        current_version: current.into(),
         latest_version: latest,
-        release_notes: release.body.unwrap_or_default(),
+        release_notes: release.body.clone().unwrap_or_default(),
         download_url: asset.browser_download_url.clone(),
         sha256,
     })
@@ -214,6 +225,7 @@ pub async fn download_update(
         .map_err(|error| error.to_string())?;
     let mut hasher = Sha256::new();
     let mut downloaded = 0u64;
+    let started = std::time::Instant::now();
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| format!("Update download failed: {error}"))?;
         file.write_all(&chunk)
@@ -230,6 +242,7 @@ pub async fn download_update(
                 total_bytes: total,
                 percent,
                 status: "downloading",
+                speed_bytes_per_second: Some(downloaded / started.elapsed().as_secs().max(1)),
             },
         );
     }
@@ -258,6 +271,7 @@ pub async fn download_update(
             total_bytes: total,
             percent: Some(100),
             status: "ready",
+            speed_bytes_per_second: Some(downloaded / started.elapsed().as_secs().max(1)),
         },
     );
     Ok(info.latest_version)

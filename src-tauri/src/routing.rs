@@ -25,6 +25,13 @@ pub struct RoutingStatus {
     pub engine_pid: u32,
 }
 
+#[derive(Debug, Clone, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TrafficTotals {
+    pub uploaded: u64,
+    pub downloaded: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RoutingRequest {
@@ -45,6 +52,7 @@ struct RoutingRequest {
 
 struct Session {
     dir: PathBuf,
+    traffic_baseline: Arc<Mutex<Option<TrafficTotals>>>,
 }
 #[derive(Default)]
 pub struct RoutingManager {
@@ -53,6 +61,48 @@ pub struct RoutingManager {
 }
 
 impl RoutingManager {
+    pub async fn traffic_totals(&self) -> Result<TrafficTotals, String> {
+        let session = self
+            .session
+            .lock()
+            .await
+            .as_ref()
+            .map(|session| (session.dir.clone(), session.traffic_baseline.clone()));
+        let Some((dir, baseline)) = session else {
+            return Ok(TrafficTotals::default());
+        };
+        let request: RoutingRequest =
+            serde_json::from_slice(&fs::read(dir.join("request.json")).map_err(display_err)?)
+                .map_err(display_err)?;
+        #[cfg(windows)]
+        {
+            let script = format!(
+                "$s=Get-NetAdapterStatistics -Name '{}' -ErrorAction Stop; @{{tx=[uint64]$s.SentBytes;rx=[uint64]$s.ReceivedBytes}} | ConvertTo-Json -Compress",
+                request.tun_interface
+            );
+            let mut command = Command::new("powershell.exe");
+            command.args(["-NoProfile", "-NonInteractive", "-Command", &script]);
+            hide_command_window(&mut command);
+            let output = command.output().map_err(display_err)?;
+            if !output.status.success() {
+                return Ok(TrafficTotals::default());
+            }
+            let value: Value = serde_json::from_slice(&output.stdout).map_err(display_err)?;
+            let current = TrafficTotals {
+                uploaded: value.get("tx").and_then(Value::as_u64).unwrap_or(0),
+                downloaded: value.get("rx").and_then(Value::as_u64).unwrap_or(0),
+            };
+            let mut origin = baseline.lock().await;
+            let base = origin.get_or_insert_with(|| current.clone()).clone();
+            return Ok(TrafficTotals {
+                uploaded: current.uploaded.saturating_sub(base.uploaded),
+                downloaded: current.downloaded.saturating_sub(base.downloaded),
+            });
+        }
+        #[cfg(not(windows))]
+        Ok(TrafficTotals::default())
+    }
+
     pub async fn start(
         self: &Arc<Self>,
         app: AppHandle,
@@ -147,6 +197,7 @@ impl RoutingManager {
         );
         *self.session.lock().await = Some(Session {
             dir: request.session_dir.clone(),
+            traffic_baseline: Arc::new(Mutex::new(None)),
         });
         if let Err(error) = launch_elevated("--routing-helper", &request_path) {
             let _ = write_status(
@@ -430,6 +481,7 @@ pub fn helper_main(request_path: &Path) -> Result<(), String> {
             &request.session_dir.join("routing.log"),
             &request.tun_interface,
         )?;
+        install_takeover_routes(&request.tun_interface)?;
         write_status(
             &request.session_dir,
             "connected",
@@ -541,6 +593,60 @@ fn wait_for_tun_ready(
             ));
         }
         std::thread::sleep(Duration::from_millis(250));
+    }
+}
+
+/// A competing VPN can install two more-specific /1 routes, which would
+/// bypass the Aethon /0 route even though the TUN adapter is ready. Install
+/// active-session /1 routes on our adapter so system traffic follows Aethon.
+fn install_takeover_routes(interface_name: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        for prefix in ["0.0.0.0/1", "128.0.0.0/1"] {
+            let mut command = Command::new("netsh.exe");
+            command.args([
+                "interface",
+                "ipv4",
+                "add",
+                "route",
+                &format!("prefix={prefix}"),
+                &format!("interface={interface_name}"),
+                "nexthop=172.19.0.2",
+                "metric=0",
+                "store=active",
+            ]);
+            hide_command_window(&mut command);
+            let output = command.output().map_err(display_err)?;
+            if !output.status.success() {
+                return Err(format!(
+                    "Could not install the Aethon {prefix} route: {}",
+                    String::from_utf8_lossy(&output.stderr).trim()
+                ));
+            }
+        }
+        let mut metric_command = Command::new("netsh.exe");
+        metric_command.args([
+            "interface",
+            "ipv4",
+            "set",
+            "interface",
+            &format!("name={interface_name}"),
+            "metric=1",
+        ]);
+        hide_command_window(&mut metric_command);
+        let metric_output = metric_command.output().map_err(display_err)?;
+        if !metric_output.status.success() {
+            return Err(format!(
+                "Could not prioritize the Aethon TUN interface: {}",
+                String::from_utf8_lossy(&metric_output.stderr).trim()
+            ));
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = interface_name;
+        Ok(())
     }
 }
 
@@ -845,7 +951,7 @@ fn terminate_pid(pid: u32) {
 }
 
 /// Remove only adapters Aethon creates. The explicit legacy name is included
-/// for upgrades from 1.11.2; physical and third-party adapters are untouched.
+/// for upgrades from earlier releases; physical and third-party adapters are untouched.
 fn cleanup_owned_adapters(keep: Option<&str>) {
     #[cfg(windows)]
     {

@@ -36,49 +36,94 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 final class AppUpdateManager {
     private static final String CHANNEL_ID = "aether_app_updates";
     private static final int NOTIFICATION_ID = 2901;
     private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor();
+    private static final AtomicBoolean CHECKING = new AtomicBoolean();
 
     interface Listener { void onComplete(); void onError(Throwable error); }
 
     static void initialize(Context context) {
         Context app = context.getApplicationContext();
         createNotificationChannel(app);
+        reconcileDownload(app);
+        boolean enabled = app.getSharedPreferences(UpdateConfig.PREFS, Context.MODE_PRIVATE).getBoolean(UpdateConfig.KEY_AUTO_DOWNLOAD, false);
+        setAutomaticChecks(app, enabled);
+    }
+
+    static void setAutomaticChecks(Context context, boolean enabled) {
+        Context app = context.getApplicationContext();
+        WorkManager manager = WorkManager.getInstance(app);
+        if (!enabled) {
+            manager.cancelUniqueWork("aether-update-check");
+            manager.cancelUniqueWork("aether-update-startup");
+            return;
+        }
         PeriodicWorkRequest periodic = new PeriodicWorkRequest.Builder(UpdateWorker.class, 12, TimeUnit.HOURS)
                 .setConstraints(UpdateWorker.constraints()).build();
-        WorkManager.getInstance(app).enqueueUniquePeriodicWork("aether-update-check", ExistingPeriodicWorkPolicy.KEEP, periodic);
-        WorkManager.getInstance(app).enqueueUniqueWork("aether-update-startup", ExistingWorkPolicy.KEEP, new OneTimeWorkRequest.Builder(UpdateWorker.class).setConstraints(UpdateWorker.constraints()).build());
+        manager.enqueueUniquePeriodicWork("aether-update-check", ExistingPeriodicWorkPolicy.KEEP, periodic);
+        manager.enqueueUniqueWork("aether-update-startup", ExistingWorkPolicy.KEEP, new OneTimeWorkRequest.Builder(UpdateWorker.class).setConstraints(UpdateWorker.constraints()).build());
     }
 
     static void checkNow(Context context, Listener listener) {
         Context app = context.getApplicationContext();
+        if (!CHECKING.compareAndSet(false, true)) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(listener::onComplete);
+            return;
+        }
+        app.getSharedPreferences(UpdateConfig.PREFS, Context.MODE_PRIVATE).edit().putString("status", "checking").apply();
+        sendState(app);
         EXECUTOR.execute(() -> {
             try {
                 checkBlocking(app);
                 android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
                 main.post(listener::onComplete);
             } catch (Throwable error) {
+                markFailed(app);
                 android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
                 main.post(() -> listener.onError(error));
+            } finally {
+                CHECKING.set(false);
             }
         });
     }
 
-    static void checkBlocking(Context context) throws IOException {
-        JSONObject release = getJson(UpdateConfig.API_URL);
-        String tag = release.optString("tag_name", "").replaceFirst("^v", "");
-        if (tag.isEmpty()) throw new IOException("The update service returned no version");
-        JSONArray assets = release.optJSONArray("assets");
-        JSONObject apk = findAsset(assets, String.format(Locale.US, UpdateConfig.RELEASE_ASSET, tag));
-        if (apk == null) throw new IOException("The latest release has no Android APK");
+    static synchronized void checkBlocking(Context context) throws IOException {
+        JSONArray releases = getJsonArray(UpdateConfig.API_URL);
+        JSONObject release = null;
+        String tag = "";
+        JSONObject apk = null;
+        for (int i = 0; i < releases.length(); i++) {
+            JSONObject candidate = releases.optJSONObject(i);
+            if (candidate == null) continue;
+            String candidateTag = candidate.optString("tag_name", "").replaceFirst("^v", "");
+            if (candidateTag.isEmpty() || compareVersions(candidateTag, BuildConfig.VERSION_NAME) <= 0) continue;
+            JSONObject candidateApk = findAsset(candidate.optJSONArray("assets"), String.format(Locale.US, UpdateConfig.RELEASE_ASSET, candidateTag));
+            if (candidateApk != null) {
+                release = candidate;
+                tag = candidateTag;
+                apk = candidateApk;
+                break;
+            }
+        }
+        if (release == null) {
+            for (int i = 0; i < releases.length(); i++) {
+                JSONObject candidate = releases.optJSONObject(i);
+                if (candidate == null) continue;
+                String candidateTag = candidate.optString("tag_name", "").replaceFirst("^v", "");
+                JSONObject candidateApk = findAsset(candidate.optJSONArray("assets"), String.format(Locale.US, UpdateConfig.RELEASE_ASSET, candidateTag));
+                if (candidateApk != null) { release = candidate; tag = candidateTag; apk = candidateApk; break; }
+            }
+        }
+        if (release == null || apk == null || tag.isEmpty()) throw new IOException("No Android update package is available");
         String downloadUrl = apk.optString("browser_download_url", "");
         if (!downloadUrl.startsWith(UpdateConfig.RELEASE_DOWNLOAD_PREFIX)) throw new IOException("The update URL is not an official Aethon release");
         String checksum = apk.optString("digest", "").replaceFirst("^sha256:", "");
         if (checksum.isEmpty()) {
-            JSONObject sums = findAsset(assets, UpdateConfig.CHECKSUM_ASSET);
+            JSONObject sums = findAsset(release.optJSONArray("assets"), UpdateConfig.CHECKSUM_ASSET);
             if (sums != null) {
                 String sumsUrl = sums.optString("browser_download_url", "");
                 if (!sumsUrl.startsWith(UpdateConfig.RELEASE_DOWNLOAD_PREFIX)) throw new IOException("The checksum URL is not an official Aethon release");
@@ -93,7 +138,8 @@ final class AppUpdateManager {
         if (compareVersions(info.version, BuildConfig.VERSION_NAME) > 0) {
             prefs.edit().putString("status", prefs.getBoolean(UpdateConfig.KEY_AUTO_DOWNLOAD, false) ? "downloading" : "available").apply();
             notifyAvailable(context, info.version, info.notes);
-            if (prefs.getBoolean(UpdateConfig.KEY_AUTO_DOWNLOAD, false)) startDownload(context, true);
+            sendState(context);
+            if (prefs.getBoolean(UpdateConfig.KEY_AUTO_DOWNLOAD, false)) startDownload(context, false);
         } else {
             prefs.edit().putString("status", "up_to_date").apply();
             sendState(context);
@@ -133,6 +179,31 @@ final class AppUpdateManager {
             sendState(app);
             notifyFailure(app, R.string.update_download_failed);
             return false;
+        }
+    }
+
+    private static void reconcileDownload(Context context) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences(UpdateConfig.PREFS, Context.MODE_PRIVATE);
+        long id = prefs.getLong(UpdateConfig.KEY_DOWNLOAD_ID, -1);
+        if (id < 0) return;
+        DownloadManager manager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
+        try (android.database.Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(id))) {
+            if (cursor == null || !cursor.moveToFirst()) {
+                prefs.edit().remove(UpdateConfig.KEY_DOWNLOAD_ID).putString("status", "download_failed").apply();
+                return;
+            }
+            int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+            if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                Intent completed = new Intent(context, AppUpdateReceiver.class).setAction(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
+                        .putExtra(DownloadManager.EXTRA_DOWNLOAD_ID, id);
+                context.sendBroadcast(completed);
+            } else if (status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING || status == DownloadManager.STATUS_PAUSED) {
+                prefs.edit().putString("status", "downloading").apply();
+            } else {
+                prefs.edit().remove(UpdateConfig.KEY_DOWNLOAD_ID).putString("status", "download_failed").apply();
+            }
+        } catch (RuntimeException error) {
+            prefs.edit().putString("status", "download_failed").apply();
         }
     }
 
@@ -208,6 +279,11 @@ final class AppUpdateManager {
         try { return new JSONObject(getText(url)); }
         catch (org.json.JSONException error) { throw new IOException("Invalid update metadata", error); }
     }
+
+    private static JSONArray getJsonArray(String url) throws IOException {
+        try { return new JSONArray(getText(url)); }
+        catch (org.json.JSONException error) { throw new IOException("Invalid update metadata", error); }
+    }
     private static String getText(String url) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         connection.setConnectTimeout(15_000); connection.setReadTimeout(30_000); connection.setRequestProperty("User-Agent", "Aethon-Android"); connection.setRequestProperty("Accept", "application/vnd.github+json");
@@ -215,7 +291,22 @@ final class AppUpdateManager {
             StringBuilder result = new StringBuilder(); String line; while ((line = reader.readLine()) != null) result.append(line).append('\n'); return result.toString();
         } finally { connection.disconnect(); }
     }
-    private static boolean isActive(DownloadManager manager, long id) { try { android.database.Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(id)); if (cursor == null) return false; try { return cursor.moveToFirst() && (cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_PENDING || cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_RUNNING); } finally { cursor.close(); } } catch (Exception ignored) { return false; } }
+    private static boolean isActive(DownloadManager manager, long id) { try { android.database.Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(id)); if (cursor == null) return false; try { if (!cursor.moveToFirst()) return false; int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)); return status == DownloadManager.STATUS_PENDING || status == DownloadManager.STATUS_RUNNING || status == DownloadManager.STATUS_PAUSED; } finally { cursor.close(); } } catch (Exception ignored) { return false; } }
+    static int downloadProgress(Context context) {
+        android.content.SharedPreferences prefs = context.getSharedPreferences(UpdateConfig.PREFS, Context.MODE_PRIVATE);
+        long id = prefs.getLong(UpdateConfig.KEY_DOWNLOAD_ID, -1);
+        if (id < 0) return -1;
+        DownloadManager manager = (DownloadManager) context.getSystemService(Context.DOWNLOAD_SERVICE);
+        try (android.database.Cursor cursor = manager.query(new DownloadManager.Query().setFilterById(id))) {
+            if (cursor == null || !cursor.moveToFirst()) return -1;
+            int status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+            if (status == DownloadManager.STATUS_SUCCESSFUL) return 100;
+            if (status != DownloadManager.STATUS_PENDING && status != DownloadManager.STATUS_RUNNING && status != DownloadManager.STATUS_PAUSED) return -1;
+            long total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+            long downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+            return total > 0 ? (int) Math.min(99, downloaded * 100 / total) : 0;
+        } catch (Exception ignored) { return -1; }
+    }
     private static boolean notificationsAllowed(Context context) { return Build.VERSION.SDK_INT < 33 || context.checkSelfPermission("android.permission.POST_NOTIFICATIONS") == android.content.pm.PackageManager.PERMISSION_GRANTED; }
     private static void createNotificationChannel(Context context) { NotificationChannel channel = new NotificationChannel(CHANNEL_ID, context.getString(R.string.update_notification_channel), NotificationManager.IMPORTANCE_DEFAULT); channel.setDescription(context.getString(R.string.update_notification_channel_summary)); context.getSystemService(NotificationManager.class).createNotificationChannel(channel); }
 

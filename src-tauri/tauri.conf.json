@@ -1,7 +1,7 @@
 {
     "$schema":  "https://schema.tauri.app/config/2",
     "productName":  "Aethon",
-    "version":  "1.11.2",
+    "version":  "1.2.1",
     "identifier":  "io.github.hamvex.aether-gui",
     "build":  {
                   "frontendDist":  "../dist",
@@ -14,16 +14,16 @@
                                 {
                                     "label":  "main",
                                     "title":  "Aethon",
-                                    "width":  860,
-                                    "height":  620,
-                                    "minWidth":  680,
-                                    "minHeight":  520,
+                                    "width":  430,
+                                    "height":  860,
+                                    "minWidth":  360,
+                                    "minHeight":  640,
                                     "center":  true,
                                     "resizable":  true
                                 }
                             ],
                 "security":  {
-                                 "csp":  "default-src \u0027self\u0027; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; script-src \u0027self\u0027"
+                                 "csp":  "default-src \u0027self\u0027; img-src \u0027self\u0027 data:; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; script-src \u0027self\u0027"
                              },
                 "withGlobalTauri":  true
             },

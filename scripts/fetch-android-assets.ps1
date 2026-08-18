@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$aetherVersion = if ($env:AETHER_CORE_VERSION) { $env:AETHER_CORE_VERSION } else { "v1.5.0" }
+$aetherVersion = if ($env:AETHER_CORE_VERSION) { $env:AETHER_CORE_VERSION } else { "v1.7.0" }
 $hevVersion = "2.16.0"
 $hevCommit = "0a05221275a51a884d93328c55fc2fbc9e9b6974"
 $ndkVersion = "27.2.12479018"

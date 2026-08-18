@@ -1,18 +1,183 @@
 <resources>
-    <string name="app_name">Aethon</string><string name="app_version">v1.11.1</string><string name="version_format">v%1$s</string><string name="channel_url">https://t.me/hamvex</string><string name="default_socks_address" translatable="false">127.0.0.1:1819</string><string name="default_mtu" translatable="false">1500</string>
-    <string name="status_disconnected">Disconnected</string><string name="status_ready_message">Use the recommended profile for a fast, private connection.</string><string name="connect">Connect securely</string><string name="disconnect">Disconnect</string>
-    <string name="connection_mode">Connection mode</string><string name="vpn_mode">Device VPN</string><string name="proxy_mode">SOCKS5 proxy</string><string name="smart_mode">Smart Connect</string><string name="smart_mode_summary">Test every protocol and choose the fastest reliable route.</string>
-    <string name="profile_title">Connection profile</string><string name="profile_summary">Simple defaults that match the official Aethon client.</string><string name="protocol">Protocol</string><string name="scan_mode">Scan mode</string><string name="transport">MASQUE transport</string>
-    <string name="advanced_settings">Advanced settings</string><string name="show_advanced">Show advanced</string><string name="hide_advanced">Hide advanced</string><string name="ip_scan">IP scan</string><string name="obfuscation">Obfuscation</string><string name="log_level">Aethon log level</string><string name="routing">Routing</string><string name="socks_address">Local SOCKS5 address</string><string name="custom_endpoint">Custom endpoint (optional)</string><string name="mtu">VPN MTU</string>
-    <string name="split_apps">App package names, separated by commas or lines</string><string name="choose_apps">Choose applications</string><string name="choose_apps_summary">Selections apply the next time you connect.</string><string name="split_include_empty">Choose at least one installed application for include-only routing.</string><string name="app_picker_title">VPN applications</string><string name="app_picker_search">Search applications</string><string name="app_picker_empty">No matching applications</string><string name="app_picker_missing">Missing package (tap to remove)</string>
-    <plurals name="app_picker_selected_count"><item quantity="one">%1$d selected</item><item quantity="other">%1$d selected</item></plurals><string name="app_picker_done">Done</string>
-    <string name="theme">Theme</string><string name="dns_protection">Private DNS routing</string><string name="dns_protection_summary">Route DNS requests through the tunnel</string><string name="kill_switch">Fail closed on tunnel errors</string><string name="kill_switch_summary">Keep VPN routes blocked if Aethon unexpectedly stops</string><string name="quick_reconnect">Quick reconnect</string><string name="quick_reconnect_summary">Reuse the last verified gateway when possible</string><string name="reset_defaults">Reset defaults</string>
-    <string name="diagnostics">Diagnostics</string><string name="run_test">Test connection</string><string name="clear_logs">Clear</string><string name="live_log">Live log</string><string name="logs_waiting">Connection logs will appear here.</string><string name="telegram_title">Firstham on Telegram</string><string name="telegram_summary">Updates, tips, and new releases from @hamvex.</string><string name="open_channel">Open channel</string>
-    <string name="mode_label">MODE</string><string name="protocol_label">PROTOCOL</string><string name="traffic_label">TRAFFIC</string><string name="not_connected_short">Not connected</string><string name="zero_bytes">0 B</string><string name="default_protocol_label">gool / WARP-in-WARP</string><string name="auto_protocol">AUTO</string><string name="mode_vpn_short">VPN</string><string name="mode_smart_short">SMART</string><string name="mode_socks_short">SOCKS5</string>
-    <string name="status_protected">You are protected</string><string name="status_starting">Starting Aethon</string><string name="status_scanning">Finding a gateway</string><string name="status_securing">Securing your route</string><string name="status_reconnecting">Reconnecting</string><string name="status_disconnecting">Disconnecting</string><string name="status_blocked">Traffic is blocked</string><string name="status_error">Connection needs attention</string>
-    <string name="phase_connected">CONNECTED</string><string name="phase_starting">STARTING</string><string name="phase_testing">TESTING</string><string name="phase_scanning">SCANNING</string><string name="phase_securing">SECURING</string><string name="phase_reconnecting">RECONNECTING</string><string name="phase_closing">CLOSING</string><string name="phase_blocked">FAIL CLOSED</string><string name="phase_error">ERROR</string><string name="phase_ready">READY</string>
-    <string name="tile_name">Aethon VPN</string><string name="tile_connected">Connected</string><string name="tile_disconnected">Disconnected</string><string name="tile_unavailable">Unavailable</string><string name="notification_channel">Aethon VPN</string><string name="notification_channel_summary">Aethon connection status</string><string name="service_preparing">Preparing a secure connection</string><string name="service_launching">Launching the Aethon core</string><string name="service_disconnecting">Closing the tunnel safely</string><string name="service_disconnected">Disconnected safely</string>
-    <string name="service_smart_testing">Testing MASQUE, WireGuard, and gool</string><string name="service_scanning">Scanning for a verified gateway</string><string name="service_proxy_ready">Local SOCKS5 proxy is ready</string><string name="service_proxy_connected">SOCKS5 proxy is connected</string><string name="service_protected">Your device traffic is protected</string><string name="service_smart_protected">Protected with Smart Connect</string><string name="service_aethon_protected">Protected through Aethon</string><string name="service_blocked">Tunnel stopped; network remains blocked by fail-closed mode</string><string name="service_blocked_notification">Traffic blocked — reconnect or disconnect</string><string name="service_identity_ready">Identity ready; finding the best gateway</string><string name="service_testing_gateways">Testing reachable gateways</string><string name="service_gateway_verified">Gateway verified; securing the tunnel</string><string name="service_reconnecting">Aethon stopped; reconnecting to the last verified gateway</string><string name="service_restored">Connection restored</string><string name="service_testing_protocol">Testing %1$s (%2$d/%3$d)</string>
-    <string name="menu_telegram">Telegram</string><string name="invalid_socks">Enter a valid host:port SOCKS5 address.</string><string name="vpn_permission_denied">VPN permission is required for Device VPN mode.</string><string name="test_passed">Connection test passed</string><string name="test_failed">Connection test failed</string><string name="telegram_fallback">Telegram: @hamvex</string>
-    <string name="app_updates">App Updates</string><string name="current_version">Current version</string><string name="latest_version">Latest available version</string><string name="not_checked">Not checked</string><string name="update_status">Update status</string><string name="update_up_to_date">Up to date</string><string name="update_available">Update available</string><string name="update_downloading">Downloading update</string><string name="update_installing">Installing update</string><string name="update_checking">Checking for updates</string><string name="update_failed">Update check failed</string><string name="update_download_failed">Update download failed</string><string name="update_verification_failed">Update verification failed</string><string name="update_ready_install">Update verified and ready to install</string><string name="check_for_updates">Check for Updates</string><string name="download_update">Download update</string><string name="automatic_updates">Automatically download updates</string><string name="automatic_updates_summary">Download verified updates automatically over Wi-Fi</string><string name="release_notes">Release notes</string><string name="no_release_notes">No release notes available.</string><string name="new_update_title">New Aether update available</string><string name="new_update_versions">Installed %1$s • Available %2$s</string><string name="start_update">Start update</string><string name="install_update">Install update</string><string name="update_notification_channel">App updates</string><string name="update_notification_channel_summary">Aethon update availability and installation</string><string name="install_permission_required">Allow Aethon to install updates, then try again.</string><string name="update_download_started">Update download started.</string><string name="update_no_download">No verified update is ready to install.</string>
+    <string name="app_name">Aethon VPN</string>
+    <string name="app_version" translatable="false">v1.2.1</string>
+    <string name="version_format" translatable="false">v%1$s</string>
+    <string name="channel_url" translatable="false">https://t.me/hamvex</string>
+    <string name="default_socks_address" translatable="false">127.0.0.1:1819</string>
+    <string name="default_mtu" translatable="false">1500</string>
+
+    <string name="nav_connect">Connect</string>
+    <string name="nav_configurations">Configurations</string>
+    <string name="nav_settings">Settings</string>
+    <string name="open_navigation">Open navigation</string>
+    <string name="close_navigation">Close navigation</string>
+    <string name="configurations_title">Configurations</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_summary">How should the Aethon app behave and look?</string>
+
+    <string name="connect">CONNECT</string>
+    <string name="disconnect">DISCONNECT</string>
+    <string name="connecting">CONNECTING…</string>
+    <string name="disconnecting">DISCONNECTING…</string>
+    <string name="status_disconnected">Aethon Ready</string>
+    <string name="status_connected">Aethon Active</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="tap_to_secure">Tap to secure</string>
+    <string name="status_ready_message"></string>
+    <string name="status_protected">You are protected</string>
+    <string name="status_starting">Starting Aethon VPN</string>
+    <string name="status_scanning">Finding a gateway</string>
+    <string name="status_securing">Securing your route</string>
+    <string name="status_reconnecting">Reconnecting</string>
+    <string name="status_disconnecting">Disconnecting</string>
+    <string name="status_blocked">Traffic is blocked</string>
+    <string name="status_error">Connection needs attention</string>
+    <string name="connection_location_unavailable">Location unavailable</string>
+    <string name="upload_traffic">&#x2191; Upload Traffic\n%1$s</string>
+    <string name="download_traffic">&#x2193; Download Traffic\n%1$s</string>
+    <string name="ping_value">%1$s</string>
+    <string name="session_label">Traffic</string>
+    <string name="latency_label">Ping</string>
+    <string name="node_label">NODE</string>
+    <string name="upload_label">&#x2191; Upload</string>
+    <string name="download_label">&#x2193; Download</string>
+    <string name="ping_label">Ping</string>
+    <string name="ping_millis">%1$s ms</string>
+    <string name="location_detecting">Finding VPN location…</string>
+    <string name="metric_unavailable">--</string>
+    <string name="traffic_kilobytes">%1$.1f KB</string>
+    <string name="traffic_megabytes">%1$.1f MB</string>
+    <string name="traffic_gigabytes">%1$.1f GB</string>
+
+    <string name="connection_mode">Connection mode</string>
+    <string name="vpn_mode">Device VPN</string>
+    <string name="proxy_mode">SOCKS5 proxy</string>
+    <string name="smart_mode">Smart Connect</string>
+    <string name="smart_mode_summary">Test every protocol and choose the fastest reliable route.</string>
+    <string name="protocol">Protocol</string>
+    <string name="scan_mode">Scan mode</string>
+    <string name="transport">MASQUE transport</string>
+    <string name="advanced_settings">Advanced settings</string>
+    <string name="show_advanced">Show advanced</string>
+    <string name="hide_advanced">Hide advanced</string>
+    <string name="ip_scan">IP scan</string>
+    <string name="obfuscation">Obfuscation</string>
+    <string name="log_level">Aethon log level</string>
+    <string name="socks_address">Local SOCKS5 address</string>
+    <string name="custom_endpoint">Custom endpoint (optional)</string>
+    <string name="mtu">VPN MTU</string>
+    <string name="dns_protection">Private DNS routing</string>
+    <string name="dns_protection_summary">Route DNS requests through the tunnel</string>
+    <string name="kill_switch">Fail closed on tunnel errors</string>
+    <string name="kill_switch_summary">Keep VPN routes blocked if Aethon unexpectedly stops</string>
+    <string name="quick_reconnect">Auto Reconnect</string>
+    <string name="quick_reconnect_summary">Recover automatically after a temporary connection failure</string>
+    <string name="reset_defaults">Reset defaults</string>
+
+    <string name="split_tunneling">Split Tunneling</string>
+    <string name="split_tunneling_summary">Choose which apps use the Aethon connection.</string>
+    <string name="routing_mode">Routing mode</string>
+    <string name="split_include">Include Apps</string>
+    <string name="split_include_summary">Only selected apps use Aethon</string>
+    <string name="split_exclude">Exclude Apps</string>
+    <string name="split_exclude_summary">Selected apps bypass Aethon</string>
+    <string name="selected_apps">Selected Apps</string>
+    <string name="choose_apps">Select Apps</string>
+    <string name="choose_apps_summary">Changes apply the next time you connect.</string>
+    <string name="split_include_empty">Choose at least one installed application for include-only routing.</string>
+    <string name="app_picker_title">Select Apps</string>
+    <string name="app_picker_search">Search apps</string>
+    <string name="app_picker_empty">No matching applications</string>
+    <string name="app_picker_missing">Missing application</string>
+    <string name="app_picker_done">Apply</string>
+    <string name="select_all">Select All</string>
+    <string name="clear_all">Clear All</string>
+    <plurals name="app_picker_selected_count"><item quantity="one">%1$d app selected</item><item quantity="other">%1$d apps selected</item></plurals>
+
+    <string name="theme">Theme</string>
+    <string name="language">Language</string>
+    <string name="notifications">Notifications</string>
+    <string name="notifications_summary">Manage VPN and update notifications</string>
+    <string name="manage_notifications">Manage Notifications</string>
+    <string name="quick_settings">Quick Settings</string>
+    <string name="quick_settings_summary">Add the Aethon VPN tile for fast connect and disconnect</string>
+    <string name="add_quick_settings_tile">Add Aethon VPN Tile</string>
+    <string name="tile_add_requested">Quick Settings tile request opened.</string>
+    <string name="tile_add_manual">Open Quick Settings edit mode and add Aethon VPN.</string>
+    <string name="about">About</string>
+    <string name="about_summary">Aethon VPN for Android</string>
+    <string name="original_project">Original Project: Aether</string>
+    <string name="aether_credit">Based on the original Aether project by CluvexStudio.</string>
+    <string name="aether_repository" translatable="false">https://github.com/CluvexStudio/Aether</string>
+    <string name="application_project">Application: Aethon VPN</string>
+    <string name="aethon_credit">Android application/interface developed for Aether.</string>
+    <string name="aethon_repository" translatable="false">https://github.com/hamvex/AetherGUI</string>
+    <string name="telegram_title">Firstham on Telegram</string>
+    <string name="telegram_summary">Updates, tips, and new releases from @hamvex.</string>
+    <string name="open_channel">Open channel</string>
+    <string name="menu_telegram">Telegram</string>
+
+    <string name="tile_name">Aethon VPN</string>
+    <string name="tile_connected">Connected</string>
+    <string name="tile_disconnected">Disconnected</string>
+    <string name="tile_unavailable">Unavailable</string>
+    <string name="notification_channel">Aethon VPN</string>
+    <string name="notification_channel_summary">Aethon VPN connection status</string>
+    <string name="service_preparing">Preparing a secure connection</string>
+    <string name="service_launching">Launching the Aethon core</string>
+    <string name="service_disconnecting">Closing the tunnel safely</string>
+    <string name="service_disconnected">Disconnected safely</string>
+    <string name="service_smart_testing">Testing MASQUE, WireGuard, and WARP-in-WARP</string>
+    <string name="service_scanning">Scanning for a verified gateway</string>
+    <string name="service_proxy_ready">Local SOCKS5 proxy is ready</string>
+    <string name="service_proxy_connected">SOCKS5 proxy is connected</string>
+    <string name="service_protected">Your device traffic is protected</string>
+    <string name="service_smart_protected">Protected with Smart Connect</string>
+    <string name="service_aethon_protected">Protected through Aethon VPN</string>
+    <string name="service_blocked">Tunnel stopped; network remains blocked by fail-closed mode</string>
+    <string name="service_blocked_notification">Traffic blocked - reconnect or disconnect</string>
+    <string name="service_identity_ready">Identity ready; finding the best gateway</string>
+    <string name="service_testing_gateways">Testing reachable gateways</string>
+    <string name="service_gateway_verified">Gateway verified; securing the tunnel</string>
+    <string name="service_reconnecting">Connection lost; recovering the last verified route</string>
+    <string name="service_restored">Connection restored</string>
+    <string name="service_testing_protocol">Testing %1$s (%2$d/%3$d)</string>
+    <string name="service_reconnect_failed">Aethon VPN could not recover after %1$d attempts</string>
+    <string name="service_network_lost">Network unavailable; waiting to reconnect</string>
+    <string name="service_network_restored">Network changed; restoring the secure route</string>
+    <string name="service_tunnel_unresponsive">Tunnel health check failed; reconnecting</string>
+
+    <string name="invalid_socks">Enter a valid host:port SOCKS5 address.</string>
+    <string name="vpn_permission_denied">VPN permission is required for Device VPN mode.</string>
+    <string name="telegram_fallback">Telegram: @hamvex</string>
+
+    <string name="app_updates">Aethon VPN Updates</string>
+    <string name="current_version">Current version</string>
+    <string name="latest_version">Latest available version</string>
+    <string name="not_checked">Not checked</string>
+    <string name="update_status">Update status</string>
+    <string name="update_up_to_date">Up to date</string>
+    <string name="update_available">Update available</string>
+    <string name="update_downloading">Downloading update</string>
+    <string name="update_installing">Installing update</string>
+    <string name="update_checking">Checking for updates</string>
+    <string name="update_failed">Update check failed</string>
+    <string name="update_download_failed">Update download failed</string>
+    <string name="update_verification_failed">Update verification failed</string>
+    <string name="update_ready_install">Update verified and ready to install</string>
+    <string name="check_for_updates">Check for Updates</string>
+    <string name="download_update">Download update</string>
+    <string name="automatic_updates">Automatic updates</string>
+    <string name="automatic_updates_summary">Check for and download verified updates automatically over any available network</string>
+    <string name="release_notes">Release notes</string>
+    <string name="no_release_notes">No release notes available.</string>
+    <string name="new_update_title">New Aethon VPN update available</string>
+    <string name="new_update_versions">Installed %1$s • Available %2$s</string>
+    <string name="start_update">Start update</string>
+    <string name="install_update">Install update</string>
+    <string name="update_notification_channel">App updates</string>
+    <string name="update_notification_channel_summary">Aethon VPN update availability and installation</string>
+    <string name="install_permission_required">Allow Aethon VPN to install updates, then try again.</string>
+    <string name="update_download_started">Update download started.</string>
+    <string name="update_no_download">No verified update is ready to install.</string>
 </resources>

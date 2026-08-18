@@ -3,6 +3,7 @@ plugins { id 'com.android.application' }
 dependencies {
     implementation 'androidx.core:core:1.15.0'
     implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.drawerlayout:drawerlayout:1.2.0'
     implementation 'androidx.work:work-runtime:2.10.0'
     implementation 'com.google.android.material:material:1.12.0'
     testImplementation 'junit:junit:4.13.2'
@@ -26,8 +27,8 @@ android {
         applicationId 'io.github.hamvex.aethergui'
         minSdk 26
         targetSdk 35
-        versionCode 22
-        versionName '1.11.1'
+        versionCode 23
+        versionName '1.2.1'
     }
 
     signingConfigs {

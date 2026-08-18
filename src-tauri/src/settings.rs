@@ -4,6 +4,8 @@ use std::{collections::HashMap, net::SocketAddr, path::Path};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
+    pub language: String,
+    pub appearance: String,
     #[serde(default = "default_automatic_updates")]
     pub automatic_updates: bool,
     pub connection_mode: String,
@@ -43,6 +45,8 @@ fn default_automatic_updates() -> bool {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            language: "en".into(),
+            appearance: "dark".into(),
             automatic_updates: true,
             connection_mode: "vpn".into(),
             routing_mode: "bypass-local".into(),
@@ -92,7 +96,11 @@ impl Settings {
     }
 
     pub fn validate(&self) -> Result<(), String> {
-        one_of("connection mode", &self.connection_mode, &["vpn", "manual"])?;
+        one_of(
+            "connection mode",
+            &self.connection_mode,
+            &["vpn", "smart", "manual"],
+        )?;
         one_of(
             "routing mode",
             &self.routing_mode,
