@@ -87,24 +87,24 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
           New-Item -ItemType Directory -Force portable | Out-Null
-          Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe release/
-          Copy-Item src-tauri/target/release/bundle/msi/*.msi release/
           $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          Copy-Item src-tauri/target/release/bundle/nsis/*-setup.exe "release/Aethon-VPN-v${version}-Windows-x64-Installer.exe"
+          Copy-Item src-tauri/target/release/bundle/msi/*.msi "release/Aethon-VPN-v${version}-Windows-x64.msi"
           Copy-Item src-tauri/target/release/aether-gui.exe "portable/Aethon.exe"
           Copy-Item src-tauri/binaries/aether-x86_64-pc-windows-msvc.exe portable/aether.exe
           Copy-Item src-tauri/binaries/sing-box-x86_64-pc-windows-msvc.exe portable/sing-box.exe
           Copy-Item LICENSE,NOTICE.md,TRADEMARK.md,third-party/sing-box-LICENSE.txt portable/
-          Compress-Archive -Path portable/* -DestinationPath "release/Aethon_${version}_x64-portable.zip"
-          Copy-Item android/app/build/outputs/apk/release/app-universal-release.apk "release/Aethon_${version}_android-universal.apk"
-          Copy-Item android/app/build/outputs/apk/release/app-armeabi-v7a-release.apk "release/Aethon_${version}_android-armv7.apk"
-          Copy-Item android/app/build/outputs/apk/release/app-arm64-v8a-release.apk "release/Aethon_${version}_android-arm64.apk"
-          Copy-Item android/app/build/outputs/apk/release/app-x86_64-release.apk "release/Aethon_${version}_android-x86_64.apk"
-          Copy-Item android/app/build/outputs/bundle/release/app-release.aab "release/Aethon_${version}_android-play.aab"
+          Compress-Archive -Path portable/* -DestinationPath "release/Aethon-VPN-v${version}-Windows-x64-portable.zip"
+          Copy-Item android/app/build/outputs/apk/release/app-universal-release.apk "release/Aethon-VPN-v${version}-Android-Universal.apk"
+          Copy-Item android/app/build/outputs/apk/release/app-armeabi-v7a-release.apk "release/Aethon-VPN-v${version}-Android-ARMv7.apk"
+          Copy-Item android/app/build/outputs/apk/release/app-arm64-v8a-release.apk "release/Aethon-VPN-v${version}-Android-ARM64.apk"
+          Copy-Item android/app/build/outputs/apk/release/app-x86_64-release.apk "release/Aethon-VPN-v${version}-Android-x86_64.apk"
+          Copy-Item android/app/build/outputs/bundle/release/app-release.aab "release/Aethon-VPN-v${version}-Android-AAB.aab"
           Get-ChildItem release -File | ForEach-Object {
             $hash = Get-FileHash $_.FullName -Algorithm SHA256
             "$($hash.Hash.ToLower())  $($_.Name)" | Add-Content release/SHA256SUMS.txt
           }
-          $bundle = "release/Aethon_${version}_all-platforms.zip"
+          $bundle = "release/Aethon-VPN-v${version}-all-platforms.zip"
           Compress-Archive -Path (Get-ChildItem release -File | Select-Object -ExpandProperty FullName) -DestinationPath $bundle
           $bundleHash = Get-FileHash $bundle -Algorithm SHA256
           "$($bundleHash.Hash.ToLower())  $([System.IO.Path]::GetFileName($bundle))" | Add-Content release/SHA256SUMS.txt
@@ -122,9 +122,16 @@ jobs:
           generate_release_notes: true
           files: release/*
           body: |
-            Aethon - independent Windows and Android clients for Aether.
+            # Aethon VPN v2.0.0
 
-            Version 1.11.1 restores an English-only LTR interface on Android and Windows and adds secure update management with startup, periodic, and manual checks, release notes, automatic downloads, progress reporting, SHA-256 verification, and platform-native installation handoff.
-            Aethon_1.11.1_all-platforms.zip contains every Windows x64 and Android ARMv7, ARM64, x86_64, universal APK, and Play bundle build in one labeled archive.
-            The bundled Aether 1.5.0 core and sing-box 1.13.14 TUN engine are fetched from official releases and SHA-256 verified during the build.
+            This is a major new generation release of Aethon VPN.
+
+            - New UI experience
+            - Aether Core upgraded to v1.7.0
+            - Improved VPN stability and performance
+            - Improved Split Tunneling
+            - Improved update system
+            - Better connection experience
+
+            The bundled Aether Core and sing-box routing engine are fetched from official releases and SHA-256 verified during the build.
             Windows 10/11 x64 and Android 8.0+ are supported. Windows binaries are unsigned and may trigger a SmartScreen warning; Android APKs are release-signed.

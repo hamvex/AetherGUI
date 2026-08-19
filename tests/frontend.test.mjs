@@ -116,15 +116,22 @@ test('About, Telegram, and opener permissions are complete', async () => {
   for (const url of ['tg://resolve?domain=hamvex', 'https://t.me/hamvex', 'https://github.com/CluvexStudio/Aether', 'https://github.com/hamvex/AetherGUI']) assert.ok(opener.allow.some(item => item.url === url));
 });
 
-test('application metadata and visible release version are 1.2.1', async () => {
+test('application metadata and visible release version are 2.0.0', async () => {
   const [pkg, tauri, cargo, html, app] = await Promise.all([
     read('../package.json'), read('../src-tauri/tauri.conf.json'), read('../src-tauri/Cargo.toml'), read('../src/index.html'), read('../src/app.js')
   ]);
-  assert.equal(JSON.parse(pkg).version, '1.2.1');
-  assert.equal(JSON.parse(tauri).version, '1.2.1');
-  assert.match(cargo, /version = "1\.2\.1"/);
+  assert.equal(JSON.parse(pkg).version, '2.0.0');
+  assert.equal(JSON.parse(tauri).version, '2.0.0');
+  assert.match(cargo, /version = "2\.0\.0"/);
   assert.doesNotMatch(html + app, /1\.11\.[12]/);
-  assert.match(html, /v1\.2\.1/);
+  assert.match(html, /v2\.0\.0/);
+});
+
+test('release version comparison advances from v1.11.1 to v2.0.0', async () => {
+  const update = await read('../src-tauri/src/update.rs');
+  assert.match(update, /let current = "2\.0\.0"/);
+  assert.match(update, /is_newer_version\("1\.11\.1", "1\.11\.0"\)/);
+  assert.match(update, /is_newer_version\("2\.0\.0", "1\.11\.1"\)/);
 });
 
 test('Windows VPN lifecycle retains elevation, recovery, TUN readiness, and clean shutdown', async () => {
@@ -138,7 +145,7 @@ test('Windows VPN lifecycle retains elevation, recovery, TUN readiness, and clea
   assert.match(hooks, /--repair-network/);
 });
 
-test('Android reference remains v1.2.1 with VPNService, RTL, and application picker', async () => {
+test('Android reference remains v2.0.0 with VPNService, RTL, and application picker', async () => {
   const [manifest, activity, service, picker, gradle] = await Promise.all([
     read('../android/app/src/main/AndroidManifest.xml'),
     read('../android/app/src/main/java/com/firstham/aethergui/MainActivity.java'),
@@ -153,6 +160,6 @@ test('Android reference remains v1.2.1 with VPNService, RTL, and application pic
   assert.match(service, /addAllowedApplication/);
   assert.match(service, /addDisallowedApplication/);
   assert.match(picker, /loadIcon/);
-  assert.match(gradle, /versionName '1\.2\.1'/);
+  assert.match(gradle, /versionName '2\.0\.0'/);
   assert.match(manifest + activity + service, /supportsRtl|LocaleListCompat/);
 });

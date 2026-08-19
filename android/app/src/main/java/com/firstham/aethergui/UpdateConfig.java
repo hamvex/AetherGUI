@@ -2,7 +2,7 @@ package com.firstham.aethergui;
 
 final class UpdateConfig {
     static final String API_URL = "https://api.github.com/repos/hamvex/AetherGUI/releases?per_page=30";
-    static final String RELEASE_ASSET = "Aethon_%s_android-universal.apk";
+    static final String RELEASE_ASSET = "Aethon-VPN-v%s-Android-Universal.apk";
     static final String CHECKSUM_ASSET = "SHA256SUMS.txt";
     static final String RELEASE_DOWNLOAD_PREFIX = "https://github.com/hamvex/AetherGUI/releases/download/";
     static final String PREFS = "app_updates";

@@ -57,7 +57,7 @@ struct UpdateProgress {
 
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .user_agent("Aethon-Update/1.2.1")
+        .user_agent("Aethon-Update/2.0.0")
         .timeout(std::time::Duration::from_secs(60))
         .build()
         .map_err(|error| error.to_string())
@@ -135,20 +135,20 @@ async fn latest_update() -> Result<UpdateInfo, String> {
         .json::<Vec<GithubRelease>>()
         .await
         .map_err(|error| format!("Invalid update metadata: {error}"))?;
-    let current = "1.2.1";
+    let current = "2.0.0";
     let (release, latest, installer_name, asset) = releases
         .iter()
         .filter_map(|release| {
             let latest = normalized_version(&release.tag_name).to_string();
             if !is_newer_version(&latest, current) { return None; }
-            let installer_name = format!("Aethon_{latest}_x64-setup.exe");
+            let installer_name = format!("Aethon-VPN-v{latest}-Windows-x64-Installer.exe");
             let asset = release.assets.iter().find(|asset| asset.name == installer_name)?;
             Some((release, latest, installer_name, asset))
         })
         .next()
         .or_else(|| releases.iter().filter_map(|release| {
             let latest = normalized_version(&release.tag_name).to_string();
-            let installer_name = format!("Aethon_{latest}_x64-setup.exe");
+            let installer_name = format!("Aethon-VPN-v{latest}-Windows-x64-Installer.exe");
             let asset = release.assets.iter().find(|asset| asset.name == installer_name)?;
             Some((release, latest, installer_name, asset))
         }).next())
@@ -310,6 +310,7 @@ mod tests {
     #[test]
     fn semantic_versions_compare_numerically() {
         assert!(is_newer_version("1.11.1", "1.11.0"));
+        assert!(is_newer_version("2.0.0", "1.11.1"));
         assert!(is_newer_version("v2.0.0", "1.99.99"));
         assert!(!is_newer_version("1.11.1", "1.11.1"));
         assert!(!is_newer_version("invalid", "1.11.1"));

@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Aethon VPN</string>
-    <string name="app_version" translatable="false">v1.2.1</string>
+    <string name="app_version" translatable="false">v2.0.0</string>
     <string name="version_format" translatable="false">v%1$s</string>
     <string name="channel_url" translatable="false">https://t.me/hamvex</string>
     <string name="default_socks_address" translatable="false">127.0.0.1:1819</string>

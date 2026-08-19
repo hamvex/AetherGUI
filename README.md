@@ -1,10 +1,10 @@
 # Aethon
 
-Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Windows version 1.2.1 bundles the verified Aether 1.7.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
+Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Windows version 2.0.0 bundles the verified Aether 1.7.0 core and provides system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
 
 [Releases](https://github.com/hamvex/AetherGUI/releases) · [Security policy](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
-## Windows 1.2.1 release notes
+## Windows 2.0.0 release notes
 
 ### Windows routing and settings
 
@@ -37,8 +37,8 @@ Aethon is an independent Windows and Android client for the official [CluvexStud
 
 ### Versions and compatibility
 
-- Windows version: `1.2.1`
-- Android version name: `1.2.1`
+- Windows version: `2.0.0`
+- Android version name: `2.0.0`
 - Android version code: `23`
 - Aether core: `1.7.0`
 - sing-box routing engine: `1.13.14`
@@ -49,18 +49,18 @@ Existing VPN services, state management, routing recovery, Smart Connect, and sp
 
 ## Downloads
 
-Download the release files from [Aethon 1.2.1](https://github.com/hamvex/AetherGUI/releases/tag/v1.2.1):
+Download the release files from [Aethon 2.0.0](https://github.com/hamvex/AetherGUI/releases/tag/v2.0.0):
 
-- [`Aethon_1.2.1_all-platforms.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_all-platforms.zip) — Windows and Android 1.2.1 release archive.
-- [`Aethon_1.2.1_x64-setup.exe`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_x64-setup.exe) — recommended Windows installer.
-- [`Aethon_1.2.1_x64_en-US.msi`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_x64_en-US.msi) — Windows MSI.
-- [`Aethon_1.2.1_x64-portable.zip`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_x64-portable.zip) — portable Windows package.
-- [`Aethon_1.2.1_android-universal.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-universal.apk) — Android universal APK containing ARMv7, ARM64, and x86_64 libraries.
-- [`Aethon_1.2.1_android-armv7.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-armv7.apk) — 32-bit ARM APK.
-- [`Aethon_1.2.1_android-arm64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-arm64.apk) — 64-bit ARM APK.
-- [`Aethon_1.2.1_android-x86_64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-x86_64.apk) — x86_64 APK.
-- [`Aethon_1.2.1_android-play.aab`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/Aethon_1.2.1_android-play.aab) — Play App Bundle.
-- [`SHA256SUMS.txt`](https://github.com/hamvex/AetherGUI/releases/download/v1.2.1/SHA256SUMS.txt) — release checksums.
+- [`Aethon-VPN-v2.0.0-all-platforms.zip`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/Aethon-VPN-v2.0.0-all-platforms.zip) — Windows and Android 2.0.0 release archive.
+- [`Aethon-VPN-v2.0.0-Windows-x64-Installer.exe`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/Aethon-VPN-v2.0.0-Windows-x64-Installer.exe) — recommended Windows installer.
+- [`Aethon-VPN-v2.0.0-Windows-x64.msi`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/Aethon-VPN-v2.0.0-Windows-x64.msi) — Windows MSI.
+- [`Aethon-VPN-v2.0.0-Windows-x64-portable.zip`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/Aethon-VPN-v2.0.0-Windows-x64-portable.zip) — portable Windows package.
+- [`Aethon-VPN-v2.0.0-Android-Universal.apk`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/Aethon-VPN-v2.0.0-Android-Universal.apk) — Android universal APK containing ARMv7, ARM64, and x86_64 libraries.
+- [`Aethon-VPN-v2.0.0-Android-ARMv7.apk`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/Aethon-VPN-v2.0.0-Android-ARMv7.apk) — 32-bit ARM APK.
+- [`Aethon-VPN-v2.0.0-Android-ARM64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/Aethon-VPN-v2.0.0-Android-ARM64.apk) — 64-bit ARM APK.
+- [`Aethon-VPN-v2.0.0-Android-x86_64.apk`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/Aethon-VPN-v2.0.0-Android-x86_64.apk) — x86_64 APK.
+- [`Aethon-VPN-v2.0.0-Android-AAB.aab`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/Aethon-VPN-v2.0.0-Android-AAB.aab) — Play App Bundle.
+- [`SHA256SUMS.txt`](https://github.com/hamvex/AetherGUI/releases/download/v2.0.0/SHA256SUMS.txt) — release checksums.
 
 Windows binaries are currently unsigned and may trigger a SmartScreen warning. Android release packages are signed with the established Aethon Android signing certificate.
 
@@ -74,8 +74,8 @@ https://api.github.com/repos/hamvex/AetherGUI/releases/latest
 
 Future releases must include:
 
-- `Aethon_<version>_x64-setup.exe`
-- `Aethon_<version>_android-universal.apk`
+- `Aethon-VPN-v<version>-Windows-x64-Installer.exe`
+- `Aethon-VPN-v<version>-Android-Universal.apk`
 - SHA-256 asset digests supplied by GitHub or a `SHA256SUMS.txt` asset
 - Release notes in the GitHub release body
 - Android APKs signed with the same established signing key
@@ -151,7 +151,7 @@ After both platform builds complete:
 npm run package:release
 ```
 
-This creates Windows x64 installers, portable files, architecture-specific Android packages, checksums, and `Aethon_1.2.1_all-platforms.zip` under `release`.
+This creates Windows x64 installers, portable files, architecture-specific Android packages, checksums, and `Aethon-VPN-v2.0.0-all-platforms.zip` under `release`.
 
 ## Verification
 
