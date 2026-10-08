@@ -1,6 +1,6 @@
 # Aethon v2.2.0 Build History
 
-This file records v2.2.0 validation runs. Historical v2.1.2 development evidence remains in the original workspace and is referenced by `AETHON_V2.2.0_MIGRATION_REPORT.md`.
+This file records v2.2.0 validation runs. Historical v2.1.2 development evidence remains in the original workspace.
 
 ## v2.2.0 migration baseline
 
@@ -57,3 +57,13 @@ This file records v2.2.0 validation runs. Historical v2.1.2 development evidence
 - 16-KiB alignment: verified for all four release APKs.
 - Output location: `release/`.
 - Physical Android validation: NOT TESTED by instruction; no ADB or device installation used.
+
+## v2.2.0 final pre-release cleanup
+
+- Date: 2026-10-09.
+- Removed gitignored temporary build outputs (`android/app/build`, `android/app/build-codex`, `android/.gradle`, `android/validation`, `validation`, `portable`, `scripts/__pycache__`, `src-tauri/gen`, empty `src-tauri/tests`) and the four interim DEBUG APKs from `release/`; regenerated `release/SHA256SUMS.txt` for the seven public v2.2.0 artifacts.
+- Removed obsolete development-phase reports and unreferenced legacy screenshots from the tracked tree; corrected stale documentation references in `README.md`, `BUILD_HISTORY_V2.2.0.md`, and `AETHON_V2.2.0_ANDROID_FINAL_RELEASE_REPORT.md` (fixed the release APK hash-table alignment).
+- Preserved the production Android signing identity, all pinned native inputs, the Aether Core v2.3.0 payloads, all source, tests, licenses, and the signed release artifacts; no VPN behavior, UI, protocols, or Core binaries were changed.
+- Post-cleanup verification: frontend tests 38 passed / 0 failed; core/native pin tests 6 passed / 0 failed; Android builder/provenance tests 15 passed / 0 failed; Rust tests 145 passed / 0 failed / 1 pre-existing ignored; Android unit tests 303 passed / 0 failed / 0 errors / 0 skipped; all four release APK signatures verified against the production certificate; all release-manifest SHA-256 entries verified.
+- Disk space recovered: approximately 3.95 GiB.
+- No ADB, physical-device testing, release rebuild, GitHub publication, or Git history rewrite was performed.

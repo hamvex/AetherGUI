@@ -105,9 +105,8 @@ Upstream supplies its own Psiphon bootstrap defaults; missing standalone sponsor
 credentials are not an established blocker. Official Auto and Direct/DE Chain
 proxies passed native Android HTTPS tests using the system trust store; CDN did
 not pass. Installed-app routing/lifecycle and other modes remain unverified.
-Privacy activation stays unavailable, and no new candidate is built. See
-`PHASE_2_COMPLETION_REPORT.md` for the current audit and exact acceptance gaps.
-Historical standalone reports are not instructions to reactivate that design.
+Privacy activation stays unavailable, and no new candidate is built. Historical
+standalone reports are not instructions to reactivate that design.
 
 ## Android usage
 

@@ -64,12 +64,12 @@ The following release APKs are in `release/`:
 
 | Architecture | Artifact | Size | SHA-256 |
 | --- | --- | ---: | --- |
-| arm64-v8a | `Aethon-VPN-v2.2.0-Android-arm64-v8a.apk` | 24,689,845 | `25baeef458ab5a8c608ae2867aa1f62c81978b55a309e0139324e56b2d33cea8` |
-| armeabi-v7a | `Aethon-VPN-v2.2.0-Android-armeabi-v7a.apk` | 24,019,673 | `1af9b7ed803fa7847f4bacf8e4e497f2de7c9fe9ba8ea5ba4558affe98e92e9d` |
-| x86_64 | `Aethon-VPN-v2.2.0-Android-x86_64.apk` | 26,784,017 | `20a909d50565ed9addd4de408507456cf27931858dc6ba8d2c2a6a908c1ff58f` |
-| Universal | `Aethon-VPN-v2.2.0-Android-universal.apk` | 70,548,401 | `3c502dac5be107a28513595f90c0567220d4a09794756fd780b00d7d4faf7bed` |
+| arm64-v8a | `Aethon-VPN-v2.2.0-Android-arm64-v8a.apk` | 24,689,845 | `1af9b7ed803fa7847f4bacf8e4e497f2de7c9fe9ba8ea5ba4558affe98e92e9d` |
+| armeabi-v7a | `Aethon-VPN-v2.2.0-Android-armeabi-v7a.apk` | 24,019,673 | `3c502dac5be107a28513595f90c0567220d4a09794756fd780b00d7d4faf7bed` |
+| x86_64 | `Aethon-VPN-v2.2.0-Android-x86_64.apk` | 26,784,017 | `25baeef458ab5a8c608ae2867aa1f62c81978b55a309e0139324e56b2d33cea8` |
+| Universal | `Aethon-VPN-v2.2.0-Android-universal.apk` | 70,548,401 | `20a909d50565ed9addd4de408507456cf27931858dc6ba8d2c2a6a908c1ff58f` |
 
-`release/SHA256SUMS.txt` includes these APKs, the existing DEBUG APKs, and the existing Windows v2.2.0 artifacts.
+`release/SHA256SUMS.txt` includes these APKs and the Windows v2.2.0 artifacts.
 
 ## 5. Embedded native library verification
 
