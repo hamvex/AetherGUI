@@ -39,3 +39,21 @@ This file records v2.2.0 validation runs. Historical v2.1.2 development evidence
 - 16-KiB alignment: verified for all four APKs.
 - Output location: `release/`.
 - Physical Android validation: NOT TESTED by instruction; no ADB or device installation used.
+
+## v2.2.0 Android official release build
+
+- Date: 2026-10-08.
+- Git branch: `main`; baseline commit: `ce131b5`.
+- Signing identity: original production release certificate `1e5a37ef9bee8f3be747f18d75fd9cadc24c302ae327d53d480cac162ca7e100`.
+- Signing material: copied from the legacy repository root into the ignored canonical `android/.android-signing/` directory; no new key generated.
+- Android versionName: `2.2.0`; versionCode: `29`.
+- Aether Core: official unmodified `v2.3.0`.
+- Supported ABIs: `arm64-v8a`, `armeabi-v7a`, `x86_64`, and Universal.
+- Automated unit tests: 303 passed / 0 failed / 0 errors / 0 skipped.
+- Android lint: 0 Fatal / 0 Error / 101 warnings.
+- APK signatures: APK Signature Scheme v2 verified on all four release APKs.
+- Native library SHA-256 verification: all embedded payloads matched the pinned dev.037 manifest.
+- ABI verification: package metadata and embedded native libraries matched each target ABI.
+- 16-KiB alignment: verified for all four release APKs.
+- Output location: `release/`.
+- Physical Android validation: NOT TESTED by instruction; no ADB or device installation used.
