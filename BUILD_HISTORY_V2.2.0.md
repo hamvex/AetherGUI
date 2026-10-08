@@ -22,3 +22,20 @@ This file records v2.2.0 validation runs. Historical v2.1.2 development evidence
 - Windows clean build: release `aether-gui.exe`, NSIS installer, and MSI package built successfully.
 - Physical Android validation: NOT TESTED by instruction; no ADB or device installation used.
 - Old folders: not deleted; no GitHub publication performed.
+
+## v2.2.0 Android debug build and validation
+
+- Date: 2026-10-08.
+- Git branch: `main`; baseline commit: `32e8c5c`.
+- Android versionName: `2.2.0`; versionCode: `29`.
+- Aether Core: official unmodified `v2.3.0`.
+- Supported ABIs: `arm64-v8a`, `armeabi-v7a`, `x86_64`, and Universal.
+- Signing identity: original production release signing identity not available; existing Android debug signing identity used only for clearly named DEBUG APKs.
+- Automated unit tests: 303 passed / 0 failed / 0 errors / 0 skipped.
+- Android lint: 0 Fatal / 0 Error / 101 warnings.
+- APK signatures: APK Signature Scheme v2 verified for all four APKs.
+- Native library SHA-256 verification: all embedded payloads matched the pinned dev.037 manifest.
+- ABI verification: package metadata and embedded native libraries matched each target ABI.
+- 16-KiB alignment: verified for all four APKs.
+- Output location: `release/`.
+- Physical Android validation: NOT TESTED by instruction; no ADB or device installation used.
