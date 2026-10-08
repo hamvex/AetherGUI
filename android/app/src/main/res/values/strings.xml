@@ -1,6 +1,6 @@
 <resources>
     <string name="app_name">Aethon VPN</string>
-    <string name="app_version" translatable="false">v2.1.1</string>
+    <string name="app_version" translatable="false">v2.2.0</string>
     <string name="version_format" translatable="false">v%1$s</string>
     <string name="channel_url" translatable="false">https://t.me/hamvex</string>
     <string name="default_socks_address" translatable="false">127.0.0.1:1819</string>
@@ -24,7 +24,7 @@
     <string name="status_connected_via_smart">Aethon Active • %1$s</string>
     <string name="status_connecting">Connecting…</string>
     <string name="status_checking">Checking…</string>
-    <string name="tap_to_secure">Tap to secure</string>
+    <string name="tap_to_secure" translatable="false"></string>
     <string name="status_ready_message"></string>
     <string name="status_protected">You are protected</string>
     <string name="status_starting">Starting Aethon VPN</string>
@@ -40,7 +40,11 @@
     <string name="ping_value">%1$s</string>
     <string name="session_label">Traffic</string>
     <string name="latency_label">Ping</string>
-    <string name="node_label">NODE</string>
+    <!-- dev.020 CHANGE 9: the Home daily connected-time section label (styled like Ping/LOCATION). -->
+    <string name="time_label">TIME</string>
+    <string name="node_label">LOCATION</string>
+    <string name="location_label">LOCATION</string>
+    <string name="location_selector_hint">Select exit country</string>
     <string name="upload_label">&#x2191; Upload</string>
     <string name="download_label">&#x2193; Download</string>
     <string name="ping_label">Ping</string>
@@ -53,37 +57,41 @@
 
     <string name="connection_mode">Connection mode</string>
     <string name="vpn_mode">Device VPN</string>
-    <string name="proxy_mode">SOCKS5 proxy</string>
+    <string name="proxy_mode">Proxy</string>
     <string name="smart_mode">Smart Connect</string>
     <string name="smart_mode_summary">Test every protocol and choose the fastest reliable route.</string>
     <string name="protocol">Protocol</string>
     <string name="scan_mode">Scan mode</string>
-    <string name="transport">MASQUE transport</string>
+    <string name="transport">MASQUE connection method</string>
     <string name="advanced_settings">Advanced settings</string>
     <string name="show_advanced">Show advanced</string>
     <string name="hide_advanced">Hide advanced</string>
-    <string name="ip_scan">IP scan</string>
-    <string name="obfuscation">Obfuscation</string>
+    <string name="ip_scan">Network address type</string>
+    <string name="obfuscation">Traffic disguise profile</string>
     <string name="log_level" translatable="false"></string>
-    <string name="socks_address">Local SOCKS5 address</string>
-    <string name="custom_endpoint">Custom endpoint (optional)</string>
-    <string name="mtu">VPN MTU</string>
+    <string name="socks_address">SOCKS5 proxy for Device VPN</string>
+    <string name="custom_endpoint">Custom gateway (optional)</string>
+    <string name="mtu">Packet size</string>
     <string name="mtu_automatic">Automatic</string>
     <string name="mtu_manual">Manual</string>
-    <string name="mtu_manual_value">Manual MTU (1280-1500)</string>
+    <string name="mtu_manual_value">Custom packet size</string>
     <string name="mtu_summary">Safe default: 1360</string>
     <string name="mtu_automatic_summary">Probe the current network and use the largest stable MTU.</string>
     <string name="mtu_manual_summary">Use the configured MTU for the tunnel and transport.</string>
     <string name="invalid_mtu">Enter an MTU from 1280 to 1500.</string>
     <string name="dns_protection">Private DNS routing</string>
     <string name="dns_protection_summary">Route DNS requests through the tunnel</string>
-    <string name="kill_switch">Fail closed on tunnel errors</string>
+    <string name="kill_switch">Block traffic on tunnel errors</string>
     <string name="kill_switch_summary">Keep VPN routes blocked if Aethon unexpectedly stops</string>
-    <string name="quick_reconnect">Auto Reconnect</string>
-    <string name="quick_reconnect_summary">Recover automatically after a temporary connection failure</string>
-    <string name="auto_connect_at_start">Auto connect at start</string>
+    <string name="quick_reconnect">Quick reconnect</string>
+    <string name="quick_reconnect_summary">Automatically recover after a temporary failure and reuse a working gateway when possible.</string>
+    <string name="auto_connect_at_start">Connect when Aethon opens</string>
     <string name="auto_connect_at_start_summary">Connect with the saved configuration when Aethon opens</string>
-    <string name="reset_defaults">Reset defaults</string>
+        <string name="reset_defaults">Reset defaults</string>
+    <string name="reset_confirmation_title">Reset settings?</string>
+    <string name="reset_confirmation_message">This will restore Aethon\'s configuration defaults.</string>
+    <string name="tor_location_read_only">Location is chosen by the Tor network</string>
+    <string name="back_again_to_exit">Press back again to exit</string>
 
     <string name="split_tunneling">Split Tunneling</string>
     <string name="split_tunneling_summary">Choose which apps use the Aethon connection.</string>
@@ -103,6 +111,9 @@
     <string name="app_picker_done">Apply</string>
     <string name="select_all">Select All</string>
     <string name="clear_all">Clear All</string>
+    <!-- dev.020 CHANGE 8: optional system-app display in Split Tunneling. -->
+    <string name="show_system_apps">Show system apps</string>
+    <string name="show_system_apps_summary">Include built-in Android apps in the list</string>
     <plurals name="app_picker_selected_count"><item quantity="one">%1$d app selected</item><item quantity="other">%1$d apps selected</item></plurals>
 
     <string name="theme">Theme</string>
@@ -119,7 +130,7 @@
     <string name="about_summary">Aethon VPN for Android</string>
     <string name="original_project">Original Project: Aether</string>
     <string name="aether_credit">Based on the original Aether project by CluvexStudio.</string>
-    <string name="aether_core_version">Aether Core v1.9.0</string>
+    <string name="aether_core_version">Aether Core v2.3.0</string>
     <string name="aether_repository" translatable="false">https://github.com/CluvexStudio/Aether</string>
     <string name="application_project">Application: Aethon VPN</string>
     <string name="aethon_credit">Android application/interface developed for Aether.</string>
@@ -148,8 +159,8 @@
     <string name="service_disconnected">Disconnected safely</string>
     <string name="service_smart_testing">Testing MASQUE, WireGuard, and WARP-in-WARP</string>
     <string name="service_scanning">Scanning for a verified gateway</string>
-    <string name="service_proxy_ready">Local SOCKS5 proxy is ready</string>
-    <string name="service_proxy_connected">SOCKS5 proxy is connected</string>
+    <string name="service_proxy_ready">Local proxy is ready (SOCKS5 and HTTP)</string>
+    <string name="service_proxy_connected">Proxy is connected</string>
     <string name="service_protected">Your device traffic is protected</string>
     <string name="service_traffic_checking">Verifying internet traffic</string>
     <string name="service_smart_protected">Protected with Smart Connect</string>
@@ -164,8 +175,8 @@
     <string name="service_testing_protocol">Testing %1$s (%2$d/%3$d)</string>
     <string name="service_reconnect_failed">Aethon VPN could not recover after %1$d attempts</string>
     <string name="service_gool_checking_exit">Checking gool exit country</string>
-    <string name="service_gool_rejecting_iran">Iran exit rejected; selecting another route (%1$d/%2$d)</string>
-    <string name="service_gool_iran_failed">Every available gool route exited through Iran after %1$d retries.</string>
+
+
     <string name="service_gool_country_unavailable">Aethon could not verify the gool exit country.</string>
     <string name="service_network_lost">Network unavailable; waiting to reconnect</string>
     <string name="service_network_restored">Network changed; restoring the secure route</string>
@@ -222,7 +233,7 @@
     <string name="backup_restored">Settings restored.</string>
     <string name="backup_failed">Could not process settings backup.</string>
     <string name="restore_confirmation">Importing will replace compatible application settings. Continue?</string>
-    <string name="connection_from_lan">Connection from LAN</string>
+    <string name="connection_from_lan">Share on local network</string>
     <string name="connection_from_lan_summary">Allow local network devices to use the active Aethon tunnel.</string>
     <string name="lan_enabled">Enabled</string>
     <string name="lan_disabled">Disabled</string>
@@ -232,4 +243,35 @@
     <string name="lan_credentials">Protocol: SOCKS5 • user %1$s • pass %2$s</string>
     <string name="copy_address">Copy address</string>
     <string name="copy_port">Copy port</string>
+
+    <string name="ech_label">Private connection names (ECH)</string>
+    <string name="ech_summary">Helps hide the website name in supported connection handshakes. Automatic tries to enable it; Off works on more networks.</string>
+    <string name="ech_auto">Auto</string>
+    <string name="ech_off">Off</string>
+    <string name="ech_custom">Custom (base64)</string>
+    <string name="ech_custom_hint">Custom privacy configuration</string>
+    <string name="h2_fragment">Split connection handshake</string>
+    <string name="h2_fragment_summary">Sends the first connection message in smaller pieces to help on restricted networks. May slow down connection setup.</string>
+    <string name="h2_fragment_size">Piece size (bytes)</string>
+    <string name="h2_fragment_delay">Delay between pieces (ms)</string>
+    <string name="no_data_check">Skip connection verification</string>
+    <string name="no_data_check_summary">Skips an early gateway check. Leave off: an unchecked route may not work. Internet access is still checked before Connected appears.</string>
+    <string name="validate_secs">Connection check timeout (seconds)</string>
+    <string name="startup_secs">Connection startup timeout (seconds)</string>
+    <string name="reconnect_secs">Recovery delay (seconds)</string>
+    <string name="wiw_endpoints">Two-hop WARP (Gool)</string>
+    <string name="wiw_outer_peer">First gateway (optional)</string>
+    <string name="wiw_inner_peer">Exit gateway (optional)</string>
+    <string name="team_name">Team name</string>
+    <string name="access_email">Email sign-in (unavailable)</string>
+    <string name="access_token">Access token</string>
+    <string name="gateway_proxy">Use organization gateway</string>
+    <string name="gateway_proxy_summary">Uses the organization gateway and its network policies. Enable only if your administrator requires it.</string>
+    <string name="upstream_proxy">Connect through another proxy</string>
+    <string name="upstream_proxy_summary">Connects through another proxy: socks5://host:port or http://host:port. Useful when direct access fails, but may add delay. HTTP proxy login is unencrypted; HTTPS proxy URLs are unsupported.</string>
+    <string name="wg_no_profile_retry">Keep selected traffic profile</string>
+    <string name="wg_no_profile_retry_summary">Keeps WireGuard on the selected traffic profile. This avoids extra attempts but can reduce compatibility on restricted networks.</string>
+    <string name="route_sniff">Smart routing detection</string>
+    <string name="route_sniff_summary">Helps match website names to your routing rules. It reads available connection information, not encrypted page contents.</string>
+    <string name="route_sniff_ms">Detection timeout (ms)</string>
 </resources>

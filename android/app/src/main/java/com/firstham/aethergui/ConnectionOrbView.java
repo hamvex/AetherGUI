@@ -138,9 +138,8 @@ public final class ConnectionOrbView extends View {
         textPaint.getFontMetrics(fontMetrics);
         float baseline = cy + radius * .38f - (fontMetrics.ascent + fontMetrics.descent) / 2f;
         canvas.drawText(label, cx, baseline, textPaint);
-        textPaint.setTextSize(Math.max(10f, radius * .07f));
-        textPaint.setColor(Color.rgb(100, 119, 148));
-        canvas.drawText(getContext().getString(R.string.tap_to_secure), cx, baseline + radius * .18f, textPaint);
+        // dev.017 CHANGE 15: the "Tap to secure" subtitle is removed entirely; the label is drawn
+        // from the orb's centerline instead so no awkward gap remains.
         textPaint.setColor(Color.WHITE);
     }
 
@@ -159,13 +158,27 @@ public final class ConnectionOrbView extends View {
 
     private void restartMotion() {
         stopMotion();
-        // Continuous idle redraws were a measurable UI/GPU cost. Only transition states need motion;
-        // connected and disconnected states remain visually complete as static frames.
-        if (!isShown() || !ValueAnimator.areAnimatorsEnabled() || state == ERROR || state == CONNECTED || state == DISCONNECTED) { phase = 0f; invalidate(); return; }
+        // dev.020 CHANGE 7: the CONNECTED state animates again. The regression: an earlier
+        // power-saving change excluded CONNECTED (and DISCONNECTED) from motion entirely
+        // ("continuous idle redraws were a measurable UI/GPU cost"), which froze the liquid/
+        // blob layers while connected - the exact complaint: the graphic "previously moved/
+        // rotated. In dev.019 it appears visually static while connected." The restore keeps
+        // the intent smooth and CALM: a slow 12s cycle (breathing, particle drift, the gentle
+        // 35-degree-per-phase ring rotation already coded in onDraw) - no fast spin - and the
+        // static elements are untouched by construction: only the decorative layers read
+        // `phase` (the wobble in spherePath, the particle orbit, the ring sweep); the power
+        // icon, the CONNECT/DISCONNECT label, the status text, Traffic/Ping/LOCATION rows are
+        // separate views or drawn without `phase`, so they never rotate with the blob.
+        // DISCONNECTED stays static (the pre-requirement was only "while connected"), ERROR
+        // never animates, and the lifecycle guards below still pause the animator whenever
+        // the view is not shown (background, detached, window invisible) and resume it on
+        // return - one animator instance at a time, so repeated connect/disconnect cannot
+        // stack instances.
+        if (!isShown() || !ValueAnimator.areAnimatorsEnabled() || state == ERROR || state == DISCONNECTED) { phase = 0f; invalidate(); return; }
         motion = ValueAnimator.ofFloat(0f, 1f);
-        motion.setDuration(state == CONNECTING ? 1450 : state == DISCONNECTING ? 900 : state == DISCONNECTED ? 4200 : 3200);
+        motion.setDuration(state == CONNECTED ? 12_000 : state == CONNECTING ? 1450 : state == DISCONNECTING ? 900 : 4200);
         motion.setRepeatCount(state == DISCONNECTING ? 0 : ValueAnimator.INFINITE);
-        motion.setInterpolator(state == CONNECTING ? new LinearInterpolator() : new AccelerateDecelerateInterpolator());
+        motion.setInterpolator(state == CONNECTED ? new AccelerateDecelerateInterpolator() : state == CONNECTING ? new LinearInterpolator() : new AccelerateDecelerateInterpolator());
         motion.addUpdateListener(animation -> { phase = (Float) animation.getAnimatedValue(); invalidate(); });
         motion.start();
     }

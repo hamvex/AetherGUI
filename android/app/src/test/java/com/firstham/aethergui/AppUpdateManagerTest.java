@@ -18,6 +18,10 @@ public final class AppUpdateManagerTest {
         assertTrue(AppUpdateManager.compareVersions("v1.11.1", "v2.0.0") < 0);
         assertTrue(AppUpdateManager.compareVersions("v2.0.0", "v2.0.1") < 0);
         assertEquals(0, AppUpdateManager.compareVersions("v2.0.1", "2.0.1"));
+        assertTrue(AppUpdateManager.compareVersions("2.2.0", "2.1.9") > 0);
+        assertTrue(AppUpdateManager.compareVersions("2.2.0", "2.2.0") == 0);
+        assertTrue(AppUpdateManager.compareVersions("2.1.9", "2.2.0") < 0);
+        assertEquals(0, AppUpdateManager.compareVersions("2.2.0+build.5", "2.2.0+build.9"));
     }
 
     @Test public void checksumFileSelectsExactAsset() {

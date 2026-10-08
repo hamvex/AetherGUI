@@ -8,7 +8,7 @@
 //! records a cache hit rate of exactly zero across every retained attempt: the
 //! setting was honoured, it just does not reach the protocol Windows uses.
 //!
-//! Aether v1.9.0 added `AETHER_WIW_PEERS`, which lets the caller hand both hops
+//! Aether v2.0.0 retains `AETHER_WIW_PEERS`, which lets the caller hand both hops
 //! back to the core, so the reuse can live here instead of waiting on upstream.
 //!
 //! A pin is a *hint*, never a shortcut. Four rules make that true, and each one
@@ -20,7 +20,7 @@
 //!   remembered.
 //! * **A pin never shortens validation.** The cached attempt runs exactly the
 //!   same probes as a scanned one.
-//! * **A pin that does not work is deleted at once.** v1.9.0's `run_gool`
+//! * **A pin that does not work is deleted at once.** v2.0.0's `run_gool`
 //!   deliberately never blacklists a hand-pinned hop - it logs "still retrying
 //!   them" and keeps going - so a stale pin would otherwise be retried until the
 //!   stall timeout. Invalidation has to happen on this side.
@@ -336,12 +336,12 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("aethon-pin-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let endpoints = capture_from_log(LINE).unwrap();
-        store(&dir, endpoints, "net-a", "balanced", "1.9.0");
-        assert_eq!(load(&dir, "net-a", "balanced", "1.9.0"), Some(endpoints));
+        store(&dir, endpoints, "net-a", "balanced", "2.0.0");
+        assert_eq!(load(&dir, "net-a", "balanced", "2.0.0"), Some(endpoints));
 
         // Anything the pin was not recorded under forces a scan.
         assert_eq!(
-            load(&dir, "net-a", "turbo", "1.9.0"),
+            load(&dir, "net-a", "turbo", "2.0.0"),
             None,
             "scan mode must match"
         );
@@ -351,7 +351,7 @@ mod tests {
             "core version matters"
         );
         assert_eq!(
-            load(&dir, "net-b", "balanced", "1.9.0"),
+            load(&dir, "net-b", "balanced", "2.0.0"),
             None,
             "a pin from another network says nothing about this one"
         );
@@ -362,14 +362,14 @@ mod tests {
         record.saved_unix_ms = now_ms().saturating_sub(MAX_AGE_MS + 1);
         std::fs::write(cache_path(&dir), serde_json::to_vec(&record).unwrap()).unwrap();
         assert_eq!(
-            load(&dir, "net-a", "balanced", "1.9.0"),
+            load(&dir, "net-a", "balanced", "2.0.0"),
             None,
             "expired pin refused"
         );
 
         invalidate(&dir);
         assert!(!cache_path(&dir).exists());
-        assert_eq!(load(&dir, "net-a", "balanced", "1.9.0"), None);
+        assert_eq!(load(&dir, "net-a", "balanced", "2.0.0"), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -385,7 +385,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("aethon-pin-net-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let endpoints = capture_from_log(LINE).unwrap();
-        store(&dir, endpoints, "dialled-out-on-this", "balanced", "1.9.0");
+        store(&dir, endpoints, "dialled-out-on-this", "balanced", "2.0.0");
 
         let raw = std::fs::read(cache_path(&dir)).unwrap();
         let record: Record = serde_json::from_slice(&raw).unwrap();
@@ -394,7 +394,7 @@ mod tests {
             "store must record exactly what it was handed"
         );
         assert_eq!(
-            load(&dir, "dialled-out-on-this", "balanced", "1.9.0"),
+            load(&dir, "dialled-out-on-this", "balanced", "2.0.0"),
             Some(endpoints),
             "a pin written on a network must be readable on that same network"
         );
@@ -409,16 +409,16 @@ mod tests {
         // share one bucket and pins would leak between them.
         let dir = std::env::temp_dir().join(format!("aethon-pin-unk-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        store(&dir, capture_from_log(LINE).unwrap(), "", "balanced", "1.9.0");
+        store(&dir, capture_from_log(LINE).unwrap(), "", "balanced", "2.0.0");
         // Nothing else in the module invents a fingerprint, so an empty network
         // can only be reached by a caller that chose to pass one through.
-        assert_eq!(load(&dir, "real-net", "balanced", "1.9.0"), None);
+        assert_eq!(load(&dir, "real-net", "balanced", "2.0.0"), None);
         let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn an_invalidated_pin_leaves_nothing_behind_to_retry() {
-        // v1.9.0's run_gool never blacklists a hand-pinned hop, so a pin that
+        // v2.0.0's run_gool never blacklists a hand-pinned hop, so a pin that
         // survived its own failure would be retried until the stall timeout.
         let dir = std::env::temp_dir().join(format!("aethon-pin-drop-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
@@ -427,7 +427,7 @@ mod tests {
             capture_from_log(LINE).unwrap(),
             "net-a",
             "balanced",
-            "1.9.0",
+            "2.0.0",
         );
         assert!(cache_path(&dir).exists());
         invalidate(&dir);

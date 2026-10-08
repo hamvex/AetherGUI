@@ -12,6 +12,8 @@
     body[data-theme="light"] .icon-button, body[data-theme="light"] select, body[data-theme="light"] input, body[data-theme="light"] .command-button, body[data-theme="light"] .secondary-button { color:#152031; }
     body[data-theme="light"] .drawer, body[data-theme="light"] .modal-sheet { background:#f8fbfd; }
     body[data-theme="light"] .segmented { background:#e8eef4; }
+    body[data-theme="light"] .accordion-section.open .accordion-header { background:#eef4fa; }
+    body[data-theme="light"] .time-value { color:#7C6FE8; }
     .section-help { margin:4px 0 14px; color:var(--muted); font-size:12px; }
     .full-width { width:100%; }
     @media (prefers-color-scheme: light) {
@@ -21,6 +23,8 @@
       body[data-theme="system"] .icon-button, body[data-theme="system"] select, body[data-theme="system"] input, body[data-theme="system"] .command-button, body[data-theme="system"] .secondary-button { color:#152031; }
       body[data-theme="system"] .drawer, body[data-theme="system"] .modal-sheet { background:#f8fbfd; }
       body[data-theme="system"] .segmented { background:#e8eef4; }
+      body[data-theme="system"] .accordion-section.open .accordion-header { background:#eef4fa; }
+      body[data-theme="system"] .time-value { color:#7C6FE8; }
     }
   </style>
   <script type="module" src="app.js"></script>
@@ -36,7 +40,6 @@
         </svg>
       </button>
     </header>
-
     <div id="drawerScrim" class="drawer-scrim"></div>
     <aside id="drawer" class="drawer" aria-label="Main navigation">
       <div class="drawer-brand">
@@ -44,17 +47,19 @@
         <div><strong>Aethon VPN</strong><small data-i18n="brand.subtitle">Private network</small></div>
       </div>
       <nav>
-        <button class="nav-item active" data-view="connect"><span>◉</span><span data-i18n="nav.connect">Connect</span></button>
+        <button class="nav-item active" data-view="home"><span>◉</span><span data-i18n="nav.home">Home</span></button>
         <button class="nav-item" data-view="configurations"><span>≡</span><span data-i18n="nav.configurations">Configurations</span></button>
-        <button class="nav-item" data-view="settings"><span>⚙</span><span data-i18n="nav.settings">Settings</span><i id="updateBadge" class="badge hidden">1</i></button>
-        <button class="nav-item" data-view="diagnostics"><span>⌁</span><span data-i18n="nav.diagnostics">Diagnostics</span></button>
+        <button class="nav-item" data-view="settings"><span>✦</span><span data-i18n="nav.settings">Settings</span><i id="updateBadge" class="badge hidden">1</i></button>
         <button class="nav-item" data-view="about"><span>ⓘ</span><span data-i18n="nav.about">About</span></button>
       </nav>
-      <div class="drawer-footer"><span id="drawerState" data-i18n="status.disconnected">Disconnected</span><small>v2.1.1</small></div>
+      <div class="drawer-footer"><span id="drawerState" data-i18n="status.disconnected">Disconnected</span><small>v2.2.0</small></div>
     </aside>
 
     <main>
-      <section id="view-connect" class="view active home-view">
+      <!-- HOME — Android dev.020 hierarchy: Orb → Status → Download/Upload → Ping →
+           TIME → LOCATION, content in the upper area, intentional clean space at the
+           bottom (never stretched to fill the window). -->
+      <section id="view-home" class="view active home-view">
         <div class="orb-wrap">
           <div id="mercuryVisual" class="mercury-visual" aria-hidden="true">
             <canvas id="mercuryCanvas" class="mercury-canvas"></canvas>
@@ -63,34 +68,36 @@
             <span class="orb-light"></span>
             <span class="power-icon" aria-hidden="true"></span>
             <span id="orbLabel" data-i18n="actions.connect">CONNECT</span>
-            <small data-i18n="connection.tap">Tap to secure</small>
           </button>
         </div>
-        <div id="statusPill" class="status-pill disconnected"><i class="status-dot" aria-hidden="true"></i><h1 id="statusTitle" data-i18n="status.disconnected">Disconnected</h1></div>
+        <div id="statusPill" class="status-pill disconnected"><i class="status-dot" aria-hidden="true"></i><h1 id="statusTitle" data-i18n="status.disconnected">Aethon Ready</h1></div>
         <p id="statusMessage" class="status-message"></p>
         <div id="connectionInfo" class="connection-info">
           <div class="traffic-row">
             <span class="traffic-metric download-metric"><span data-i18n="traffic.download">Download</span><strong id="downloadTraffic">--</strong></span>
-            <span class="traffic-metric ping-metric"><span data-i18n="traffic.ping">Ping</span><strong id="pingValue">--</strong></span>
             <span class="traffic-metric upload-metric"><span data-i18n="traffic.upload">Upload</span><strong id="uploadTraffic">--</strong></span>
           </div>
-          <div class="location-row"><span data-i18n="traffic.location">Location</span><strong id="locationValue">&mdash;</strong></div>
+          <div id="pingRow" class="traffic-row solo">
+            <span class="traffic-metric ping-metric"><span data-i18n="traffic.ping">Ping</span><strong id="pingValue">--</strong></span>
+          </div>
+          <div id="timeRow" class="traffic-row solo time-row hidden">
+            <span class="traffic-metric time-metric"><span data-i18n="traffic.time">TIME</span><strong id="timeValue" class="time-value">00:00:00</strong></span>
+          </div>
+          <div class="location-row" id="locationRow">
+            <span data-i18n="traffic.location">Location</span>
+            <strong id="locationValue">&mdash;</strong>
+            <button id="homeCountry" class="country-selector hidden" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span id="homeCountryValue">🌐 AUTO</span><span class="chevron" aria-hidden="true">▾</span>
+            </button>
+          </div>
+        </div>
+        <div id="countryPopup" class="country-popup hidden" role="listbox" aria-label="Psiphon location">
+          <div class="country-list" id="countryList"></div>
         </div>
       </section>
 
-      <section id="view-about" class="view scroll-view about-view">
-        <h1 data-i18n="about.title">About</h1>
-        <div class="about-hero"><div class="about-mark">A</div><strong>Aethon VPN</strong><small>v2.1.1</small></div>
-        <section class="section-block about">
-          <b data-i18n="about.original">Original Project: Aether</b>
-          <p data-i18n="about.originalCredit">Based on the original Aether project by CluvexStudio.</p>
-          <button class="link-button" data-external="https://github.com/CluvexStudio/Aether">github.com/CluvexStudio/Aether</button>
-          <b data-i18n="about.application">Application: Aethon VPN</b>
-          <p data-i18n="about.applicationCredit">Android/Windows application and interface developed for Aether.</p>
-          <button class="link-button" data-external="https://github.com/hamvex/AetherGUI">github.com/hamvex/AetherGUI</button>
-        </section>
-      </section>
-
+      <!-- CONFIGURATIONS (primary, common settings; dev.031: also hosts the former
+           More Settings advanced accordion — one page, every setting preserved) -->
       <section id="view-configurations" class="view scroll-view">
         <h1 data-i18n="nav.configurations">Configurations</h1>
         <section class="section-block">
@@ -102,19 +109,38 @@
         </section>
         <section class="section-block">
           <label data-i18n="config.protocol">Protocol</label>
-          <div id="protocol" class="segmented four">
-            <button data-value="smart">Smart Connect</button><button data-value="masque">MASQUE</button><button data-value="wg">WireGuard</button><button data-value="gool" class="active">gool</button>
+          <select id="protocol" aria-label="Protocol"></select>
+          <div id="transportField" class="field hidden">
+            <label for="transport" data-i18n="config.transport">MASQUE Connection Method</label>
+            <div id="transport" class="segmented">
+              <button data-value="h2" class="active" data-i18n="config.transportH2">HTTP/2 (TCP)</button>
+              <button data-value="h3" data-i18n="config.transportH3">HTTP/3 (QUIC)</button>
+            </div>
+          </div>
+          <div id="goolModeField" class="field hidden">
+            <label for="goolMode" data-i18n="config.goolMode">gool Topology</label>
+            <div id="goolMode" class="segmented">
+              <button data-value="masque" class="active" data-i18n="config.goolModeMasque">MASQUE-carried</button>
+              <button data-value="classic" data-i18n="config.goolModeClassic">Classic (WARP-in-WARP)</button>
+            </div>
           </div>
           <label for="scanMode" data-i18n="config.scan">Scan Mode</label><select id="scanMode"></select>
-          <label for="obfuscation" data-i18n="config.obfuscation">Obfuscation</label><select id="obfuscation"></select>
-          <div id="transportField" class="field hidden"><label data-i18n="config.transport">MASQUE Transport</label><div id="transport" class="segmented"><button data-value="h3" class="active">HTTP/3</button><button data-value="h2">HTTP/2</button></div></div>
-          <label for="peer" data-i18n="config.endpoint">Custom Endpoint</label><input id="peer" placeholder="Automatic" spellcheck="false">
+          <div id="psiphonTransportField" class="field hidden">
+            <label for="psiphonTransport" data-i18n="config.psiphonTransport">Psiphon Transport</label>
+            <select id="psiphonTransport">
+              <option value="auto" data-i18n="config.psiphonTransportAuto">Auto</option>
+              <option value="direct" data-i18n="config.psiphonTransportDirect">Direct</option>
+            </select>
+          </div>
+          <div id="psiphonLocationField" class="field hidden">
+            <label for="psiphonLocation" data-i18n="config.psiphonLocation">Psiphon Location</label>
+            <select id="psiphonLocation"></select>
+          </div>
+          <label id="peerField" for="peer" data-i18n="config.endpoint">Custom Endpoint</label><input id="peer" placeholder="Automatic" spellcheck="false">
         </section>
         <section class="section-block switches">
-          <label class="switch-row"><span><b>Auto connect at start</b><small>Reconnect with the saved configuration when Aethon launches</small></span><input id="autoConnectAtStart" type="checkbox"></label>
-          <label class="switch-row"><span><b data-i18n="config.reconnect">Auto Reconnect</b><small data-i18n="config.reconnectHelp">Recover after temporary failures</small></span><input id="quickReconnect" type="checkbox" checked></label>
           <label class="switch-row"><span><b data-i18n="config.lan">Connection from LAN</b><small data-i18n="config.lanHelp">Allow trusted private-network devices to use Aethon</small></span><input id="allowRemoteListener" type="checkbox"></label>
-          <div id="lanAddressValue" class="section-help">LAN sharing disabled</div>
+          <div id="lanAddressValue" class="section-help" data-i18n="config.lanDisabled">LAN sharing disabled</div>
           <label class="switch-row"><span><b data-i18n="config.dns">Private DNS Routing</b><small data-i18n="config.dnsHelp">Route DNS through Aethon</small></span><input id="dnsLeakProtection" type="checkbox" checked></label>
           <label class="switch-row"><span><b data-i18n="config.kill">Fail Closed</b><small data-i18n="config.killHelp">Block traffic while recovering</small></span><input id="killSwitch" type="checkbox"></label>
         </section>
@@ -125,9 +151,116 @@
             <button id="openApps" class="command-button" type="button"><span data-i18n="split.select">Select Applications</span><small id="selectedCount">0 selected</small></button>
           </div>
         </section>
-        <button id="resetSettings" class="text-button" type="button" data-i18n="actions.reset">Reset Defaults</button>
+
+        <!-- Advanced settings (dev.031: merged here from the former More Settings page —
+             every setting, preference key and behavior preserved verbatim; the drawer
+             entry became part of Configurations). Seven-category true accordion. -->
+        <div id="accordion" class="accordion">
+          <section class="accordion-section" data-section="performance">
+            <button class="accordion-header" type="button"><span data-i18n="more.performance">Performance</span><i class="chevron" aria-hidden="true">▾</i></button>
+            <div class="accordion-body">
+              <label data-i18n="config.ech">ECH (Encrypted Client Hello)</label>
+              <select id="ech">
+                <option value="" data-i18n="config.echOff">Off</option>
+                <option value="auto" data-i18n="config.echAuto">Auto</option>
+                <option value="custom" data-i18n="config.echCustom">Custom (Base64)</option>
+              </select>
+              <label id="echCustomLabel" for="echCustom" class="hidden" data-i18n="config.echCustomLabel">ECH Config (Base64)</label>
+              <input id="echCustom" class="hidden" placeholder="Base64 ECHConfigList" spellcheck="false">
+              <label class="switch-row"><span><b data-i18n="config.h2Fragment">TLS ClientHello Fragmentation (HTTP/2)</b><small data-i18n="config.h2FragmentHelp">Split ClientHello to evade DPI on h2</small></span><input id="h2Fragment" type="checkbox"></label>
+              <div id="h2FragmentFields" class="hidden">
+                <label for="h2FragmentSize" data-i18n="config.h2FragmentSize">Fragment Size (bytes)</label><input id="h2FragmentSize" placeholder="16-32" spellcheck="false">
+                <label for="h2FragmentDelay" data-i18n="config.h2FragmentDelay">Fragment Delay (ms)</label><input id="h2FragmentDelay" placeholder="2-10" spellcheck="false">
+              </div>
+              <label class="switch-row"><span><b data-i18n="config.noDataCheck">Skip Data Validation</b><small data-i18n="config.noDataCheckHelp">Disable end-to-end probe (faster, less reliable)</small></span><input id="noDataCheck" type="checkbox"></label>
+              <label for="validateSecs" data-i18n="config.validateSecs">Validation Timeout (seconds)</label><input id="validateSecs" type="number" min="1" max="300" placeholder="10">
+              <label for="startupSecs" data-i18n="config.startupSecs">Startup Deadline (seconds)</label><input id="startupSecs" type="number" min="5" max="300" placeholder="30">
+              <label for="reconnectSecs" data-i18n="config.reconnectSecs">Reconnect Delay (seconds)</label><input id="reconnectSecs" type="number" min="1" max="3600" placeholder="2">
+            </div>
+          </section>
+
+          <section class="accordion-section" data-section="privacy">
+            <button class="accordion-header" type="button"><span data-i18n="more.privacy">Privacy &amp; Security</span><i class="chevron" aria-hidden="true">▾</i></button>
+            <div class="accordion-body">
+              <label class="switch-row"><span><b data-i18n="config.reconnect">Auto Reconnect</b><small data-i18n="config.reconnectHelp">Recover after temporary failures</small></span><input id="quickReconnect" type="checkbox" checked></label>
+            </div>
+          </section>
+
+          <section class="accordion-section" data-section="network">
+            <button class="accordion-header" type="button"><span data-i18n="more.network">Network &amp; Routing</span><i class="chevron" aria-hidden="true">▾</i></button>
+            <div class="accordion-body">
+              <label data-i18n="config.ipv6">IPv6 Behavior</label>
+              <select id="ipv6Behavior">
+                <option value="tunnel" data-i18n="config.ipv6Tunnel">Tunnel</option>
+                <option value="block" data-i18n="config.ipv6Block">Block</option>
+              </select>
+              <label for="tunMtu" data-i18n="config.mtu">VPN MTU</label><input id="tunMtu" type="number" min="1280" max="9000" placeholder="1500">
+              <label class="switch-row"><span><b data-i18n="config.routeSniff">Route SNI/Host Sniffing</b><small data-i18n="config.routeSniffHelp">Read server name from first bytes for routing rules</small></span><input id="routeSniff" type="checkbox" checked></label>
+              <label for="routeSniffMs" data-i18n="config.routeSniffMs">Sniff Timeout (ms)</label><input id="routeSniffMs" type="number" min="10" max="5000" placeholder="400">
+            </div>
+          </section>
+
+          <section class="accordion-section" data-section="proxy">
+            <button class="accordion-header" type="button"><span data-i18n="more.proxy">Proxy &amp; Chaining</span><i class="chevron" aria-hidden="true">▾</i></button>
+            <div class="accordion-body">
+              <label for="upstreamProxy" data-i18n="config.upstreamProxy">Upstream Proxy</label><input id="upstreamProxy" placeholder="socks5://127.0.0.1:1080 or http://proxy:8080" spellcheck="false">
+              <small data-i18n="config.upstreamProxyHelp">Chain Aether behind another proxy (not available with Psiphon or Tor protocols)</small>
+            </div>
+          </section>
+
+          <section class="accordion-section" data-section="protocols">
+            <button class="accordion-header" type="button"><span data-i18n="more.protocols">Advanced Protocols</span><i class="chevron" aria-hidden="true">▾</i></button>
+            <div class="accordion-body">
+              <label data-i18n="config.wiwEndpoints">WARP-in-WARP Endpoints (classic gool)</label>
+              <small data-i18n="config.wiwEndpointsHelp">Optional outer/inner hops; setting either selects the classic gool topology</small>
+              <label for="wiwOuterPeer">WARP-in-WARP Outer</label><input id="wiwOuterPeer" placeholder="Auto" spellcheck="false">
+              <label for="wiwInnerPeer">WARP-in-WARP Inner</label><input id="wiwInnerPeer" placeholder="Auto" spellcheck="false">
+              <div id="mimPeerFields" class="field hidden">
+                <label for="mimOuterPeer" data-i18n="config.mimOuter">MIM Outer Endpoint</label><input id="mimOuterPeer" placeholder="Automatic" spellcheck="false">
+                <label for="mimInnerPeer" data-i18n="config.mimInner">MIM Inner Endpoint</label><input id="mimInnerPeer" placeholder="Automatic" spellcheck="false">
+              </div>
+              <label id="quicV2Field" class="switch-row hidden"><span><b data-i18n="config.quicV2">QUIC v2 opener</b><small data-i18n="config.quicV2Help">Allow the core to use its v2 negotiation opener for MASQUE</small></span><input id="quicV2" type="checkbox" checked></label>
+              <label class="switch-row"><span><b data-i18n="config.wgNoProfileRetry">WireGuard: No Profile Retry</b><small data-i18n="config.wgNoProfileRetryHelp">Don't retry other obfuscation profiles on scan failure</small></span><input id="wgNoProfileRetry" type="checkbox"></label>
+            </div>
+          </section>
+
+          <section class="accordion-section" data-section="organization">
+            <button class="accordion-header" type="button"><span data-i18n="more.organization">Organization / Zero Trust</span><i class="chevron" aria-hidden="true">▾</i></button>
+            <div class="accordion-body">
+              <label data-i18n="config.zeroTrust">Zero Trust (Team)</label>
+              <label for="team" data-i18n="config.team">Team Name</label><input id="team" placeholder="your-team" spellcheck="false">
+              <label for="accessEmail" data-i18n="config.accessEmail">Access Email</label><input id="accessEmail" type="email" placeholder="user@example.com" spellcheck="false">
+              <label for="accessToken" data-i18n="config.accessToken">Access Token</label><input id="accessToken" placeholder="JWT token" spellcheck="false">
+              <label class="switch-row"><span><b data-i18n="config.gateway">Use Gateway Proxy</b><small data-i18n="config.gatewayHelp">Route HTTP/HTTPS through organization gateway</small></span><input id="gateway" type="checkbox"></label>
+            </div>
+          </section>
+
+          <section class="accordion-section" data-section="help">
+            <button class="accordion-header" type="button"><span data-i18n="more.help">Help</span><i class="chevron" aria-hidden="true">▾</i></button>
+            <div class="accordion-body help-body">
+              <b data-i18n="help.mode">Connection Mode</b><p data-i18n="help.mode.body"></p>
+              <b data-i18n="help.protocol">Protocol</b><p data-i18n="help.protocol.body"></p>
+              <b data-i18n="help.psiphon">+ Psiphon</b><p data-i18n="help.psiphon.body"></p>
+              <b data-i18n="help.tor">+ Tor</b><p data-i18n="help.tor.body"></p>
+              <b data-i18n="help.masqueMethod">MASQUE Connection Method</b><p data-i18n="help.masqueMethod.body"></p>
+              <b data-i18n="help.goolMode">gool Topology</b><p data-i18n="help.goolMode.body"></p>
+              <b data-i18n="help.scan">Scan Mode</b><p data-i18n="help.scan.body"></p>
+              <b data-i18n="help.psiphonTransport">Psiphon Transport</b><p data-i18n="help.psiphonTransport.body"></p>
+              <b data-i18n="help.psiphonLocation">Psiphon Location</b><p data-i18n="help.psiphonLocation.body"></p>
+              <b data-i18n="help.split">Split Tunneling</b><p data-i18n="help.split.body"></p>
+              <b data-i18n="help.mtu">VPN MTU</b><p data-i18n="help.mtu.body"></p>
+              <b data-i18n="help.ech">ECH (Encrypted Client Hello)</b><p data-i18n="help.ech.body"></p>
+              <b data-i18n="help.ipv6">IPv6 Behavior</b><p data-i18n="help.ipv6.body"></p>
+              <b data-i18n="help.reset">Reset Defaults</b><p data-i18n="help.reset.body"></p>
+            </div>
+          </section>
+        </div>
+        <div class="reset-area">
+          <button id="resetSettings" class="text-button danger" type="button" data-i18n="actions.reset">Reset Defaults</button>
+        </div>
       </section>
 
+      <!-- SETTINGS -->
       <section id="view-settings" class="view scroll-view">
         <h1 data-i18n="nav.settings">Settings</h1>
         <section class="section-block">
@@ -140,14 +273,28 @@
           <p class="section-help" data-i18n="settings.notificationsHelp">Manage VPN and update notifications</p>
           <button id="manageNotifications" class="secondary-button full-width" type="button" data-i18n="settings.manageNotifications">Manage Notifications</button>
         </section>
+        <section class="section-block">
+          <b data-i18n="settings.backup">Backup &amp; Restore</b>
+          <p class="section-help" data-i18n="settings.backupHelp">Export or restore your Aethon configuration</p>
+          <div class="button-row">
+            <button id="exportBackup" class="secondary-button" type="button" data-i18n="settings.export">Export Configuration</button>
+            <button id="importBackup" class="secondary-button" type="button" data-i18n="settings.import">Import Configuration</button>
+          </div>
+        </section>
+        <section class="section-block">
+          <b data-i18n="settings.support">Support</b>
+          <p class="section-help" data-i18n="settings.supportHelp">Connection details and status for troubleshooting</p>
+          <button id="openDiagnostics" class="secondary-button full-width" type="button" data-i18n="settings.openDiagnostics">Advanced Diagnostics</button>
+        </section>
         <section class="section-block switches">
           <label class="switch-row"><span><b data-i18n="updates.automatic">Automatic Updates</b><small data-i18n="updates.automaticHelp">Check silently in the background</small></span><input id="automaticUpdates" type="checkbox" checked></label>
-          <div class="update-row"><span><b data-i18n="updates.current">Current Version</b><small id="updateStatus" data-i18n="updates.notChecked">Not checked</small></span><strong id="currentVersion">2.1.1</strong></div>
+          <div class="update-row"><span><b data-i18n="updates.current">Current Version</b><small id="updateStatus" data-i18n="updates.notChecked">Not checked</small></span><strong id="currentVersion">2.2.0</strong></div>
           <progress id="updateProgress" class="hidden" max="100" value="0"></progress>
           <div class="button-row"><button id="checkUpdates" class="secondary-button" type="button" data-i18n="updates.check">Check for Updates</button><button id="updateAction" class="primary-button hidden" type="button" data-i18n="updates.download">Download</button></div>
         </section>
       </section>
 
+      <!-- DIAGNOSTICS (developer view, not part of consumer IA) -->
       <section id="view-diagnostics" class="view scroll-view">
         <h1 data-i18n="nav.diagnostics">Diagnostics</h1>
         <section class="section-block diagnostics-grid">
@@ -163,6 +310,23 @@
         </section>
         <button id="refreshDiagnostics" class="secondary-button full-width" type="button">Refresh</button>
       </section>
+
+      <!-- ABOUT -->
+      <section id="view-about" class="view scroll-view about-view">
+        <h1 data-i18n="about.title">About</h1>
+        <div class="about-hero"><div class="about-mark">A</div><strong>Aethon VPN</strong><small id="aboutVersion">v2.2.0</small></div>
+        <section class="section-block about">
+          <div class="about-row"><span data-i18n="about.version">Version</span><strong>2.2.0</strong></div>
+          <div class="about-row"><span data-i18n="about.coreVersion">Aether Core</span><strong id="aboutCoreVersion">--</strong></div>
+          <b data-i18n="about.original">Original Project: Aether</b>
+          <p data-i18n="about.originalCredit">Based on the original Aether project by CluvexStudio.</p>
+          <button class="link-button" data-external="https://github.com/CluvexStudio/Aether">github.com/CluvexStudio/Aether</button>
+          <b data-i18n="about.application">Application: Aethon VPN</b>
+          <p data-i18n="about.applicationCredit">Android/Windows application and interface developed for Aether.</p>
+          <button class="link-button" data-external="https://github.com/hamvex/AetherGUI">github.com/hamvex/AetherGUI</button>
+          <button class="link-button" id="aboutTelegram" data-i18n="about.telegram">Telegram community</button>
+        </section>
+      </section>
     </main>
   </div>
 
@@ -170,10 +334,23 @@
     <div class="modal-sheet">
       <header><button id="closeApps" class="icon-button" type="button">←</button><strong data-i18n="split.select">Select Applications</strong><button id="applyApps" class="text-button" type="button" data-i18n="actions.apply">Apply</button></header>
       <input id="appSearch" type="search" data-i18n-placeholder="split.search" placeholder="Search applications">
+      <label class="switch-row compact"><span data-i18n="split.systemApps">Show system apps</span><input id="showSystemApps" type="checkbox"></label>
       <div class="picker-actions"><button id="addExecutable" type="button" data-i18n="split.add">Add Executable</button><button id="selectAll" type="button" data-i18n="actions.selectAll">Select All</button><button id="clearAll" type="button" data-i18n="actions.clearAll">Clear All</button></div>
       <div id="appList" class="app-list"></div>
     </div>
   </div>
+
+  <div id="resetDialog" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-sheet small">
+      <strong data-i18n="reset.title">Reset settings?</strong>
+      <p data-i18n="reset.body">This will restore Aethon's configuration defaults.</p>
+      <div class="button-row">
+        <button id="resetCancel" class="secondary-button" type="button" data-i18n="reset.cancel">Cancel</button>
+        <button id="resetConfirm" class="primary-button" type="button" data-i18n="reset.confirm">Reset</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" role="alert"></div>
 </body>
 </html>

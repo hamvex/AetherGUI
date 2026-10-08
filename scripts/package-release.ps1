@@ -1,4 +1,4 @@
-param([string]$Version = "2.1.1", [string]$AndroidVersion = "2.1.1")
+param([string]$Version = "2.2.0", [string]$AndroidVersion = "2.2.0")
 
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot

@@ -1,4 +1,9 @@
 <resources>
+    <!-- dev.017 CHANGE 1: the header now matches the page background in each theme (it used to be
+         a fixed white strip in dark mode too). Light values here; values-night overrides them. -->
+    <color name="header_background">#F5F8FC</color>
+    <color name="header_foreground">#12233C</color>
+    <color name="header_accent">#1769E0</color>
     <color name="blue_950">#071C35</color>
     <color name="blue_900">#0B2D52</color>
     <color name="blue_800">#0D4B91</color>
@@ -9,11 +14,17 @@
     <color name="blue_50">#F3F8FF</color>
     <color name="surface">#FFFFFF</color>
     <color name="background">#F5F8FC</color>
+    <!-- dev.017 CHANGE 1: a shade deliberately distinct from the header/body background so the
+         status bar region stays distinguishable while the header blends into the page. -->
+    <color name="status_bar_scrim">#E8EEF6</color>
     <color name="text">#12233C</color>
     <color name="muted">#64748B</color>
     <color name="border">#DCE7F4</color>
     <color name="green">#14A673</color>
     <color name="green_soft">#DDF8ED</color>
+    <!-- dev.020 CHANGE 9: the Home TIME value accent (blue-violet family, light theme). Only
+         the numeric TIME value uses this; the TIME label keeps the muted label style. -->
+    <color name="time_accent">#7C6FE8</color>
     <color name="red">#DC4C64</color>
     <color name="amber">#F2A53B</color>
     <color name="hero_start">#0D4B91</color>

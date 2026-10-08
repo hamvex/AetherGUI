@@ -17,29 +17,74 @@
 :root{color-scheme:light;--surface:#ffffff;--surface2:#f7f9fc;--line:#e2e8f1;--muted:#758196;--ink:#172338;--cyan:#35c9ee;--blue:#5875ff;--violet:#a46bff;--coral:#e35d70}
 html,body{background:#eef4fb;color:var(--ink)}
 body{min-width:0}
-.app-shell{width:100%;max-width:100%;min-width:0;height:100%;max-height:100vh;min-height:0;background:radial-gradient(circle at 50% 22%,#ffffff 0,#f5f8fd 42%,#eaf2fb 100%);box-shadow:0 18px 70px #8fa9c933}
-.app-header{height:70px;background:#ffffffb8;border-bottom:1px solid #dfe8f2;color:var(--ink);backdrop-filter:blur(20px)}
+.app-shell{width:100%;max-width:100%;min-width:0;height:100%;max-height:100vh;min-height:0;background:radial-gradient(circle at 50% 18%,#ffffff 0,#f5f8fd 42%,#eaf2fb 100%);box-shadow:0 18px 70px #8fa9c933}
+.app-header{height:64px;background:#ffffffd9;border-bottom:1px solid #dfe8f2;color:var(--ink);backdrop-filter:blur(20px)}
 .app-header strong{font-size:15px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
 .icon-button{border-radius:14px;color:#30405a;background:#ffffff99;box-shadow:0 5px 18px #728caf1c;transition:transform .18s,box-shadow .18s,background .18s}
 .icon-button:hover{background:#fff;box-shadow:0 8px 22px #728caf33}.icon-button:active{transform:scale(.92)}
 .hamburger-icon,.hamburger-icon::before,.hamburger-icon::after{display:block;width:18px;height:2px;border-radius:2px;background:#30405a;margin:auto;content:''}.hamburger-icon::before{transform:translateY(-6px)}.hamburger-icon::after{transform:translateY(4px)}
 .telegram{color:#397df4}.telegram-icon{width:22px;height:22px;display:block}
-.home-view{padding:12px 16px 20px}.orb-wrap{height:min(43vh,310px)}
-.connection-orb{width:min(68vw,238px);aspect-ratio:1;border-radius:24%;clip-path:polygon(50% 0%,92% 24%,92% 76%,50% 100%,8% 76%,8% 24%);background:linear-gradient(145deg,#ffffffd9,#e7effb 70%);color:#23324d;box-shadow:0 18px 35px #6a8bb52e,0 0 40px #6a8ff44a,inset 0 0 0 2px #ffffff;transition:transform .25s,filter .7s,box-shadow .7s}
+/* Home: content in the upper area, intentional clean empty space at the bottom
+   (Android dev.020: top spacer 0.22 of free space, orb hero, no vertical stretching).
+   dev.030 defect fix: this rule used to declare `display:grid` directly on
+   .home-view. `.view{display:none}` and `.home-view{display:grid}` are both (0,1,0),
+   and source order made the later grid rule win — so when navigation removed
+   `.active`, every OTHER view hid but Home stayed `display:grid`, leaving the Orb
+   and the whole Home layer rendered above the destination page (RAF had correctly
+   stopped, which is why RAF-only validation missed it). View visibility is now owned
+   exclusively by the view system: `display` for Home is only declared on the ACTIVE
+   view, at (0,3,0) so no page rule can ever defeat `.view{display:none}` again.
+   dev.031 defect fix (Orb covering Home telemetry): the dev.028 rule declared 4 grid
+   rows (spacer / orb / status / tail) but Home has only 3 IN-FLOW children
+   (statusMessage is display:none, countryPopup is position:fixed, so neither
+   occupies a track). Auto-placement put .orb-wrap (min-height 250px) into ROW 1 —
+   the ~44px top spacer — where it overflowed and, as position:relative with the orb
+   at z-index 1, painted over and intercepted the status pill (row 2) and telemetry
+   (row 3) below (measured on dev.030: orb overlap 38px on the pill, 141px on the
+   telemetry; elementFromPoint on the telemetry resolved to the orb's power-icon).
+    The track contract is now EXPLICIT: one track per in-flow Home child, in
+    document order, each child placed by name — the orb row is auto (exactly the
+    wrap's min-height, never the 44px spacer), status/telemetry rows are auto, and
+    the trailing 1fr track owns ONLY the intentional clean bottom space (no child is
+    ever auto-placed into it). Track sizes own the geometry, not z-index, not
+    overflow: the orb's row is exactly as tall as the orb, so the rows below start
+    where the orb ends. */
+.home-view{grid-template-rows:minmax(24px,0.16fr) minmax(250px,auto) auto auto auto minmax(0px,1fr);padding:0 16px 20px;text-align:center}
+.view.home-view.active{display:grid}
+.orb-wrap{grid-row:2;position:relative;display:grid;place-items:center;height:auto;min-height:250px;max-height:100%;padding:2px 0;align-self:stretch}
+#statusPill{grid-row:3}
+#statusMessage{grid-row:4}
+#connectionInfo{grid-row:5}
+.orb-wrap .connection-orb{max-width:100%;max-height:100%}
+  .orb-wrap .connection-orb{width:min(62vw,252px)}
+.orb-wrap .mercury-visual{max-width:100%;max-height:100%;box-sizing:border-box}
+
+.connection-orb{width:min(62vw,252px);aspect-ratio:1;border-radius:24%;clip-path:polygon(50% 0%,92% 24%,92% 76%,50% 100%,8% 76%,8% 24%);background:linear-gradient(145deg,#ffffffd9,#e7effb 70%);color:#23324d;box-shadow:0 18px 35px #6a8bb52e,0 0 40px #6a8ff44a,inset 0 0 0 2px #ffffff;transition:transform .25s,filter .7s,box-shadow .7s}
 .connection-orb::before{inset:8%;border-radius:18%;border:2px solid transparent;background:linear-gradient(135deg,var(--cyan),var(--violet),var(--blue)) border-box;mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);mask-composite:exclude;clip-path:inherit;opacity:.92}
 .connection-orb::after{inset:1%;border-radius:22%;border:0;box-shadow:0 0 38px #6c82ff66;clip-path:inherit}
 .connection-orb.connected{background:linear-gradient(145deg,#e9ffff,#c8e9ff 68%,#d9d4ff);color:#126fa5;box-shadow:0 0 52px #31ccea80,0 20px 40px #6b8db944,inset 0 0 0 2px #fff;animation:breathe 3.2s ease-in-out infinite}
 .connection-orb.connecting,.connection-orb.scanning,.connection-orb.reconnecting{background:linear-gradient(135deg,#eaffff,#eee3ff,#e0e9ff);background-size:220% 220%;animation:orb-flow 1.8s linear infinite;color:#3564c5}
 .connection-orb.error{background:#fff0f3;color:#b23655}.orb-light{width:42%;height:18%;top:16%;left:25%;background:#fff;filter:blur(16px)}
 .power-icon{display:block;width:33px;height:33px;margin:0 auto 12px;border:4px solid currentColor;border-top-color:transparent;border-radius:50%;position:relative}.power-icon::before{content:'';position:absolute;width:4px;height:18px;left:50%;top:-8px;transform:translateX(-50%);border-radius:3px;background:currentColor}
-.connection-orb #orbLabel{display:block;font-size:20px;letter-spacing:.1em}.connection-orb small{display:block;margin-top:10px;color:#7786a0;font-size:11px;font-weight:500;letter-spacing:.04em}.connection-orb.connected small{color:#3887aa}
-.status-pill{display:inline-flex;align-items:center;gap:9px;padding:9px 16px;border:1px solid #dce5ef;border-radius:999px;background:#ffffffb8;box-shadow:0 8px 20px #728caf1a}.status-pill h1{margin:0;font-size:14px;font-weight:650;color:var(--ink)}.status-dot{width:8px;height:8px;border-radius:50%;background:#e35d70;box-shadow:0 0 0 4px #e35d7020}.connection-orb.connected~.status-pill .status-dot{background:#20b98a;box-shadow:0 0 0 4px #20b98a22}.status-message{display:none}
-.connection-info{margin-top:14px;color:var(--ink);animation:info-in .35s ease}.traffic-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.traffic-metric{min-width:0;padding:9px 5px;border:1px solid #e2e9f2;border-radius:8px;background:#ffffff99;box-shadow:0 6px 18px #728caf12}.traffic-metric span{overflow:hidden;text-overflow:ellipsis}.traffic-metric strong{color:var(--ink);font-size:16px;white-space:nowrap}.traffic-metric:first-child>span::before,.traffic-metric:last-child>span::before{content:none}.connection-info .location-row{display:grid;width:100%;justify-content:stretch;justify-items:center;gap:3px;margin-top:9px;text-align:center}.connection-info #locationValue{margin-top:0;color:#334766;font-size:13px;line-height:1.25;text-align:center;overflow-wrap:anywhere}
+.connection-orb #orbLabel{display:block;font-size:20px;letter-spacing:.1em}.connection-orb small{display:none;margin-top:10px;color:#7786a0;font-size:11px;font-weight:500;letter-spacing:.04em}.connection-orb.connected small{display:none}
+.status-pill{display:inline-flex;align-items:center;gap:9px;padding:9px 16px;border:1px solid #dce5ef;border-radius:999px;background:#ffffffb8;box-shadow:0 8px 20px #728caf1a;justify-self:center;margin-top:6px}.status-pill h1{margin:0;font-size:14px;font-weight:650;color:var(--ink)}.status-dot{width:8px;height:8px;border-radius:50%;background:#e35d70;box-shadow:0 0 0 4px #e35d7020}.connection-orb.connected~.status-pill .status-dot{background:#20b98a;box-shadow:0 0 0 4px #20b98a22}.status-message{display:none}
+/* Telemetry: compact borderless metrics — no card boxes (PROMPT §7 heavy-card removal).
+   DL/UL share one 2-col row; Ping/TIME/LOCATION stack full-width below (Android layout). */
+.connection-info{margin-top:16px;color:var(--ink)}
+.traffic-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 26px;white-space:normal}
+.traffic-row.solo{grid-template-columns:1fr}
+.traffic-metric{display:grid;gap:5px;color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase;justify-items:center}
+.traffic-metric span{overflow:hidden;text-overflow:ellipsis}
+.traffic-metric strong{color:var(--ink);font-size:17px;font-weight:650;white-space:nowrap;font-variant-numeric:tabular-nums}
+.connection-info>div+div{margin-top:14px}
+.connection-info #pingValue{color:var(--blue);font-size:15px}
+.connection-info .location-row{display:grid;width:100%;justify-content:stretch;justify-items:center;gap:3px;margin-top:14px;text-align:center;color:var(--muted);font-size:11px;letter-spacing:.14em;text-transform:uppercase}.connection-info #locationValue{margin-top:0;color:#334766;font-size:14px;font-weight:600;line-height:1.25;text-align:center;overflow-wrap:anywhere;letter-spacing:normal;text-transform:none}
 .scroll-view{padding:25px 22px 40px}.scroll-view>h1{color:var(--ink);letter-spacing:-.02em}.section-block{border-color:var(--line)}.segmented{background:#edf2f8;border-color:#dce5ef}.segmented button{color:#728098}.segmented button.active{background:#fff;color:#315bc1;box-shadow:0 4px 12px #8197b52e}.section-block>label,.field>label{color:#718097}.switch-row small,.update-row small,.section-help{color:#8290a4}.switch-row input{accent-color:#5578ee}.drawer{background:#ffffffed;border-color:#dbe5f0;box-shadow:12px 0 35px #59779b2e}.drawer-brand{padding-bottom:26px}.brand-mark{background:linear-gradient(135deg,var(--cyan),var(--blue));box-shadow:0 8px 20px #5d84eb45}.nav-item{color:#718097}.nav-item.active{background:#e8f3ff;color:#245fc0}.drawer-footer{color:#8290a4}.about-hero{display:grid;justify-items:center;gap:8px;padding:20px;border:1px solid #e2e9f2;border-radius:22px;background:#ffffffa8;box-shadow:0 10px 25px #728caf18;margin-bottom:22px}.about-mark{width:60px;height:60px;display:grid;place-items:center;border-radius:20px;background:linear-gradient(135deg,var(--cyan),var(--violet));color:#fff;font-size:30px;font-weight:800;box-shadow:0 8px 22px #6b83ef55}.about-hero strong{font-size:20px}.about-hero small{color:#7b899d}
 @keyframes orb-flow{50%{background-position:100% 100%;transform:scale(1.018) rotate(1deg)}}@keyframes info-in{from{opacity:0;transform:translateY(8px)}}
 [dir=rtl] .app-header strong{letter-spacing:0}.modal-sheet{background:#f5f8fd;color:var(--ink)}
 .status-pill.connected .status-dot{background:#20b98a;box-shadow:0 0 0 4px #20b98a22}.status-pill.connecting .status-dot,.status-pill.scanning .status-dot,.status-pill.reconnecting .status-dot,.status-pill.disconnecting .status-dot{background:#4f78ed;box-shadow:0 0 0 4px #4f78ed22;animation:breathe 1.2s ease-in-out infinite}
 #pingValue{font-weight:700}
+@media (prefers-color-scheme: dark) { body[data-theme="system"] .country-popup { background:#1c2128;border-color:#353d48;box-shadow:0 14px 36px #000a } }
 
 body[data-theme=dark]{color-scheme:dark;--surface:#161a20;--surface2:#20252d;--line:#363d48;--muted:#9ba4b2;--ink:#f4f6f8;--cyan:#35d2e6;--blue:#6d8fff;--violet:#b57af2;--coral:#f06a7b;background:#101216;color:var(--ink)}
 body[data-theme=dark] .app-shell{background:radial-gradient(circle at 50% 22%,#262b33 0,#181c22 46%,#101216 100%);box-shadow:0 18px 70px #0008}
@@ -54,8 +99,9 @@ body[data-theme=dark] .connection-orb.error{background:#47252d;color:#ffabb5}
 body[data-theme=dark] .connection-orb small{color:#aab3c0}
 body[data-theme=dark] .status-pill{background:#20252dcc;border-color:#39414c;box-shadow:0 8px 20px #0005}
 body[data-theme=dark] .status-pill h1,body[data-theme=dark] .traffic-metric strong{color:var(--ink)}
-body[data-theme=dark] .traffic-metric{background:#1d2229d9;border-color:#343b46;box-shadow:0 6px 18px #0004}
 body[data-theme=dark] .connection-info #locationValue{color:#e4e8ee}
+body[data-theme=dark] .connection-info #pingValue{color:#8fb1ff}
+body[data-theme=dark] .country-popup{background:#1c2128;border-color:#353d48;box-shadow:0 14px 36px #000a}
 body[data-theme=dark] .segmented{background:#171b21;border-color:#343b46}
 body[data-theme=dark] .segmented button{color:#aab3c0}
 body[data-theme=dark] .segmented button.active{background:#2a313a;color:#f3f6fa;box-shadow:0 4px 12px #0005}
@@ -71,7 +117,7 @@ body[data-theme=dark] .about-hero{background:#1e232bcc;border-color:#353d48;box-
 body[data-theme=system]{color-scheme:dark;--surface:#161a20;--surface2:#20252d;--line:#363d48;--muted:#9ba4b2;--ink:#f4f6f8;--cyan:#35d2e6;--blue:#6d8fff;--violet:#b57af2;--coral:#f06a7b;background:#101216;color:var(--ink)}
 body[data-theme=system] .app-shell{background:radial-gradient(circle at 50% 22%,#262b33 0,#181c22 46%,#101216 100%)}
 body[data-theme=system] .app-header{background:#171a20e8;border-bottom-color:#303640;color:var(--ink)}
-body[data-theme=system] .icon-button,body[data-theme=system] .status-pill,body[data-theme=system] .traffic-metric{background:#20252dcc;border-color:#39414c;color:var(--ink)}
+body[data-theme=system] .icon-button,body[data-theme=system] .status-pill{background:#20252dcc;border-color:#39414c;color:var(--ink)}
 body[data-theme=system] .hamburger-icon,body[data-theme=system] .hamburger-icon::before,body[data-theme=system] .hamburger-icon::after{background:#e5e9ef}
 body[data-theme=system] .connection-orb{background:linear-gradient(145deg,#252b34,#181d24 70%);color:#edf2f8}
 body[data-theme=system] .traffic-metric strong,body[data-theme=system] .status-pill h1,body[data-theme=system] .connection-info #locationValue{color:var(--ink)}
@@ -79,7 +125,7 @@ body[data-theme=system] .drawer,body[data-theme=system] .modal-sheet{background:
 }
 
 .orb-wrap{position:relative;isolation:isolate;overflow:visible}
-.mercury-visual{position:absolute;z-index:0;left:50%;top:50%;width:292px;height:292px;transform:translate(-50%,-50%);pointer-events:none;visibility:hidden;overflow:visible;contain:layout style}
+.mercury-visual{position:absolute;z-index:0;left:50%;top:50%;width:296px;height:296px;transform:translate(-50%,-50%);pointer-events:none;visibility:hidden;overflow:visible;contain:layout style}
 .mercury-visual.active{visibility:visible}
 .mercury-visual::before{content:"";position:absolute;inset:27px;border-radius:24%;opacity:0;transition:opacity .2s ease}
 .mercury-canvas{position:relative;z-index:1;width:100%;height:100%;display:block;pointer-events:none}
@@ -103,3 +149,173 @@ body[data-theme=dark] .mercury-visual.active::before{opacity:1;background:linear
 @media(prefers-color-scheme:dark){body[data-theme=system] .mercury-visual.active::before{opacity:1;background:linear-gradient(145deg,#252b34,#181d24 70%);box-shadow:0 18px 35px #0007,0 0 40px #657ce64f,inset 0 0 0 2px #333b46}}
 @media(max-width:370px){.mercury-visual{width:278px;height:278px}}
 @media(prefers-reduced-motion:reduce){.connection-orb.living-mercury{transition:none}}
+.segmented.five{grid-template-columns:repeat(5,1fr)}
+
+/* ===================== More Settings accordion + Home additions ===================== */
+.accordion { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.accordion-section { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--surface); }
+.accordion-header { width:100%; display:flex; justify-content:space-between; align-items:center; padding:12px 14px; background:transparent; border:0; font:inherit; font-weight:600; color:inherit; cursor:pointer; }
+.accordion-header .chevron { transition:transform .18s ease; }
+.accordion-section.open .accordion-header .chevron { transform:rotate(180deg); }
+.accordion-body { display:none; padding:2px 14px 14px; }
+.accordion-section.open .accordion-body { display:block; }
+.reset-area { margin-top:16px; padding-top:8px; border-top:1px solid var(--line); }
+.text-button.danger { color:#d9534f; }
+
+/* TIME row: same visual hierarchy as Download/Upload values, fixed-width digits.
+   Accent selectors are deliberately (0,3,1) so they outrank the dark-theme metric rule
+   `body[data-theme=dark] .traffic-metric strong` (0,2,2) — the dev.028 defect where the
+   dark accent resolved to ink (#f4f6f8) instead of #A99DF2. */
+.time-row { margin-top:2px; }
+.time-metric strong { font-variant-numeric:tabular-nums; letter-spacing:.5px; }
+.time-value { color:#7C6FE8; }
+body[data-theme="dark"] .traffic-metric strong.time-value { color:#A99DF2; }
+@media (prefers-color-scheme: dark) { body[data-theme="system"] .traffic-metric strong.time-value { color:#A99DF2; } }
+
+/* Home Psiphon country selector: compact content-conscious popup anchored ABOVE the
+   LOCATION row (PROMPT §9 — opens UPWARD, never downward, always fully visible).
+   Position coordinates are set by JS from the row's live bounding rect. */
+.location-row { display:grid; justify-items:center; gap:4px; }
+.country-selector { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border:1px solid var(--line); border-radius:999px; background:var(--surface); color:inherit; font:inherit; font-size:12px; font-weight:650; cursor:pointer; }
+.country-selector .chevron { font-size:10px; opacity:.7; transition:transform .18s ease; }
+.country-selector[aria-expanded="true"] .chevron { transform:rotate(180deg); }
+.country-popup { position:fixed; z-index:60; min-width:170px; max-width:230px; max-height:min(280px,42vh); overflow:auto; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 14px 36px rgba(0,0,0,.24); padding:4px; }
+.country-row { padding:8px 10px; border-radius:8px; cursor:pointer; font-weight:500; white-space:nowrap; font-size:13px; }
+.country-row:hover { background:var(--surface2); }
+.country-row.active { background:#7C6FE8; color:#fff; }
+#view-home { position:relative; }
+
+/* Reset + backup dialogs. */
+.modal-sheet.small { max-width:320px; }
+.modal-sheet.small p { margin:8px 0 14px; color:var(--muted); }
+.about-row { display:flex; justify-content:space-between; padding:4px 0; border-bottom:1px solid var(--line); }
+.switch-row.compact { padding:6px 0; }
+.switch-row.compact span { font-size:13px; font-weight:600; }
+.app-row.missing { opacity:.55; }
+.empty-row { padding:16px; text-align:center; color:var(--muted); }
+.help-body b { display:block; margin-top:10px; }
+.help-body p { margin:2px 0 6px; color:var(--muted); font-size:13px; line-height:1.55; }
+[dir="rtl"] .help-body p { text-align:right; }
+
+/* Fix the swapped glyph landmine: Download is first (down arrow), Upload last (up arrow). */
+.traffic-metric.download-metric::before { content:none; }
+.traffic-metric.upload-metric::before { content:none; }
+
+/* ===================== dev.028 unified control design system =====================
+   One control language for Configurations / More Settings / Settings (PROMPT §13):
+   consistent label spacing (labels sit 10px above controls, never cramped), one input
+   height, one corner radius scale, aligned widths, field groups with consistent gaps. */
+:root { --control-h: 42px; --control-radius: 10px; }
+main { height: calc(100vh - 64px); overflow: hidden; }
+.scroll-view { overflow-y: auto; padding: 20px 20px 44px; }
+.scroll-view > h1 { font-size: 24px; margin: 0 0 16px; }
+.section-block { padding: 0 0 20px; margin-bottom: 20px; border-bottom: 1px solid var(--line); }
+.section-block > label, .field > label, .accordion-body > label, .accordion-body .field > label {
+  display: block; font-size: 12.5px; font-weight: 600; color: var(--muted);
+  margin: 14px 0 6px; letter-spacing: .01em;
+}
+.section-block > label:first-child, .accordion-body > label:first-child { margin-top: 4px; }
+select, input[type=text], input:not([type]), input[type=number], input[type=email], input[type=search] {
+  height: var(--control-h); border: 1px solid var(--line); border-radius: var(--control-radius);
+  background: var(--surface); color: var(--ink); padding: 0 12px; width: 100%;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+select:focus, input:focus { outline: none; border-color: #7C6FE8; box-shadow: 0 0 0 3px #7C6FE822; }
+.segmented { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: var(--control-radius); background: #edf2f8; }
+.segmented button { min-height: 38px; padding: 7px; border: 0; border-radius: calc(var(--control-radius) - 3px); background: transparent; color: #728098; font-size: 12.5px; cursor: pointer; }
+.segmented button.active { background: #fff; color: #315bc1; box-shadow: 0 4px 12px #8197b52e; font-weight: 600; }
+.switch-row, .update-row { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 11px 0; }
+.switch-row span, .update-row span { display: grid; gap: 4px; }
+.switch-row input { width: 42px; height: 22px; accent-color: #7C6FE8; margin: 0; }
+.command-button { width: 100%; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding: 13px 14px; border: 1px solid var(--line); border-radius: var(--control-radius); background: var(--surface); color: var(--ink); cursor: pointer; }
+.button-row { display: flex; gap: 10px; margin-top: 16px; }
+.primary-button, .secondary-button { flex: 1; min-height: var(--control-h); border-radius: var(--control-radius); padding: 8px; border: 1px solid #7C6FE8; background: #7C6FE8; color: #fff; cursor: pointer; font-weight: 600; }
+.secondary-button { background: transparent; border-color: var(--line); color: var(--ink); font-weight: 500; }
+body[data-theme=dark] .primary-button { background: #7C6FE8; border-color: #7C6FE8; color: #fff; }
+body[data-theme=dark] .secondary-button { background: transparent; color: var(--ink); }
+body[data-theme=dark] select, body[data-theme=dark] input[type=text], body[data-theme=dark] input:not([type]),
+body[data-theme=dark] input[type=number], body[data-theme=dark] input[type=email] { background: #181c22; border-color: #353d48; color: #f4f6f8; }
+body[data-theme=dark] select:focus, body[data-theme=dark] input:focus { border-color: #A99DF2; box-shadow: 0 0 0 3px #A99DF222; }
+.accordion-body { padding: 0 14px 14px; }
+.accordion-section { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--surface); }
+.accordion-header { min-height: 48px; }
+.field { margin-top: 6px; }
+body[data-theme=light] .segmented, body[data-theme=light] select, body[data-theme=light] input { color: #152031; }
+@media (prefers-color-scheme: light) { body[data-theme=system] .segmented, body[data-theme=system] select, body[data-theme=system] input { color: #152031; } }
+
+
+/* ===================== dev.032 compact connected Home (PROMPT §3) =====================
+   Root cause (measured live, DPI-correct): the connected Home column is ~510px tall
+   (spacer 24 + orb 250 + pill 38 + telemetry stack), and a window that is small IN CSS
+   PIXELS has less room than that. On this 150%-DPI validation host a physical 360x600
+   window (the app minimum) is only 226x363 CSS -> 299px of content after the 64px
+   header; the dev.031 layout overflowed by ~120px and pushed the complete LOCATION row
+   below the fold (grid rows never clip their children). The dev.031 geometry
+   validation scripts ran DPI-unaware (physical 1920x1080 seen as 1280x720) and
+   measured virtualized window sizes, so this case was never exercised.
+
+   Fix: four bounded, CSS-only compaction tiers keyed on the VIEWPORT height (the
+   header is a constant 64px, so breakpoints are pre-offset: content X = viewport X+64).
+   Every tier keeps the dev.031 six-track ownership contract (no z-index, no overlays,
+   nothing hidden, nothing overlapped) and the readability floor (labels >= 10px,
+   values >= 12.5px). At tiers 3/4 the Ping and TIME metrics pair into one 2-column row
+   (#connectionInfo becomes a 2-col grid; #pingRow/#timeRow contribute their metrics via
+   display:contents — both single scalars, pairing halves the stack LOCATION needs;
+   'hidden' still wins on #timeRow via !important, so the disconnected state is
+   unaffected). Rules are LAST in the file so their equal-specificity declarations win
+   the source-order cascade against the dev.028-era margins defined earlier. */
+@media (max-height:648px) {
+  .home-view{grid-template-rows:minmax(10px,0.16fr) minmax(196px,auto) auto auto auto minmax(0px,1fr);padding-bottom:14px}
+   .orb-wrap{min-height:196px;padding:1px 0}
+  .orb-wrap .connection-orb{width:min(62vw,194px)}
+  .connection-info{margin-top:10px}
+  .connection-info>div+div{margin-top:10px}
+  .connection-info .location-row{margin-top:10px}
+}
+@media (max-height:524px) {
+  .home-view{grid-template-rows:minmax(6px,0.12fr) minmax(168px,auto) auto auto auto minmax(0px,1fr);padding-bottom:12px}
+   .orb-wrap{min-height:168px;padding:1px 0}
+  .orb-wrap .connection-orb{width:min(62vw,166px)}
+  .status-pill{padding:6px 12px;margin-top:4px}
+  .status-pill h1{font-size:13px}
+  .connection-info{margin-top:8px}
+  .connection-info>div+div{margin-top:8px}
+  .connection-info .location-row{margin-top:8px}
+  .traffic-metric{gap:4px}
+  .traffic-metric strong{font-size:16px}
+}
+@media (max-height:464px) {
+  .home-view{grid-template-rows:minmax(4px,0.10fr) minmax(140px,auto) auto auto auto minmax(0px,1fr);padding:0 12px 10px}
+   .orb-wrap{min-height:140px;padding:1px 0}
+  .orb-wrap .connection-orb{width:min(62vw,138px)}
+  .status-pill{padding:4px 11px;margin-top:2px}
+  .status-pill h1{font-size:12.5px}
+  .status-pill .status-dot{width:7px;height:7px}
+  .connection-info{margin-top:6px}
+  .connection-info .location-row{margin-top:6px;gap:2px}
+  .traffic-row{gap:4px 16px}
+  .traffic-metric{font-size:10px;gap:2px}
+  .traffic-metric strong{font-size:14px}
+  /* Telemetry becomes a 2-column grid: DL/UL row spans both, Ping + TIME pair in one
+     row, LOCATION spans both. #pingRow/#timeRow keep their DOM (hidden-class contract,
+     TIME connected-only visibility) but contribute children to this grid. */
+  #connectionInfo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px;row-gap:6px}
+  #connectionInfo>.traffic-row{grid-column:1 / -1}
+  #pingRow,#timeRow{display:contents}
+  .location-row{grid-column:1 / -1}
+  .time-metric strong,.connection-info #pingValue{font-size:14px}
+  .connection-info .location-row{font-size:10px}
+  .connection-info #locationValue{font-size:13px}
+}
+@media (max-height:424px) {
+  .home-view{grid-template-rows:minmax(2px,0.10fr) minmax(120px,auto) auto auto auto minmax(0px,1fr);padding:0 10px 8px}
+  .orb-wrap{min-height:120px;padding:1px 0}
+  .orb-wrap .connection-orb{width:min(62vw,118px)}
+  .status-pill{padding:3px 10px;margin-top:2px}
+  .status-pill h1{font-size:12px}
+  .connection-info{margin-top:4px}
+  #connectionInfo{row-gap:5px}
+  .traffic-metric strong{font-size:13px}
+  .time-metric strong,.connection-info #pingValue{font-size:13px}
+  .connection-info #locationValue{font-size:12.5px}
+}

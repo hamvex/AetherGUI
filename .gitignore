@@ -10,15 +10,18 @@ src-tauri/gen/
 # used in place of a freshly verified download.
 src-tauri/binaries/*.exe
 src-tauri/binaries/*.dll
+src-tauri/binaries/pt/*.exe
 .npm-cache/
 .env
 *.log
 .DS_Store
 .vscode/
 .idea/
+__pycache__/
 release-v*/
 release/
 portable/
+validation/
 android/.gradle/
 android/local.properties
 android/app/build/
@@ -34,3 +37,43 @@ aether*.toml
 
 # Fix-build backup artifacts (binaries are not source)
 .fixbuild-backup/
+
+# Internal evidence, local staging, and quarantine material. These paths are
+# intentionally kept on disk for review but must not enter the public tree.
+/security-evidence/
+/.prebuild-archive-*/
+/.runtime-install/
+/.aether-upstream-*/
+/.xray-*/
+/.masque-diagnostic/
+/build-logs-*/
+/development-builds/
+/AETHON_QUARANTINE_*/
+/quarantine/
+/inspection/
+*.inspection
+*.inspection.*
+*.tmp
+*.temp
+*.bak
+*~
+
+# Generated local audit reports. Release manifests and required documentation
+# remain trackable and are deliberately not covered by these exact entries.
+/AETHON_BUILD_ARTIFACT_REPORT.md
+/AETHON_CLEANUP_PLAN.md
+/AETHON_DUPLICATE_FILES_REPORT.md
+/AETHON_GIT_HEALTH_REPORT.md
+/AETHON_PROJECT_INVENTORY_REPORT.md
+/AETHON_RELEASE_CLEANUP_REPORT.md
+/AETHON_SECURITY_AUDIT_REPORT.md
+
+# Isolated Codex Android development outputs
+/android/app/build-codex/
+
+# Verified native payloads are local build inputs, not source. Keep the provenance
+# manifests in Git and let the pinned fetch scripts materialize the binaries.
+native-inputs/*
+!native-inputs/android/
+native-inputs/android/*
+!native-inputs/android/*.json

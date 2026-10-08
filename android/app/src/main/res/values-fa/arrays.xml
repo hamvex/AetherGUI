@@ -1,9 +1,14 @@
 <resources>
-    <string-array name="protocol_labels"><item>MASQUE</item><item>WireGuard</item><item>gool / WARP-in-WARP</item><item>اتصال هوشمند</item></string-array>
-    <string-array name="scan_labels"><item>متعادل</item><item>توربو (پیشنهادی)</item><item>کامل</item><item>مخفی</item><item>اعتبارسنجی سخت‌گیرانه</item></string-array>
-    <string-array name="transport_labels"><item>HTTP/3 (QUIC)</item><item>HTTP/2 (TCP، پیشنهادی)</item></string-array>
+    <string-array name="protocol_labels"><item>MASQUE</item><item>WireGuard</item><item>gool / WIW</item><item>اتصال هوشمند</item><item>MIM</item><item>WireGuard + سایفون</item><item>gool + سایفون</item><item>MASQUE + سایفون</item><item>WireGuard + تور</item><item>gool + تور</item><item>MASQUE + تور</item></string-array>
+    <string-array name="scan_labels"><item>متعادل</item><item>توربو</item><item>کامل</item><item>تأییدشده</item><item>اعتبارسنجی سخت‌گیرانه</item></string-array>
+    <string-array name="transport_labels"><item>HTTP/3 (QUIC)</item><item>HTTP/2 (TCP)</item></string-array>
     <string-array name="ip_labels"><item>IPv4 (پیشنهادی)</item><item>IPv6</item><item>IPv4 + IPv6</item></string-array>
-    <string-array name="obfuscation_labels"><item>فایروال (پیشنهادی)</item><item>GFW</item><item>متعادل</item><item>تهاجمی</item><item>خاموش</item></string-array>
+    <string-array name="obfuscation_labels"><item>فایروال (پیشنهادی)</item><item>GFW</item><item>متعادل</item><item>تهاجمی</item><item>خاموش</item><item>Light</item></string-array>
     <string-array name="theme_labels"><item>پیش‌فرض سیستم</item><item>روشن</item><item>تیره</item></string-array>
     <string-array name="language_labels"><item>English</item><item>فارسی</item></string-array>
+    <string-array name="ech_labels"><item>خودکار</item><item>خاموش</item><item>سفارشی (base64)</item></string-array>
+    <!-- dev.034: دو توپولوژی Gool در Core نسخه ۲.۳.۰؛ ترتیب آرایه همان قرارداد ذخیره‌سازی
+         اولویت «goolMode» است: ۰=Gool روی MASQUE (پیش‌فرض نسخه جدید)، ۱=Gool کلاسیک. -->
+    <string-array name="gool_mode_labels"><item>Gool روی MASQUE</item><item>Gool کلاسیک</item></string-array>
+    <string-array name="perf_profile_labels"><item>خودکار</item><item>کم</item><item>متوسط</item><item>زیاد</item></string-array>
 </resources>

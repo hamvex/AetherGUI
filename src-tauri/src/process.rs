@@ -2,7 +2,15 @@ use crate::settings::Settings;
 use crate::{active_attempt, elapsed_since_ms, emit_timeline, endpoint_cache};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use std::{collections::VecDeque, fs, io::Write, process::Stdio, sync::Arc, time::Instant};
+use std::{
+    collections::VecDeque,
+    ffi::{OsStr, OsString},
+    fs,
+    io::Write,
+    process::Stdio,
+    sync::Arc,
+    time::Instant,
+};
 use tauri::{AppHandle, Emitter, Manager};
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
@@ -19,8 +27,77 @@ pub struct StatusEvent {
     pub message: Option<String>,
 }
 
-pub const AETHER_VERSION: &str = "1.9.0";
-const AETHER_SHA256: &str = "ee400806bf73fe16e655e6478eb7442c2c4e0576c4c8ce1913ac474e846b36cd";
+pub const AETHER_VERSION: &str = "2.3.0";
+const AETHER_SHA256: &str = "4834bec4fa3b108275cac1b765d83aadf6b2fcae76ea74b00bfa3935f238e0c1";
+
+/// Cumulative byte counters parsed from the core's `[=] up X down Y uptime ...` statistics
+/// lines (v2.1.0, `AETHER_STATS=1`). Authoritative user-facing traffic totals: they count
+/// real relayed client bytes on the core's listeners in BOTH connection modes and are
+/// immune to TUN counter-direction ambiguity.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct CoreStats {
+    pub uploaded: u64,
+    pub downloaded: u64,
+}
+
+/// Parse one core stats log line into byte counts. The v2.1.0 format is
+/// `[=] up 291.1 KiB down 482.6 KiB uptime 00:01:30` — the size and its unit are separate
+/// tokens. Units are binary (B, KiB, MiB, GiB, TiB); a plain number is bytes.
+pub fn parse_stats_line(line: &str) -> Option<CoreStats> {
+    if !line.contains("[=]") {
+        return None;
+    }
+    let tokens: Vec<&str> = line.split_whitespace().collect();
+    let mut uploaded = None;
+    let mut downloaded = None;
+    for (index, token) in tokens.iter().enumerate() {
+        let field = match *token {
+            "up" => "up",
+            "down" => "down",
+            _ => continue,
+        };
+        // Combine the value token with the unit token that follows it.
+        let mut size_token = tokens.get(index + 1).copied().unwrap_or("").to_string();
+        if let Some(unit) = tokens.get(index + 2).copied() {
+            if is_size_unit(unit) {
+                size_token = format!("{} {}", tokens.get(index + 1).copied().unwrap_or(""), unit);
+            }
+        }
+        let value = parse_size_token(&size_token)?;
+        match field {
+            "up" => uploaded = Some(value),
+            "down" => downloaded = Some(value),
+            _ => {}
+        }
+    }
+    Some(CoreStats {
+        uploaded: uploaded?,
+        downloaded: downloaded?,
+    })
+}
+
+fn is_size_unit(token: &str) -> bool {
+    matches!(token, "B" | "KiB" | "MiB" | "GiB" | "TiB")
+}
+
+fn parse_size_token(token: &str) -> Option<u64> {
+    let token = token.trim();
+    let (number, unit) = token.split_at(
+        token
+            .find(|c: char| !c.is_ascii_digit() && c != '.')
+            .unwrap_or(token.len()),
+    );
+    let value: f64 = number.parse().ok()?;
+    let multiplier = match unit.trim() {
+        "" | "B" => 1.0,
+        "KiB" => 1024.0,
+        "MiB" => 1024.0 * 1024.0,
+        "GiB" => 1024.0 * 1024.0 * 1024.0,
+        "TiB" => 1024.0 * 1024.0 * 1024.0 * 1024.0,
+        _ => return None,
+    };
+    Some((value * multiplier) as u64)
+}
 
 #[derive(Default)]
 pub struct ProcessManager {
@@ -32,6 +109,7 @@ pub struct ProcessManager {
     recovering: Mutex<bool>,
     runtime_protocol: Mutex<Option<String>>,
     recent_lines: Mutex<VecDeque<String>>,
+    core_stats: Mutex<CoreStats>,
     /// The warp-in-warp hops the running core reported choosing, if it has.
     /// Held in memory for the lifetime of the attempt and only written to the
     /// on-disk cache once that attempt reaches `Connected`.
@@ -54,7 +132,7 @@ pub struct ProcessManager {
 /// a protocol other than gool has the core's own `lastconn` cache and does not
 /// need this; `quick_reconnect` off is a user asking for a fresh scan; an
 /// explicitly configured peer is a user's own choice, which a cache must never
-/// silently override - v1.9.0 honours `AETHER_WG_PEER` for gool, where v1.8.0
+/// silently override - v2.0.0 honours `AETHER_WG_PEER` for gool, where v1.8.0
 /// ignored it, so overriding here would now actually change what they get; and
 /// a network that could not be identified gets a full scan, because a pin from
 /// one network is worthless on another and guessing is the failure mode.
@@ -65,7 +143,10 @@ fn apply_cached_endpoints(
     network: Option<&str>,
     env: &mut std::collections::HashMap<String, String>,
 ) -> bool {
-    if settings.protocol != "gool" || !settings.quick_reconnect || !settings.peer.trim().is_empty() {
+    if crate::protocol::base_protocol(&settings.protocol) != "gool"
+        || !settings.quick_reconnect
+        || !settings.peer.trim().is_empty()
+    {
         return false;
     }
     let Some(network) = network else {
@@ -82,6 +163,23 @@ fn apply_cached_endpoints(
         "[cache] reusing the warp-in-warp endpoints from the previous connect",
     );
     true
+}
+
+fn is_aether_environment_key(key: &OsStr) -> bool {
+    key.to_string_lossy()
+        .to_ascii_uppercase()
+        .starts_with("AETHER_")
+}
+
+fn inherited_environment_without_aether<I>(
+    variables: I,
+) -> impl Iterator<Item = (OsString, OsString)>
+where
+    I: IntoIterator<Item = (OsString, OsString)>,
+{
+    variables
+        .into_iter()
+        .filter(|(key, _)| !is_aether_environment_key(key))
 }
 
 fn emit_process_stage(app: &AppHandle, settings: &Settings, stage: &str) {
@@ -108,8 +206,25 @@ impl ProcessManager {
         app: AppHandle,
         settings: Settings,
     ) -> Result<u64, String> {
-        self.start_with_options(app, settings, true).await
+        self.start_with_options(app, settings, true, None).await
     }
+
+    /// Start the core with a privacy-chain runtime layered onto its environment (ports,
+    /// underlay remap, helper state dirs). `None` runs a plain protocol.
+    pub async fn start_with_chain(
+        self: &Arc<Self>,
+        app: AppHandle,
+        settings: Settings,
+        chain: Option<&crate::chain::ChainRuntime>,
+    ) -> Result<u64, String> {
+        let allow_cache = crate::protocol::privacy_chain(&settings.protocol)
+            == crate::protocol::PrivacyChain::None;
+        self.start_with_options(app, settings, allow_cache, chain)
+            .await
+    }
+
+    /// v2.1.0 chain mode runs everything through the underlay, so endpoint pinning (a
+    /// v2.0.0 gool optimization) applies only to plain protocols.
 
     /// `allow_cached_endpoints` is the difference between the first attempt of a
     /// connect and a retry after one failed: a retry must scan, because the
@@ -119,6 +234,7 @@ impl ProcessManager {
         app: AppHandle,
         settings: Settings,
         allow_cached_endpoints: bool,
+        chain: Option<&crate::chain::ChainRuntime>,
     ) -> Result<u64, String> {
         emit_process_stage(&app, &settings, "aether_configuration_validation_started");
         settings.validate()?;
@@ -138,13 +254,38 @@ impl ProcessManager {
         let core_log = open_rotating_core_log(&data_dir)?;
         emit_process_stage(&app, &settings, "aether_log_initialization_finished");
         emit_process_stage(&app, &settings, "aether_environment_prepare_started");
-        let mut env = settings.environment(&data_dir.join("aether.toml"))?;
+        let mut env = settings.environment_with_chain(&data_dir.join("aether.toml"), chain)?;
+        // Privacy helpers keep their state beside the core's working directory: the psiphon
+        // data dir and tor consensus cache live under the app data dir, never a temp path.
+        if let Some(runtime) = chain {
+            if let Some(dir) = runtime.tor_dir_if_needed() {
+                let _ = std::fs::create_dir_all(&dir);
+            }
+        }
         // Read while the tunnel is still down: at this point the default route
         // is the link the core is about to dial out on. After the helper runs it
         // would be our own TUN adapter instead.
         let network = endpoint_cache::network_fingerprint();
         let pinned = allow_cached_endpoints
             && apply_cached_endpoints(&app, &settings, &data_dir, network.as_deref(), &mut env);
+        // v2.1.0 statistics: cumulative up/down byte counters on the core's listeners,
+        // emitted every 5s. The authoritative traffic source (works in proxy mode too).
+        env.insert("AETHER_STATS".into(), "1".into());
+        env.insert("AETHER_STATS_SECS".into(), "5".into());
+        // v2.1.0 privacy helpers: make sure the core finds its bundled helper binaries.
+        // The installer places pt\psiphon-tunnel-core.exe + pt\lyrebird.exe beside
+        // aether.exe (verified layout of the official Windows zip); AETHER_PSIPHON_BIN
+        // pins the exact file so PATH search can never substitute a different one.
+        if chain.is_some() {
+            let pt_dir = core_pt_dir(&app);
+            let psiphon_bin = pt_dir.join("psiphon-tunnel-core.exe");
+            if psiphon_bin.is_file() {
+                env.insert(
+                    "AETHER_PSIPHON_BIN".into(),
+                    psiphon_bin.to_string_lossy().into_owned(),
+                );
+            }
+        }
         emit_process_stage(
             &app,
             &settings,
@@ -167,6 +308,11 @@ impl ProcessManager {
         let _ = app.emit("aether-log", format!("[integrity] {version}"));
         let mut command = Command::new(&core);
         command
+            // Start from the current process environment so PATH, SystemRoot, proxy
+            // libraries, and other unrelated runtime settings remain available, but
+            // never inherit stale AETHER_* feature flags from the launching shell.
+            .env_clear()
+            .envs(inherited_environment_without_aether(std::env::vars_os()))
             .envs(env)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -215,6 +361,7 @@ impl ProcessManager {
         *self.started_from_cache.lock().await = pinned;
         *self.network_at_start.lock().await = network;
         self.recent_lines.lock().await.clear();
+        *self.core_stats.lock().await = CoreStats::default();
         *child_guard = Some(child);
         drop(child_guard);
         drop(generation);
@@ -258,14 +405,49 @@ impl ProcessManager {
         });
 
         let manager = self.clone();
+        // The stall watchdog budget must match the budget the connect flow itself uses
+        // for this attempt, or the watchdog kills healthy work in progress. dev.031
+        // defect (root cause of "Connection attempt was cancelled" on slow networks): a
+        // chain-mode connect reaches its SOCKS listener at ~20s and then spends 60-90s
+        // bringing up the system VPN layer (xray, TUN, DNS, routes) while
+        // `connection_state()` is still "connecting" — the raw `stall_timeout` (90s)
+        // from SPAWN fired mid-routing and stopped the core, which the generation guard
+        // then reported as a cancellation. The chain startup allowance (psiphon 120s /
+        // tor 300s) is exactly the extra budget `wait_for_core_socks` and the
+        // announcement gate already use for the same chain-mode bootstrap; the watchdog
+        // now uses the same total. (Computed before the spawn: `chain` is a borrow.)
+        //
+        // dev.033 Phase 3.3 ordering fix: `wait_for_privacy_announcement` runs AFTER the
+        // SOCKS listener is up and waits the FULL `allowance + 15` seconds measured from
+        // that moment — so the gate's deadline is (time-to-SOCKS) + allowance + 15 from
+        // spawn. On a degraded underlay (measured: wg+tor reached SOCKS only after ~75s
+        // of endpoint flap-retries) the old watchdog budget (stall + allowance = 390s)
+        // fired while the gate was still legitimately inside its own window and the
+        // generation guard turned the kill into the vague "Connection attempt was
+        // cancelled" — the honest "The privacy chain did not become ready within N
+        // seconds" error never surfaced (physically reproduced in the dev.032 wg+tor
+        // failure: 54 min of cycling ending in the cancelled error). The watchdog now
+        // adds the gate's exact +15s slack, bounded and chain-aware; nothing else grows.
+        let watchdog_budget = match chain {
+            Some(runtime) => match runtime.chain {
+                crate::protocol::PrivacyChain::Psiphon => {
+                    settings.stall_timeout + crate::protocol::PSIPHON_STARTUP_ALLOWANCE_SECS + 15
+                }
+                crate::protocol::PrivacyChain::Tor => {
+                    settings.stall_timeout + crate::protocol::TOR_STARTUP_ALLOWANCE_SECS + 15
+                }
+                crate::protocol::PrivacyChain::None => settings.stall_timeout,
+            },
+            None => settings.stall_timeout,
+        };
         tauri::async_runtime::spawn(async move {
-            sleep(Duration::from_secs(settings.stall_timeout)).await;
+            sleep(Duration::from_secs(watchdog_budget)).await;
             if *manager.generation.lock().await == this_generation
                 && manager.connection_state().await == "connecting"
             {
                 if settings.watchdog {
                     let _ = manager.stop().await;
-                    emit_status(&app, "error", None, Some(format!("Aether did not open the SOCKS5 listener within {} seconds and was stopped", settings.stall_timeout)));
+                    emit_status(&app, "error", None, Some(format!("Aether did not open the SOCKS5 listener within {} seconds and was stopped", watchdog_budget)));
                 } else {
                     emit_status(
                         &app,
@@ -273,7 +455,7 @@ impl ProcessManager {
                         None,
                         Some(format!(
                             "Aether is still working after {} seconds; watchdog is disabled",
-                            settings.stall_timeout
+                            watchdog_budget
                         )),
                     );
                 }
@@ -429,6 +611,61 @@ impl ProcessManager {
             .collect::<Vec<_>>()
             .join(" | ")
     }
+
+    /// Full recent-log ring (privacy-chain announcement parsing walks this; ring holds ~80
+    /// lines which comfortably covers a chain bootstrap).
+    pub async fn recent_core_lines(&self) -> Vec<String> {
+        self.recent_lines.lock().await.iter().cloned().collect()
+    }
+
+    /// The gool topology the RUNNING core actually established, derived from the core's
+    /// own log proof lines (dev.033 Phase 2.2 topology truthfulness):
+    ///   classic:      "[+] outer device=… | inner device=…" (plus `warp-in-warp exit:`)
+    ///   masque gool:  "[+] gool: masque device=… carries the wireguard identity"
+    /// `None` for non-gool protocols or before either line has appeared. This is the
+    /// ground truth for the connected status message — never the stored setting, which
+    /// can differ when topology memory or the bounded fallback applied.
+    pub async fn runtime_gool_topology(&self) -> Option<&'static str> {
+        let lines = self.recent_lines.lock().await;
+        let mut masque_carried = false;
+        let mut classic = false;
+        for line in lines.iter() {
+            if line.contains("gool: masque device") {
+                masque_carried = true;
+            }
+            if line.contains("| inner device=") || line.contains("warp-in-warp exit:") {
+                classic = true;
+            }
+        }
+        // Whichever proof is newest wins: the ring is chronological, so the LAST seen
+        // marker is the topology of the running attempt (a fallback restart re-proves).
+        if masque_carried && !classic {
+            Some("masque")
+        } else if classic && !masque_carried {
+            Some("classic")
+        } else if masque_carried && classic {
+            // Both markers present: prefer the most recent one in the ring.
+            let last_masque = lines
+                .iter()
+                .rposition(|line| line.contains("gool: masque device"));
+            let last_classic = lines
+                .iter()
+                .rposition(|line| line.contains("| inner device="));
+            match (last_masque, last_classic) {
+                (Some(m), Some(c)) => Some(if m > c { "masque" } else { "classic" }),
+                (Some(_), None) => Some("masque"),
+                (None, Some(_)) => Some("classic"),
+                (None, None) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Latest cumulative up/down counters parsed from the core's stats lines.
+    pub async fn core_stats(&self) -> CoreStats {
+        *self.core_stats.lock().await
+    }
 }
 
 #[cfg(windows)]
@@ -526,6 +763,12 @@ fn spawn_reader<R>(
                 let _ = file.flush();
             }
             parse_status(&app, &line);
+            // Core v2.1.0 statistics line: "[=] up 291.1 KiB down 482.6 KiB uptime 00:01:30".
+            // Counted on the core's own listeners (incl. the 1819 underlay in chain mode),
+            // available in BOTH connection modes — the authoritative user-facing counters.
+            if let Some(stats) = parse_stats_line(&line) {
+                *manager.core_stats.lock().await = stats;
+            }
             // Recorded, not yet persisted: the pair is only worth remembering
             // if this attempt goes on to pass data-plane validation.
             if let Some(endpoints) = endpoint_cache::capture_from_log(&line) {
@@ -683,6 +926,37 @@ fn resolve_core_binary(app: &AppHandle) -> Result<std::path::PathBuf, String> {
                 resource_dir.join("binaries").join(name).display()
             )
         })
+}
+
+/// Directory holding the core's bundled pluggable-transport helpers (pt\). The installer
+/// layout places them under `<resource>/binaries/pt/` (Tauri resources), while a dev
+/// override (AETHER_GUI_CORE_PATH) or an extracted zip places them beside the core in `pt/`.
+/// Both layouts are probed.
+fn core_pt_dir(app: &AppHandle) -> std::path::PathBuf {
+    let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+    if let Ok(core_path) = std::env::var("AETHER_GUI_CORE_PATH") {
+        if let Some(parent) = std::path::PathBuf::from(core_path).parent() {
+            candidates.push(parent.join("pt"));
+        }
+    }
+    let name = if cfg!(windows) { "aether.exe" } else { "aether" };
+    let resource_dir = app.path().resource_dir().unwrap_or_default();
+    // Resource layout: binaries/pt (matches tauri.conf resources entries).
+    candidates.push(resource_dir.join("binaries").join("pt"));
+    // ExternalBin layout: beside the core at the install root.
+    for base in [resource_dir.clone(), resource_dir.join("binaries")] {
+        for candidate in core_candidates(&base, name) {
+            if candidate.is_file() {
+                if let Some(parent) = candidate.parent() {
+                    candidates.push(parent.join("pt"));
+                }
+            }
+        }
+    }
+    candidates
+        .into_iter()
+        .find(|dir| dir.join("psiphon-tunnel-core.exe").is_file())
+        .unwrap_or_else(|| resource_dir.join("binaries").join("pt"))
 }
 
 /// The read size used when hashing a bundled binary for its integrity check.
@@ -857,13 +1131,32 @@ mod tests {
     fn core_log_rotation_limit_is_bounded() {
         assert_eq!(2 * 1024 * 1024, 2097152);
     }
+
+    #[test]
+    fn inherited_environment_filter_removes_aether_flags_only() {
+        let variables = vec![
+            (OsString::from("PATH"), OsString::from("path-value")),
+            (OsString::from("SystemRoot"), OsString::from("windows")),
+            (OsString::from("AETHER_GATEWAY"), OsString::from("1")),
+            (OsString::from("aether_ech"), OsString::from("stale")),
+        ];
+        let filtered: Vec<_> = inherited_environment_without_aether(variables).collect();
+        assert_eq!(
+            filtered,
+            vec![
+                (OsString::from("PATH"), OsString::from("path-value")),
+                (OsString::from("SystemRoot"), OsString::from("windows")),
+            ]
+        );
+    }
+
     #[test]
     fn pinned_aether_binary_has_expected_hash() {
         let binary = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("binaries/aether-x86_64-pc-windows-msvc.exe");
         assert_eq!(
             validate_core_binary(&binary).unwrap(),
-            "Aether v1.9.0 (SHA-256 verified)"
+            "Aether v2.3.0 (SHA-256 verified)"
         );
     }
     /// Instrument, not an assertion: prints the wall-clock cost of the shipped

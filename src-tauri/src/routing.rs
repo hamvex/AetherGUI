@@ -31,6 +31,12 @@ pub struct RoutingStatus {
 pub struct TrafficTotals {
     pub uploaded: u64,
     pub downloaded: u64,
+    /// VPN-mode TUN interface counters (diagnostics cross-check; None outside a routing
+    /// session or on error). The core's listener stats remain the displayed values.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tun_uploaded: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tun_downloaded: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -139,6 +145,8 @@ impl RoutingManager {
             Ok(TrafficTotals {
                 uploaded: current.uploaded.saturating_sub(base.uploaded),
                 downloaded: current.downloaded.saturating_sub(base.downloaded),
+                tun_uploaded: None,
+                tun_downloaded: None,
             })
         }
         #[cfg(not(windows))]
@@ -373,10 +381,18 @@ impl RoutingManager {
     }
 }
 
+/// TUN interface octet mapping. From the interface's own perspective, `InOctets` counts
+/// bytes the adapter received (for a TUN, the userspace consumer's responses toward the
+/// OS = user download) and `OutOctets` counts bytes the adapter sent into the tunnel (OS
+/// traffic = user upload). The displayed Home counters come from the core's listener
+/// stats; these TUN values serve as the VPN-mode cross-check and are direction-verified
+/// empirically during physical validation.
 fn traffic_totals_from_octets(in_octets: u64, out_octets: u64) -> TrafficTotals {
     TrafficTotals {
         uploaded: out_octets,
         downloaded: in_octets,
+        tun_uploaded: None,
+        tun_downloaded: None,
     }
 }
 

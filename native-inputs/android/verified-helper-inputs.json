@@ -1,0 +1,248 @@
+{
+  "arm64-v8a/lyrebird": {
+    "archiveSHA256": "038748745244828ea41a808958f16a1c25053dc61db977c95ceb2d3a0b2f7970",
+    "buildSettings": [
+      "CGO_ENABLED=0",
+      "GOARCH=arm64",
+      "GOOS=linux",
+      "vcs.modified=false",
+      "vcs.revision=fc105a03c0e0acc2479301c361c012ffed359c43"
+    ],
+    "bytes": 14680216,
+    "elf": {
+      "elfClass": 2,
+      "elfMachine": 183,
+      "elfType": 2,
+      "interpreter": null,
+      "loadSegments": [
+        {
+          "alignment": 65536,
+          "offset": 0,
+          "virtualAddress": 65536
+        },
+        {
+          "alignment": 65536,
+          "offset": 6684672,
+          "virtualAddress": 6750208
+        },
+        {
+          "alignment": 65536,
+          "offset": 14024704,
+          "virtualAddress": 14090240
+        }
+      ]
+    },
+    "name": "pt/lyrebird",
+    "path": "work/android-dev034-20261006/verified-helpers/arm64-v8a/lyrebird",
+    "runtimeVerified": false,
+    "sha256": "185cdbcfb8189cb502e841bc21ee5e19545bd0c4699bb656d21028ef5eacbd73",
+    "source": "fresh official Aether v2.3.0 release companion",
+    "sourceCommit": "fc105a03c0e0acc2479301c361c012ffed359c43",
+    "url": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0/aether-android-arm64.tar.gz"
+  },
+  "arm64-v8a/psiphon-tunnel-core": {
+    "archiveSHA256": "038748745244828ea41a808958f16a1c25053dc61db977c95ceb2d3a0b2f7970",
+    "buildSettings": [
+      "CGO_ENABLED=0",
+      "GOARCH=arm64",
+      "GOOS=linux",
+      "vcs.modified=false",
+      "vcs.revision=83aa73b9b982e7421e00117f5b0c5aceb5dda452"
+    ],
+    "bytes": 20906146,
+    "elf": {
+      "elfClass": 2,
+      "elfMachine": 183,
+      "elfType": 2,
+      "interpreter": null,
+      "loadSegments": [
+        {
+          "alignment": 65536,
+          "offset": 0,
+          "virtualAddress": 65536
+        },
+        {
+          "alignment": 65536,
+          "offset": 9043968,
+          "virtualAddress": 9109504
+        },
+        {
+          "alignment": 65536,
+          "offset": 19988480,
+          "virtualAddress": 20054016
+        }
+      ]
+    },
+    "name": "pt/psiphon-tunnel-core",
+    "path": "work/android-dev034-20261006/verified-helpers/arm64-v8a/psiphon-tunnel-core",
+    "runtimeVerified": false,
+    "sha256": "7cab04ebf82ceed76ae53b99c306db26233b80825b930e2e7288f07a4087387a",
+    "source": "fresh official Aether v2.3.0 release companion",
+    "sourceCommit": "83aa73b9b982e7421e00117f5b0c5aceb5dda452",
+    "url": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0/aether-android-arm64.tar.gz"
+  },
+  "armeabi-v7a/lyrebird": {
+    "archiveSHA256": "9e9c59b188ff235053ae22b9f007f31de3e9bc71c8252ef73b0d626b85b64dae",
+    "buildSettings": [
+      "CGO_ENABLED=0",
+      "GOARCH=arm",
+      "GOOS=linux",
+      "vcs.modified=false",
+      "vcs.revision=fc105a03c0e0acc2479301c361c012ffed359c43"
+    ],
+    "bytes": 14221464,
+    "elf": {
+      "elfClass": 1,
+      "elfMachine": 40,
+      "elfType": 2,
+      "interpreter": null,
+      "loadSegments": [
+        {
+          "alignment": 65536,
+          "offset": 0,
+          "virtualAddress": 65536
+        },
+        {
+          "alignment": 65536,
+          "offset": 7340032,
+          "virtualAddress": 7405568
+        },
+        {
+          "alignment": 65536,
+          "offset": 13631488,
+          "virtualAddress": 13697024
+        }
+      ]
+    },
+    "name": "pt/lyrebird",
+    "path": "work/android-dev034-20261006/verified-helpers/armeabi-v7a/lyrebird",
+    "runtimeVerified": false,
+    "sha256": "9745d7799856c6993aae01ebd657472dce9e1049962eb820b6f525873b9cf667",
+    "source": "fresh official Aether v2.3.0 release companion",
+    "sourceCommit": "fc105a03c0e0acc2479301c361c012ffed359c43",
+    "url": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0/aether-android-armv7.tar.gz"
+  },
+  "armeabi-v7a/psiphon-tunnel-core": {
+    "archiveSHA256": "9e9c59b188ff235053ae22b9f007f31de3e9bc71c8252ef73b0d626b85b64dae",
+    "buildSettings": [
+      "CGO_ENABLED=0",
+      "GOARCH=arm",
+      "GOOS=linux",
+      "vcs.modified=false",
+      "vcs.revision=83aa73b9b982e7421e00117f5b0c5aceb5dda452"
+    ],
+    "bytes": 21299362,
+    "elf": {
+      "elfClass": 1,
+      "elfMachine": 40,
+      "elfType": 2,
+      "interpreter": null,
+      "loadSegments": [
+        {
+          "alignment": 65536,
+          "offset": 0,
+          "virtualAddress": 65536
+        },
+        {
+          "alignment": 65536,
+          "offset": 10878976,
+          "virtualAddress": 10944512
+        },
+        {
+          "alignment": 65536,
+          "offset": 20512768,
+          "virtualAddress": 20578304
+        }
+      ]
+    },
+    "name": "pt/psiphon-tunnel-core",
+    "path": "work/android-dev034-20261006/verified-helpers/armeabi-v7a/psiphon-tunnel-core",
+    "runtimeVerified": false,
+    "sha256": "719bf754d197ecb2b320e6251ace79109dc1972c6675206950bf8cb5a55f03ca",
+    "source": "fresh official Aether v2.3.0 release companion",
+    "sourceCommit": "83aa73b9b982e7421e00117f5b0c5aceb5dda452",
+    "url": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0/aether-android-armv7.tar.gz"
+  },
+  "x86_64/lyrebird": {
+    "archiveSHA256": "9acd35dc7bafd4bbf0f4bd8337cb26c4efe6ab0d84ec01d1a0a9fa68168b09c1",
+    "buildSettings": [
+      "CGO_ENABLED=0",
+      "GOARCH=amd64",
+      "GOOS=linux",
+      "vcs.modified=false",
+      "vcs.revision=fc105a03c0e0acc2479301c361c012ffed359c43"
+    ],
+    "bytes": 16527512,
+    "elf": {
+      "elfClass": 2,
+      "elfMachine": 62,
+      "elfType": 2,
+      "interpreter": null,
+      "loadSegments": [
+        {
+          "alignment": 4096,
+          "offset": 0,
+          "virtualAddress": 4194304
+        },
+        {
+          "alignment": 4096,
+          "offset": 8097792,
+          "virtualAddress": 12292096
+        },
+        {
+          "alignment": 4096,
+          "offset": 15872000,
+          "virtualAddress": 20066304
+        }
+      ]
+    },
+    "name": "pt/lyrebird",
+    "path": "work/android-dev034-20261006/verified-helpers/x86_64/lyrebird",
+    "runtimeVerified": false,
+    "sha256": "cad26f72e7e6411e514131da7b0d477cbb2e248bb0c989a6bce6e4d4ce9dbd13",
+    "source": "fresh official Aether v2.3.0 release companion",
+    "sourceCommit": "fc105a03c0e0acc2479301c361c012ffed359c43",
+    "url": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0/aether-android-x86_64.tar.gz"
+  },
+  "x86_64/psiphon-tunnel-core": {
+    "archiveSHA256": "9acd35dc7bafd4bbf0f4bd8337cb26c4efe6ab0d84ec01d1a0a9fa68168b09c1",
+    "buildSettings": [
+      "CGO_ENABLED=0",
+      "GOARCH=amd64",
+      "GOOS=linux",
+      "vcs.modified=false",
+      "vcs.revision=83aa73b9b982e7421e00117f5b0c5aceb5dda452"
+    ],
+    "bytes": 22528162,
+    "elf": {
+      "elfClass": 2,
+      "elfMachine": 62,
+      "elfType": 2,
+      "interpreter": null,
+      "loadSegments": [
+        {
+          "alignment": 4096,
+          "offset": 0,
+          "virtualAddress": 4194304
+        },
+        {
+          "alignment": 4096,
+          "offset": 10473472,
+          "virtualAddress": 14667776
+        },
+        {
+          "alignment": 4096,
+          "offset": 21647360,
+          "virtualAddress": 25841664
+        }
+      ]
+    },
+    "name": "pt/psiphon-tunnel-core",
+    "path": "work/android-dev034-20261006/verified-helpers/x86_64/psiphon-tunnel-core",
+    "runtimeVerified": false,
+    "sha256": "0ffe5cf61bb12bf14310c1dd24ba6af0b15475baf52291121af793508129484f",
+    "source": "fresh official Aether v2.3.0 release companion",
+    "sourceCommit": "83aa73b9b982e7421e00117f5b0c5aceb5dda452",
+    "url": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0/aether-android-x86_64.tar.gz"
+  }
+}

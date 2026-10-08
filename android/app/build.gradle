@@ -1,5 +1,25 @@
 plugins { id 'com.android.application' }
 
+def corePins = new groovy.json.JsonSlurper().parse(rootProject.file('../scripts/aether-pins.json')).android
+def codexBuild = providers.gradleProperty('codexBuild').orNull
+if (codexBuild && !(codexBuild ==~ /codex\.[0-9]{3,}/)) throw new GradleException('Invalid Codex build identifier')
+if (codexBuild) layout.buildDirectory.set(file("build-codex/${codexBuild}"))
+def developmentBuild = providers.gradleProperty('developmentBuild').orNull
+if (developmentBuild) {
+    if (!(developmentBuild ==~ /dev\.[0-9]{3,}/) || codexBuild) throw new GradleException('Invalid or conflicting development build identifier')
+    layout.buildDirectory.set(file("build-dev/${developmentBuild}"))
+}
+if (providers.gradleProperty('codexNativeDir').isPresent()) throw new GradleException('Native overrides are disabled; use the approved Phase 1 input chain')
+def verificationRun = providers.gradleProperty('verificationRun').orNull
+if (verificationRun) {
+    if (developmentBuild || codexBuild) throw new GradleException('Verification and candidate builds must be separate')
+    if (!(verificationRun ==~ /phase2-[0-9]{8}-[0-9]{3}/)) throw new GradleException('Invalid verification identifier')
+    if (gradle.startParameter.taskNames.any { it.toLowerCase() == 'build' || it.toLowerCase().matches('.*(assemble|bundle|install|package|publish|release).*') })
+        throw new GradleException('Verification runs cannot package, install or publish applications')
+    layout.buildDirectory.set(rootProject.file("../validation/${verificationRun}/android-gradle"))
+}
+def nativeInput = layout.buildDirectory.dir('verified-jni').get().asFile.absolutePath
+
 dependencies {
     implementation 'androidx.core:core:1.15.0'
     implementation 'androidx.appcompat:appcompat:1.7.0'
@@ -27,8 +47,12 @@ android {
         applicationId 'io.github.hamvex.aethergui'
         minSdk 26
         targetSdk 35
-        versionCode 27
-        versionName '2.1.1'
+        versionCode 29
+        versionName '2.2.0'
+        buildConfigField 'String', 'AETHER_VERSION', '"' + corePins.version + '"'
+        buildConfigField 'String', 'AETHER_ARM64_SHA256', '"' + corePins.binary['aether-android-arm64.tar.gz'] + '"'
+        buildConfigField 'String', 'AETHER_ARMV7_SHA256', '"' + corePins.binary['aether-android-armv7.tar.gz'] + '"'
+        buildConfigField 'String', 'AETHER_X86_64_SHA256', '"' + corePins.binary['aether-android-x86_64.tar.gz'] + '"'
     }
 
     signingConfigs {
@@ -43,6 +67,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (codexBuild) throw new GradleException('Codex development suffixes are not valid for the canonical v2.2.0 project')
+            if (developmentBuild) throw new GradleException('Development build suffixes are not valid for the canonical v2.2.0 project')
+        }
         release {
             if (releaseRequested && !releaseSigningAvailable) throw new GradleException('Release signing credentials are required. Unsigned release APKs are not allowed.')
             minifyEnabled true
@@ -52,8 +80,35 @@ android {
         }
     }
 
-    packaging { jniLibs { useLegacyPackaging true } }
+    packaging {
+        jniLibs {
+            useLegacyPackaging true
+            keepDebugSymbols += ['**/libaether.so', '**/libhev-socks5-tunnel.so', '**/libpsiphon-tunnel-core.so', '**/liblyrebird.so']
+        }
+    }
     buildFeatures { viewBinding true; buildConfig true }
     sourceSets { main { assets.srcDirs += ['../../third-party'] } }
+    if (nativeInput) sourceSets.main.jniLibs.srcDirs = [file(nativeInput)]
     splits { abi { enable true; reset(); include 'armeabi-v7a', 'arm64-v8a', 'x86_64'; universalApk true } }
 }
+
+tasks.register('verifyAetherPayloads') {
+    doLast {
+        if (corePins.version != 'v2.3.0') throw new GradleException('Expected Aether Core v2.3.0')
+        ['arm64-v8a':'arm64', 'armeabi-v7a':'armv7', 'x86_64':'x86_64'].each { abi, target ->
+            def payload = new File(nativeInput ? file(nativeInput) : file('src/main/jniLibs'), "${abi}/libaether.so")
+            if (!payload.isFile()) throw new GradleException("Missing Aether payload for ${abi}")
+            def bytes = payload.bytes
+            def expectedMachine = [arm64:183, armv7:40, x86_64:62][target]
+            if (bytes.length < 20 || bytes[0] != 127 || bytes[1] != 69 || bytes[2] != 76 || bytes[3] != 70
+                    || bytes[4] != (target == 'armv7' ? 1 : 2) || bytes[5] != 1
+                    || ((bytes[18] & 255) | ((bytes[19] & 255) << 8)) != expectedMachine)
+                throw new GradleException("Invalid Aether ELF architecture for ${abi}")
+            def digest = java.security.MessageDigest.getInstance('SHA-256').digest(bytes).encodeHex().toString()
+            if (digest != corePins.binary["aether-android-${target}.tar.gz"])
+                throw new GradleException("Aether SHA-256 mismatch for ${abi}")
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'verifyAetherPayloads' }
+apply from: rootProject.file('verified-native.gradle')

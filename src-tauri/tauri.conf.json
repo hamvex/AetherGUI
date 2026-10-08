@@ -1,64 +1,70 @@
 {
-    "$schema":  "https://schema.tauri.app/config/2",
-    "productName":  "Aethon",
-    "version":  "2.1.1",
-    "identifier":  "io.github.hamvex.aether-gui",
-    "build":  {
-                  "frontendDist":  "../dist",
-                  "devUrl":  "http://localhost:1420",
-                  "beforeDevCommand":  "node scripts/dev-server.mjs",
-                  "beforeBuildCommand":  "node scripts/build-frontend.mjs \u0026\u0026 node scripts/prepare-sidecar.mjs"
-              },
-    "app":  {
-                "windows":  [
-                                {
-                                    "label":  "main",
-                                    "title":  "Aethon",
-                                    "width":  387,
-                                    "height":  774,
-                                    "minWidth":  360,
-                                    "minHeight":  600,
-                                    "center":  true,
-                                    "resizable":  true
-                                }
-                            ],
-                "security":  {
-                                 "csp":  "default-src \u0027self\u0027; img-src \u0027self\u0027 data:; style-src \u0027self\u0027 \u0027unsafe-inline\u0027; script-src \u0027self\u0027"
-                             },
-                "withGlobalTauri":  true
+    "$schema": "https://schema.tauri.app/config/2",
+    "productName": "Aethon",
+    "version": "2.2.0",
+    "identifier": "io.github.hamvex.aether-gui",
+    "build": {
+        "frontendDist": "../dist",
+        "devUrl": "http://localhost:1420",
+        "beforeDevCommand": "node scripts/dev-server.mjs",
+        "beforeBuildCommand": "node scripts/build-frontend.mjs && node scripts/prepare-sidecar.mjs"
+    },
+    "app": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "Aethon",
+                "width": 387,
+                "height": 774,
+                "minWidth": 360,
+                "minHeight": 600,
+                "center": true,
+                "resizable": true
+            }
+        ],
+        "security": {
+            "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+        },
+        "withGlobalTauri": true
+    },
+    "bundle": {
+        "active": true,
+        "targets": [
+            "nsis",
+            "msi"
+        ],
+        "publisher": "hamvex",
+        "category": "Utility",
+        "shortDescription": "Aethon - a standalone Windows client for Aether",
+        "longDescription": "Connect Windows through Aether with built-in TUN routing, DNS protection, recovery, and no companion proxy application.",
+        "externalBin": [
+            "binaries/aether",
+            "binaries/xray"
+        ],
+        "resources": [
+            "../third-party/xray-LICENSE.txt",
+            "../third-party/wintun-LICENSE.txt",
+            "binaries/wintun.dll",
+            "binaries/pt/psiphon-tunnel-core.exe",
+            "binaries/pt/lyrebird.exe"
+        ],
+        "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/icon.ico"
+        ],
+        "windows": {
+            "webviewInstallMode": {
+                "type": "embedBootstrapper"
             },
-    "bundle":  {
-                   "active":  true,
-                   "targets":  [
-                                   "nsis",
-                                   "msi"
-                               ],
-                   "publisher":  "hamvex",
-                   "category":  "Utility",
-                   "shortDescription":  "Aethon - a standalone Windows client for Aether",
-                   "longDescription":  "Connect Windows through Aether with built-in TUN routing, DNS protection, recovery, and no companion proxy application.",
-                   "externalBin":  [
-                                       "binaries/aether",
-                                       "binaries/xray"
-                                   ],
-                   "resources": ["../third-party/xray-LICENSE.txt", "../third-party/wintun-LICENSE.txt", "binaries/wintun.dll"],
-                   "icon":  [
-                                "icons/32x32.png",
-                                "icons/128x128.png",
-                                "icons/icon.ico"
-                            ],
-                                   "windows":  {
-                                   "webviewInstallMode":  {
-                                                              "type":  "embedBootstrapper"
-                                                          },
-                                   "nsis":  {
-                                                "displayLanguageSelector":  false,
-                                                "installMode":  "currentUser",
-                                                "installerHooks":  "./windows/hooks.nsh"
-                                            },
-                                   "wix":  {
-                                               "language":  "en-US"
-                                           }
-                               }
-               }
+            "nsis": {
+                "displayLanguageSelector": false,
+                "installMode": "currentUser",
+                "installerHooks": "./windows/hooks.nsh"
+            },
+            "wix": {
+                "language": "en-US"
+            }
+        }
+    }
 }

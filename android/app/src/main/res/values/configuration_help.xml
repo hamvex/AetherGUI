@@ -1,0 +1,17 @@
+<resources>
+    <string name="configuration_help_for">Help: %1$s</string>
+    <string name="configuration_tools_title">Privacy connections</string>
+    <string name="configuration_tools_summary">Tor and Psiphon Chain add separate proxies to the selected tunnel. Psiphon Only runs without WARP. These choices are not extra WireGuard or Gool protocols. Leave them off unless you need them.</string>
+    <string name="configuration_mode_help">Device VPN protects apps on this device. Proxy mode lets you connect compatible apps individually.</string>
+    <string name="configuration_auto_recovery">Automatic recovery</string>
+    <string name="configuration_auto_recovery_help">Use Quick reconnect in Performance to recover automatically after temporary failures. Location never decides whether a connection is accepted.</string>
+    <string name="configuration_psiphon_unavailable">Psiphon Chain Auto and Direct available. Psiphon Only: DNS bootstrap blocked. CDN: runtime tests failed.</string>
+    <string name="configuration_psiphon_help">Psiphon Chain routes Core through Psiphon. Auto and Direct transports verified via native tests (Sept 29). CDN blocked: 0/6 requests succeeded. Psiphon Only blocked: DNS bootstrap issue unresolved. Use Chain with Auto or Direct for working Psiphon functionality.</string>
+    <string name="privacy_tor_extensions_unavailable">Tor SOCKS proxy available. Extended Tor features pending lifecycle validation.</string>
+    <string name="privacy_tor_extensions_help">Basic Tor SOCKS proxy (127.0.0.1:1821) is available. Extended features (relay sources, bridges, HTTP proxy) require additional lifecycle and traffic validation before activation. Some bridge transports connect outside the VPN tunnel.</string>
+    <string name="privacy_exit_unavailable">Exit Location Control · Unavailable</string>
+    <string name="privacy_exit_help">Country restrictions can prevent WireGuard from opening its proxy because of a startup-order problem in the VPN core. Enforcement stays off. Without restrictions, any exit country, including Iran, remains acceptable.</string>
+    <string name="privacy_saved_blocked">Saved privacy options may be unavailable. Psiphon Chain Auto/Direct work. Psiphon Only/CDN, extended Tor and Exit Location remain blocked. Turn off blocked options before connecting.</string>
+    <string name="privacy_disable_unavailable">Turn off unavailable privacy options</string>
+    <string name="privacy_disable_confirmation">Turn off blocked privacy features (Psiphon Only/CDN, extra Tor paths, Exit Location)? Working features (Psiphon Chain Auto/Direct, basic Tor) and your saved settings will be kept.</string>
+</resources>

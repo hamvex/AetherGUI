@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="psiphon_topology_labels">
+        <item>خاموش</item>
+        <item>فقط سایفون (غیرفعال)</item>
+        <item>زنجیره سایفون</item>
+    </string-array>
+    <string-array name="psiphon_chain_transport_labels">
+        <item>خودکار</item>
+        <item>CDN (مسدود)</item>
+        <item>مستقیم</item>
+    </string-array>
+    <string name="psiphon_topology_title">حالت سایفون</string>
+    <string name="psiphon_topology_help">برای مسیر کردن همه ترافیک از طریق سایفون، یکی از ترکیب‌های پروتکل + سایفون بالا را انتخاب کنید.</string>
+    <string name="psiphon_chain_transport_title">حمل‌ونقل سایفون</string>
+    <string name="psiphon_chain_transport_help">خودکار به سایفون اجازه انتخاب می‌دهد. مستقیم از حمل‌ونقل‌های جلویی اجتناب می‌کند. CDN مسدود است: در این شبکه اعتبارسنجی نشد.</string>
+    <string name="psiphon_region_title">کشور خروجی</string>
+    <string name="psiphon_region_help">خودکار بهترین خروجی موجود را برمی‌گزیند، یا یک کشور را انتخاب کنید. حالت دستی هر کد دو حرفی کشوری را می‌پذیرد.</string>
+    <string name="psiphon_region_automatic">خودکار</string>
+    <string name="psiphon_region_manual">دستی</string>
+    <string name="psiphon_region_manual_title">کد کشور</string>
+    <string name="psiphon_region_manual_help">دو حرف، مثلاً DE، CA، NL یا SE.</string>
+    <string name="psiphon_region_manual_valid">در صورت پشتیبانی سایفون، از %1$s خارج می‌شود.</string>
+    <string name="psiphon_region_manual_code">دستی: %1$s</string>
+    <string name="psiphon_region_auto_compact">🌐 خودکار</string>
+    <string name="psiphon_http_title">پروکسی HTTP سایفون</string>
+    <string name="psiphon_http_help">پورت پروکسی HTTP ۱۸۱۸ هنگام انتخاب پروتکل سایفونی به‌طور خودکار از طریق سایفون کار می‌کند.</string>
+    <string name="psiphon_reverse_saved">سایفون معکوس (ذخیره شده؛ غیرفعال)</string>
+    <string name="psiphon_available">زنجیره سایفون خودکار و مستقیم در دسترس</string>
+    <string name="psiphon_none_available">سایفون · اعتبارسنجی زمان اجرا ناقص</string>
+</resources>

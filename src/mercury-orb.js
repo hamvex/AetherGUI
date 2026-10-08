@@ -164,10 +164,14 @@ void main() {
 }`;
 
 const stateTargets = {
+  // dev.028: connected is a CALM state (Android dev.020 CHANGE 7: liquid motion restored
+  // with a calm 12-second cycle — slow breathing, no fast spin). speed 0.30 ≈ one visual
+  // lobe cycle per ~12s at the base shader rates. The dev.027 value (1.20) made Connected
+  // the second-fastest state of all.
   disconnected: { amplitude: 0.162, speed: 0.96, roughness: 0.26, fresnel: 0.84, rim: 1.00, stretch: 0.58, macro: 0.60 },
   connecting: { amplitude: 0.252, speed: 1.52, roughness: 0.20, fresnel: 1.00, rim: 1.18, stretch: 1.00, macro: 1.00 },
   scanning: { amplitude: 0.252, speed: 1.52, roughness: 0.20, fresnel: 1.00, rim: 1.18, stretch: 1.00, macro: 1.00 },
-  connected: { amplitude: 0.216, speed: 1.20, roughness: 0.21, fresnel: 0.97, rim: 1.14, stretch: 0.84, macro: 0.82 },
+  connected: { amplitude: 0.216, speed: 0.30, roughness: 0.21, fresnel: 0.97, rim: 1.14, stretch: 0.84, macro: 0.82 },
   reconnecting: { amplitude: 0.274, speed: 1.68, roughness: 0.22, fresnel: 1.08, rim: 1.28, stretch: 1.10, macro: 1.12 },
   disconnecting: { amplitude: 0.102, speed: 0.60, roughness: 0.31, fresnel: 0.70, rim: 0.82, stretch: 0.24, macro: 0.30 },
   error: { amplitude: 0.058, speed: 0.31, roughness: 0.37, fresnel: 0.62, rim: 0.74, stretch: 0.12, macro: 0.18 }
@@ -211,28 +215,43 @@ export function createMercuryOrb(canvas, { onFallback } = {}) {
   let gl, program, vertexBuffer, indexBuffer, indexCount, uniforms, frame = 0, running = false, destroyed = false;
   const maximumFrameRate = (navigator.hardwareConcurrency || 4) >= 8 ? 60 : 30;
   let style = 'classic', state = 'disconnected', dark = true, reducedMotion = false, lastFrame = 0, lastRender = 0, elapsed = 0, frameInterval = 1000 / maximumFrameRate, slowFrames = 0, fastFrames = 0;
+  // Time wrap period: the shader time uniform is reset here before float precision can
+  // degrade (the position field is built from sums of trig terms; uTime beyond ~10^4
+  // seconds visibly quantizes on mediump/highp mobile-class GPUs). The reset preserves
+  // the phase modulo 360 (all shader time uses are sinusoidal at rational-rate multiples
+  // of a full second), so the liquid motion is seamless across the wrap. Long-session
+  // (multi-hour connected) correctness fix.
+  const TIME_WRAP_SECS = 3600;
   const current = { ...stateTargets.disconnected };
   let target = { ...stateTargets.disconnected };
   const media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
   const setFallback = reason => { console.warn('[mercury-orb] Falling back to Classic:', reason); style = 'classic'; stop(); gl = null; program = null; vertexBuffer = null; indexBuffer = null; canvas.hidden = true; onFallback?.(reason); };
   const resize = () => { if (!gl) return; const rect = canvas.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 1.5); const size = Math.min(384, Math.max(160, Math.round(Math.min(rect.width, rect.height) * dpr))); if (canvas.width !== size || canvas.height !== size) { canvas.width = size; canvas.height = size; gl.viewport(0, 0, size, size); } };
   const init = () => { try { gl = canvas.getContext('webgl2', { alpha: true, antialias: true, powerPreference: 'low-power' }); if (!gl) throw new Error('WebGL2 unavailable'); program = link(gl); const sphere = createSphere(); indexCount = sphere.indices.length; vertexBuffer = gl.createBuffer(); indexBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer); gl.bufferData(gl.ARRAY_BUFFER, sphere.vertices, gl.STATIC_DRAW); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sphere.indices, gl.STATIC_DRAW); const position = gl.getAttribLocation(program, 'aPosition'); gl.enableVertexAttribArray(position); gl.vertexAttribPointer(position, 3, gl.FLOAT, false, 12, 0); uniforms = Object.fromEntries(['uProjection', 'uModel', 'uTime', 'uAmplitude', 'uScale', 'uStretch', 'uMacro', 'uRoughness', 'uFresnel', 'uRim', 'uDark'].map(name => [name, gl.getUniformLocation(program, name)])); gl.useProgram(program); resize(); } catch (error) { setFallback(error.message); } };
-  const render = now => { if (!running || destroyed || style !== 'living-mercury') return; frame = requestAnimationFrame(render); if (lastRender && now - lastRender < frameInterval) return; const frameStarted = performance.now(); if (!lastFrame) lastFrame = now; const delta = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000)); lastFrame = now; lastRender = now; elapsed += delta * (reducedMotion ? target.speed * 0.12 : target.speed); Object.keys(current).forEach(key => { current[key] += (target[key] - current[key]) * Math.min(1, delta * 3.8); }); resize(); const aspect = canvas.width / Math.max(1, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.useProgram(program); gl.uniformMatrix4fv(uniforms.uProjection, false, projection(aspect)); gl.uniformMatrix4fv(uniforms.uModel, false, model()); gl.uniform1f(uniforms.uTime, elapsed); gl.uniform1f(uniforms.uAmplitude, current.amplitude * (reducedMotion ? 0.30 : 1)); gl.uniform1f(uniforms.uScale, 0.94); gl.uniform1f(uniforms.uStretch, current.stretch * (reducedMotion ? 0.35 : 1)); gl.uniform1f(uniforms.uMacro, current.macro * (reducedMotion ? 0.28 : 1)); gl.uniform1f(uniforms.uRoughness, current.roughness); gl.uniform1f(uniforms.uFresnel, current.fresnel); gl.uniform1f(uniforms.uRim, current.rim); gl.uniform1f(uniforms.uDark, dark ? 1 : 0); gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_INT, 0); const frameCost = performance.now() - frameStarted; slowFrames = frameCost > 7 ? slowFrames + 1 : 0; fastFrames = frameCost < 3 ? fastFrames + 1 : 0; if (slowFrames >= 6) { frameInterval = 1000 / 30; slowFrames = 0; fastFrames = 0; } else if (fastFrames >= 180) { frameInterval = 1000 / maximumFrameRate; fastFrames = 0; } };
-  const start = () => { if (running || destroyed || style !== 'living-mercury' || document.hidden) return; running = true; lastFrame = 0; frame = requestAnimationFrame(render); };
+  const render = now => { if (!running || destroyed || style !== 'living-mercury') return; frame = requestAnimationFrame(render); if (lastRender && now - lastRender < frameInterval) return; const frameStarted = performance.now(); if (!lastFrame) lastFrame = now; const delta = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000)); lastFrame = now; lastRender = now; elapsed += delta * (reducedMotion ? target.speed * 0.12 : target.speed); if (elapsed >= TIME_WRAP_SECS) elapsed %= TIME_WRAP_SECS; Object.keys(current).forEach(key => { current[key] += (target[key] - current[key]) * Math.min(1, delta * 3.8); }); resize(); const aspect = canvas.width / Math.max(1, canvas.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.useProgram(program); gl.uniformMatrix4fv(uniforms.uProjection, false, projection(aspect)); gl.uniformMatrix4fv(uniforms.uModel, false, model()); gl.uniform1f(uniforms.uTime, elapsed); gl.uniform1f(uniforms.uAmplitude, current.amplitude * (reducedMotion ? 0.30 : 1)); gl.uniform1f(uniforms.uScale, 0.94); gl.uniform1f(uniforms.uStretch, current.stretch * (reducedMotion ? 0.35 : 1)); gl.uniform1f(uniforms.uMacro, current.macro * (reducedMotion ? 0.28 : 1)); gl.uniform1f(uniforms.uRoughness, current.roughness); gl.uniform1f(uniforms.uFresnel, current.fresnel); gl.uniform1f(uniforms.uRim, current.rim); gl.uniform1f(uniforms.uDark, dark ? 1 : 0); gl.drawElements(gl.TRIANGLES, indexCount, gl.UNSIGNED_INT, 0); const frameCost = performance.now() - frameStarted; slowFrames = frameCost > 7 ? slowFrames + 1 : 0; fastFrames = frameCost < 3 ? fastFrames + 1 : 0; if (slowFrames >= 6) { frameInterval = 1000 / 30; slowFrames = 0; fastFrames = 0; } else if (fastFrames >= 180) { frameInterval = 1000 / maximumFrameRate; fastFrames = 0; } };
+  // Rendering runs only while the orb is actually on screen: the Home view must be the
+  // active view (PROMPT §6: pause when unnecessary — no GPU work while the user browses
+  // Configurations/Settings) AND the document visible. Both guards re-check on change.
+  const homeVisible = () => !!(canvas.closest('.view')?.classList.contains('active')) && !document.hidden;
+  const start = () => { if (running || destroyed || style !== 'living-mercury' || !homeVisible()) return; running = true; lastFrame = 0; frame = requestAnimationFrame(render); };
   const stop = () => { running = false; if (frame) cancelAnimationFrame(frame); frame = 0; lastFrame = 0; lastRender = 0; };
-  const visibility = () => { if (document.hidden) stop(); else if (style === 'living-mercury') start(); };
+  const visibility = () => { if (!homeVisible()) stop(); else if (style === 'living-mercury') start(); };
   const contextLost = event => { event.preventDefault(); stop(); setFallback('WebGL context lost'); };
   const contextRestored = () => { if (style !== 'living-mercury') return; init(); if (gl) start(); };
   const motionChange = event => { reducedMotion = event.matches; };
   reducedMotion = !!media?.matches;
   media?.addEventListener?.('change', motionChange);
   document.addEventListener('visibilitychange', visibility); canvas.addEventListener('webglcontextlost', contextLost); canvas.addEventListener('webglcontextrestored', contextRestored);
+  // The view switcher toggles .active on .view elements; a MutationObserver on the orb's
+  // own view class is the cheapest reliable signal (no coupling to app.js navigation).
+  const viewObserver = new MutationObserver(visibility);
+  viewObserver.observe(canvas.closest('.view') || canvas, { attributes: true, attributeFilter: ['class'] });
   init();
   return {
     setStyle(next) { style = next === 'living-mercury' ? 'living-mercury' : 'classic'; canvas.hidden = style !== 'living-mercury'; if (style === 'living-mercury' && !gl) init(); if (style === 'living-mercury' && gl) start(); else stop(); },
     setState(next) { state = next; target = { ...(stateTargets[next] || stateTargets.disconnected) }; },
     setTheme(theme) { dark = theme === 'dark' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches); },
     get style() { return style; }, get state() { return state; },
-    destroy() { destroyed = true; stop(); document.removeEventListener('visibilitychange', visibility); canvas.removeEventListener('webglcontextlost', contextLost); canvas.removeEventListener('webglcontextrestored', contextRestored); media?.removeEventListener?.('change', motionChange); if (gl) { if (vertexBuffer) gl.deleteBuffer(vertexBuffer); if (indexBuffer) gl.deleteBuffer(indexBuffer); if (program) gl.deleteProgram(program); } }
+    destroy() { destroyed = true; stop(); viewObserver.disconnect(); document.removeEventListener('visibilitychange', visibility); canvas.removeEventListener('webglcontextlost', contextLost); canvas.removeEventListener('webglcontextrestored', contextRestored); media?.removeEventListener?.('change', motionChange); if (gl) { if (vertexBuffer) gl.deleteBuffer(vertexBuffer); if (indexBuffer) gl.deleteBuffer(indexBuffer); if (program) gl.deleteProgram(program); } }
   };
 }

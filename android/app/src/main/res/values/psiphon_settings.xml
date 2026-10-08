@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="psiphon_topology_labels">
+        <item>Off</item>
+        <item>Psiphon Only (unavailable)</item>
+        <item>Psiphon Chain</item>
+    </string-array>
+    <string-array name="psiphon_chain_transport_labels">
+        <item>Auto</item>
+        <item>CDN (blocked)</item>
+        <item>Direct</item>
+    </string-array>
+    <string name="psiphon_topology_title">Psiphon mode</string>
+    <string name="psiphon_topology_help">Select a Protocol + Psiphon combination above to route all traffic through Psiphon.</string>
+    <string name="psiphon_chain_transport_title">Psiphon transport</string>
+    <string name="psiphon_chain_transport_help">Auto lets Psiphon choose. Direct avoids fronted transports. CDN is blocked: it failed validation on this network.</string>
+    <string name="psiphon_region_title">Exit country</string>
+    <string name="psiphon_region_help">Automatic picks the best available exit, or choose a country. Manual accepts any two-letter country code.</string>
+    <string name="psiphon_region_automatic">Automatic</string>
+    <string name="psiphon_region_manual">Manual</string>
+    <string name="psiphon_region_manual_title">Country code</string>
+    <string name="psiphon_region_manual_help">Two letters, for example DE, CA, NL or SE.</string>
+    <string name="psiphon_region_manual_valid">Will exit from %1$s when Psiphon supports it.</string>
+    <string name="psiphon_region_manual_code">Manual: %1$s</string>
+    <string name="psiphon_region_auto_compact">🌐 AUTO</string>
+    <string name="psiphon_http_title">Psiphon HTTP proxy</string>
+    <string name="psiphon_http_help">The HTTP proxy port 1818 is served through Psiphon automatically when a Psiphon protocol is selected.</string>
+    <string name="psiphon_reverse_saved">Psiphon Reverse (saved; unavailable)</string>
+    <string name="psiphon_available">Psiphon Chain Auto and Direct available</string>
+    <string name="psiphon_none_available">Psiphon · Runtime validation incomplete</string>
+</resources>

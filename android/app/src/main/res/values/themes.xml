@@ -11,7 +11,7 @@
         <item name="android:fontFamily">sans</item>
         <item name="android:windowBackground">@color/background</item>
         <item name="android:navigationBarColor">@color/background</item>
-        <item name="android:statusBarColor">@color/surface</item>
+        <item name="android:statusBarColor">@color/status_bar_scrim</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowActionModeOverlay">true</item>
     </style>

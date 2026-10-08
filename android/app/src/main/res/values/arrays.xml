@@ -1,9 +1,30 @@
 <resources>
-    <string-array name="protocol_labels"><item>MASQUE</item><item>WireGuard</item><item>gool / WARP-in-WARP</item><item>Smart Connect</item></string-array>
-    <string-array name="scan_labels"><item>Balanced</item><item>Turbo (recommended)</item><item>Thorough</item><item>Stealth</item><item>Ironclad verification</item></string-array>
-    <string-array name="transport_labels"><item>HTTP/3 (QUIC)</item><item>HTTP/2 (TCP, recommended)</item></string-array>
+    <!-- dev.017 CHANGE 13: labels are display aliases only (gool/WIW, MIM). The array ORDER is
+         the persisted storage contract for the "protocol" preference index, so it must stay
+         stable across the upgrade: 0=MASQUE 1=WireGuard 2=gool 3=Smart 4=MIM 5=WireGuard+Psiphon
+         6=gool+Psiphon 7=MASQUE+Psiphon 8=WireGuard+Tor 9=gool+Tor 10=MASQUE+Tor. Smart Connect
+         is moved to the FIRST DISPLAYED option through the dropdown adapter's display order, not
+         by reordering storage; the combined + Tor entries appear in the dropdown only when the
+         Tor chain capability is verified (CHANGE 7). -->
+    <string-array name="protocol_labels"><item>MASQUE</item><item>WireGuard</item><item>gool / WIW</item><item>Smart Connect</item><item>MIM</item><item>WireGuard + Psiphon</item><item>gool + Psiphon</item><item>MASQUE + Psiphon</item><item>WireGuard + Tor</item><item>gool + Tor</item><item>MASQUE + Tor</item></string-array>
+    <!-- dev.017 CHANGE 6: no "(recommended)" suffix on Turbo; Turbo stays the fresh/reset default
+         (ConnectionDefaults.SCAN_INDEX = 1) without changing stored indices. -->
+    <string-array name="scan_labels"><item>Balanced</item><item>Turbo</item><item>Thorough</item><item>Verified</item><item>Ironclad verification</item></string-array>
+    <!-- dev.020 CHANGE 3: the MASQUE connection method options with no "(recommended)" suffix;
+         the array ORDER is unchanged (0=HTTP/3, 1=HTTP/2) so stored "transport" indices keep
+         their meaning; HTTP/2 (index 1) remains the fresh/reset default. -->
+    <string-array name="transport_labels"><item>HTTP/3 (QUIC)</item><item>HTTP/2 (TCP)</item></string-array>
     <string-array name="ip_labels"><item>IPv4 (recommended)</item><item>IPv6</item><item>IPv4 + IPv6</item></string-array>
-    <string-array name="obfuscation_labels"><item>Firewall (recommended)</item><item>GFW</item><item>Balanced</item><item>Aggressive</item><item>Off</item></string-array>
+    <string-array name="obfuscation_labels"><item>Firewall (recommended)</item><item>GFW</item><item>Balanced</item><item>Aggressive</item><item>Off</item><item>Light</item></string-array>
     <string-array name="theme_labels"><item>System default</item><item>Light</item><item>Dark</item></string-array>
     <string-array name="language_labels"><item>English</item><item>فارسی</item></string-array>
+    <string-array name="ech_labels"><item>Auto</item><item>Off</item><item>Custom (base64)</item></string-array>
+    <!-- dev.034: the two v2.3.0 Gool topologies. The array ORDER is the persisted storage
+         contract for the "goolMode" preference: 0=Gool over MASQUE (the new-Core topology,
+         fresh default), 1=Classic Gool (the legacy WireGuard-inside-WireGuard topology
+         that dev.020 ran). -->
+    <string-array name="gool_mode_labels"><item>Gool over MASQUE</item><item>Classic Gool</item></string-array>
+    <!-- dev.034: AETHER_PERF_PROFILE. 0=Auto (upstream auto-detect from cpu/ram), 1=Low,
+         2=Medium, 3=High. -->
+    <string-array name="perf_profile_labels"><item>Auto</item><item>Low</item><item>Medium</item><item>High</item></string-array>
 </resources>

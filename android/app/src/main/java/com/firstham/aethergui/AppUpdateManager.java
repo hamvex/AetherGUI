@@ -267,14 +267,25 @@ final class AppUpdateManager {
     }
 
     static int compareVersions(String left, String right) {
-        String[] a = left.replaceFirst("^v", "").split("\\.");
-        String[] b = right.replaceFirst("^v", "").split("\\.");
+        String[] leftVersion = left.replaceFirst("^v", "").split("\\+", 2)[0].split("-", 2);
+        String[] rightVersion = right.replaceFirst("^v", "").split("\\+", 2)[0].split("-", 2);
+        String[] a = leftVersion[0].split("\\.");
+        String[] b = rightVersion[0].split("\\.");
         for (int i = 0; i < Math.max(a.length, b.length); i++) {
             int av = i < a.length ? number(a[i]) : 0;
             int bv = i < b.length ? number(b[i]) : 0;
             if (av != bv) return Integer.compare(av, bv);
         }
-        return 0;
+        if (leftVersion.length != rightVersion.length) return leftVersion.length == 1 ? 1 : -1;
+        if (leftVersion.length == 1) return 0;
+        a = leftVersion[1].split("\\."); b = rightVersion[1].split("\\.");
+        for (int i = 0; i < Math.min(a.length, b.length); i++) {
+            boolean an = a[i].matches("[0-9]+"), bn = b[i].matches("[0-9]+");
+            int comparison = an && bn ? new java.math.BigInteger(a[i]).compareTo(new java.math.BigInteger(b[i]))
+                    : an != bn ? (an ? -1 : 1) : a[i].compareTo(b[i]);
+            if (comparison != 0) return comparison;
+        }
+        return Integer.compare(a.length, b.length);
     }
 
     static String checksumFromFile(String content, String assetName) {

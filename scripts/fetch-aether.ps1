@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
-$pins = Get-Content -LiteralPath (Join-Path $PSScriptRoot "aether-pins.json") -Raw | ConvertFrom-Json
+$pins = (Get-Content -LiteralPath (Join-Path $PSScriptRoot "aether-pins.json") -Raw | ConvertFrom-Json).windows
 $version = if ($env:AETHER_CORE_VERSION) { $env:AETHER_CORE_VERSION } else { $pins.version }
-$baseUrl = "https://github.com/CluvexStudio/Aether/releases/download/$version"
+$baseUrl = if ($version -eq $pins.version) { $pins.downloadBaseUrl } else { "https://github.com/CluvexStudio/Aether/releases/download/$version" }
 $archiveName = "aether-windows-x86_64.zip"
 $temp = Join-Path ([System.IO.Path]::GetTempPath()) "aether-gui-$([guid]::NewGuid())"
 $destination = Join-Path $PSScriptRoot "..\src-tauri\binaries\aether-x86_64-pc-windows-msvc.exe"
@@ -59,6 +59,30 @@ try {
 
   New-Item -ItemType Directory -Force (Split-Path $destination) | Out-Null
   Copy-Item -LiteralPath $binary.FullName -Destination $destination -Force
+
+  # privacy helpers: the official Windows archive bundles pt\psiphon-tunnel-core.exe
+  # and pt\lyrebird.exe beside aether.exe. Install them under src-tauri\binaries\pt\ (the
+  # layout core_pt_dir() in src-tauri/src/process.rs expects) with digest verification from
+  # the same pins entry: the archive hash already covers them, and the payload pins let the
+  # build fail fast if the upstream layout ever changes.
+  if ($version -eq $pins.version -and $pins.pt) {
+    $ptDir = Join-Path $PSScriptRoot "..\src-tauri\binaries\pt"
+    New-Item -ItemType Directory -Force $ptDir | Out-Null
+    foreach ($name in @("psiphon-tunnel-core.exe", "lyrebird.exe")) {
+      $helper = Join-Path $expanded "pt\$name"
+      if (-not (Test-Path -LiteralPath $helper -PathType Leaf)) {
+        throw "pt\$name was not found in the verified upstream archive."
+      }
+      $expectedHelper = $pins.pt.$name
+      if ($expectedHelper) {
+        $actualHelper = (Get-FileHash -LiteralPath $helper -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($actualHelper -ne $expectedHelper) {
+          throw "The extracted pt\$name does not match the pin ($expectedHelper vs $actualHelper)."
+        }
+      }
+      Copy-Item -LiteralPath $helper -Destination (Join-Path $ptDir $name) -Force
+    }
+  }
   Write-Host "Prepared verified Aether $version core at $destination"
   Write-Host "  archive SHA256 $actual (pinned)"
 }

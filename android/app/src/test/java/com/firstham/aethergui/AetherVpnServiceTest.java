@@ -11,6 +11,7 @@ public final class AetherVpnServiceTest {
         assertEquals(1400, mtu("masque", 1500));
         assertEquals(1420, mtu("wg", 1500));
         assertEquals(1360, mtu("gool", 1500));
+        assertEquals(1280, mtu("mim", 1500));
     }
 
     @Test public void preservesSafeUserMtuAndIpv6Minimum() {
@@ -74,14 +75,11 @@ public final class AetherVpnServiceTest {
         }
     }
 
-    @Test public void goolExitCountryIsNormalizedAndIranIsRejected() {
+    @Test public void iranLocationRemainsAvailableForDisplay() {
         assertEquals("IR", AetherVpnService.normalizedCountryCode("ir", ""));
         assertEquals("IR", AetherVpnService.normalizedCountryCode("", "Iran"));
         assertEquals("SE", AetherVpnService.normalizedCountryCode("se", "Sweden"));
         assertEquals("", AetherVpnService.normalizedCountryCode("", "Sweden"));
-        assertTrue(AetherVpnService.isIranCountry("ir"));
-        assertFalse(AetherVpnService.isIranCountry("SE"));
-        assertEquals(3, AetherVpnService.maxGoolIranRetries());
     }
 
     @Test public void cloudflareTraceValuesAreParsedWithoutCrossLineMatches() {
@@ -124,11 +122,12 @@ public final class AetherVpnServiceTest {
         assertTrue(AetherVpnService.retryableConnectFailure("IllegalStateException", "SOCKS5 listener never became ready"));
         assertTrue(AetherVpnService.retryableConnectFailure("IOException", "Connection reset"));
         assertTrue(AetherVpnService.retryableConnectFailure("IllegalStateException", null));
-        // A user-cancelled connect, a rejected configuration, an Iran gool exit and an already
+        // A user-cancelled connect, a rejected configuration, an occupied port and an already
         // published session are all deterministic: retrying them just wastes the user's time.
         assertFalse(AetherVpnService.retryableConnectFailure("InterruptedException", "interrupted"));
         assertFalse(AetherVpnService.retryableConnectFailure("IllegalArgumentException", "bad socks address"));
-        assertFalse(AetherVpnService.retryableConnectFailure("GoolExitException", "Iran exit"));
+        assertFalse(AetherVpnService.retryableConnectFailure("ProxyPortException", "HTTP port is occupied"));
+        assertTrue(AetherVpnService.retryableConnectFailure("ProxyStartupException", "Listeners are not ready"));
         assertFalse(AetherVpnService.retryableConnectFailure("SupervisedSessionException", "session ended"));
         assertFalse(AetherVpnService.retryableConnectFailure("IllegalStateException", "Aether core is missing for this device architecture"));
     }
@@ -319,6 +318,23 @@ public final class AetherVpnServiceTest {
         assertTrue("margin=" + margin + "ms", margin > 0);
     }
 
+    @Test public void privacyChainProbesGetTheBudgetTheirFirstRequestNeeds() {
+        int[] timeouts = AetherVpnService.trafficProbeTimeouts();
+        int warpDirect = timeouts[0], chain = timeouts[1];
+        // Tor's first request through a freshly bootstrapped circuit (selection, DNS over the
+        // chain, TLS) plus every round trip traversing the chain carrier measurably exceeds
+        // the 4s WARP-direct budget: on the dev.036 physical device every first
+        // MASQUE-carried Tor probe timed out at 4s while Tor was fully ready, and
+        // MASQUE-carried Psiphon chains only succeeded on attempt 2. The chain budget keeps
+        // the first-attempt probes honest instead of churning teardown/re-roll cycles.
+        assertTrue("warp direct=" + warpDirect + "ms", warpDirect > 0 && warpDirect <= 5_000);
+        assertTrue("chain=" + chain + "ms", chain >= 12_000);
+        // The static gate ceiling includes the chain probe, so the watchdog bound above still
+        // holds with the worst case.
+        long gate = AetherVpnService.worstCaseTrafficGateMs();
+        assertTrue("gate=" + gate + "ms", gate >= 55_000L + chain);
+    }
+
     @Test public void aReRollWaitsLongEnoughForTheCoreToActuallyStart() {
         long[] timings = AetherVpnService.trafficGateTimings();
         long socksWait = timings[1];
@@ -332,6 +348,66 @@ public final class AetherVpnServiceTest {
         // And a roll is only started with enough budget left to wait out a normal start and still run
         // the probe round that decides it; otherwise the roll is spent without ever being tested.
         assertTrue("min roll budget=" + minRollBudget + "ms", minRollBudget >= 14_000L);
+    }
+
+    @Test public void privacyChainsGetTheBootstrapAllowanceTheirCarrierNeeds() {
+        long[] bounds = AetherVpnService.privacyAnnouncementBounds();
+        long base = bounds[0], torAllowance = bounds[1], masqueAllowance = bounds[2];
+        // Core v2.3.0 holds the Psiphon helper until the carrier tunnel validates and then
+        // bootstraps its server list through that tunnel. The dev.034 physical device measured
+        // 14.5s from carrier-open to "psiphon is ready" on a fast link and reproduced the flat
+        // 30s window expiring under load, so a MASQUE-carried Psiphon chain needs the same
+        // kind of allowance the Tor consensus gets.
+        assertTrue("base=" + base + "ms", base > 0);
+        assertTrue("masque allowance=" + masqueAllowance + "ms", masqueAllowance >= 120_000L);
+        assertEquals(base + masqueAllowance,
+                AetherVpnService.privacyAnnouncementTimeoutMs("masque", settings("masque", "chain", null)));
+        assertEquals(base + masqueAllowance,
+                AetherVpnService.privacyAnnouncementTimeoutMs("gool", settings("gool", "chain", "masque")));
+        assertEquals(base + masqueAllowance,
+                AetherVpnService.privacyAnnouncementTimeoutMs("mim", settings("mim", "chain", null)));
+        // Tor chains keep their own (larger) consensus allowance, on every carrier.
+        assertEquals(base + torAllowance,
+                AetherVpnService.privacyAnnouncementTimeoutMs("wg", torSettings("wg")));
+        assertEquals(base + torAllowance,
+                AetherVpnService.privacyAnnouncementTimeoutMs("masque", torSettings("masque")));
+        // A Psiphon chain on the fast WARP carriers (WireGuard, Classic Gool) keeps the base
+        // window: the underlay opens in seconds and leaves the helper the full 30s.
+        assertEquals(base,
+                AetherVpnService.privacyAnnouncementTimeoutMs("wg", settings("wg", "chain", null)));
+        assertEquals(base,
+                AetherVpnService.privacyAnnouncementTimeoutMs("gool", settings("gool", "chain", "classic")));
+        // No chain, no allowance.
+        assertEquals(base,
+                AetherVpnService.privacyAnnouncementTimeoutMs("masque", settings("masque", "off", null)));
+    }
+
+    @Test public void theChainAllowanceNeverDependsOnTheProtocolInsideTheSettingsMap() {
+        // The real runtime maps (AndroidCoreSettings.fromIntent -> CoreSettings.values) carry
+        // only CoreSettings.DEFAULTS keys, and "protocol" is deliberately not one of them; the
+        // protocol travels as its own parameter. A dev.035 draft read it from the map, so the
+        // MASQUE-chain allowance silently never applied and the gate stayed at the flat 30s.
+        java.util.Map<String, Object> runtimeLike = settings("masque", "chain", null);
+        runtimeLike.remove("protocol");
+        assertEquals(AetherVpnService.privacyAnnouncementBounds()[0]
+                        + AetherVpnService.privacyAnnouncementBounds()[2],
+                AetherVpnService.privacyAnnouncementTimeoutMs("masque", runtimeLike));
+    }
+
+    private static java.util.Map<String, Object> settings(String protocol, String psiphonMode, String goolMode) {
+        java.util.Map<String, Object> values = new java.util.HashMap<>();
+        values.put("protocol", protocol);
+        values.put("psiphonMode", psiphonMode);
+        if (goolMode != null) values.put("goolMode", goolMode);
+        return values;
+    }
+
+    private static java.util.Map<String, Object> torSettings(String protocol) {
+        java.util.Map<String, Object> values = new java.util.HashMap<>();
+        values.put("protocol", protocol);
+        values.put("torMode", "chain");
+        values.put("torProxy", Boolean.TRUE);
+        return values;
     }
 
     @Test public void teardownIsBoundedSoDisconnectCannotHangForever() {

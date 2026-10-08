@@ -1,6 +1,6 @@
 # Aethon
 
-Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Windows version 2.1.1 bundles the verified Aether 1.9.0 core and Xray 26.3.27 routing engine, providing system-wide VPN routing or a local SOCKS5 proxy through focused desktop and mobile interfaces.
+Aethon is an independent Windows and Android client for the official [CluvexStudio/Aether](https://github.com/CluvexStudio/Aether) networking core. Version 2.2.0 uses official, unmodified Aether 2.3.0 on both Windows and Android, with Xray 26.3.27. The clients provide system-wide VPN routing or local proxies through focused desktop and mobile interfaces.
 
 [Releases](https://github.com/hamvex/AetherGUI/releases) · [Security policy](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
@@ -37,10 +37,10 @@ Aethon is an independent Windows and Android client for the official [CluvexStud
 
 ### Versions and compatibility
 
-- Windows version: `2.1.1`
-- Android version name: `2.1.1`
-- Android version code: `23`
-- Windows Aether core: `1.9.0`; Android Aether core: `1.9.0`
+- Windows version: `2.2.0`
+- Android version name: `2.2.0`
+- Android version code: `29`
+- Windows and Android Aether core: `2.3.0`
 - Xray routing engine: `26.3.27`
 - Windows: Windows 10/11 x64
 - Android: Android 8.0 or newer; ARMv7, ARM64, and x86_64
@@ -94,17 +94,20 @@ The local SOCKS5 listener defaults to `127.0.0.1:1819`. VPN mode may request adm
 
 ### Psiphon status
 
-The Windows Psiphon second-hop integration is **experimental and suspended**
-and is not included in the current release. It is awaiting official Psiphon
-integration guidance and valid `SponsorId` / `PropagationChannelId`
-configuration. Psiphon is not exposed in the UI, is not launched by the
-production backend, and its executable is not bundled in current installers.
+Android uses **Aether Core v2.3.0 as the only Psiphon controller**. The verified
+Phase 2 companion inputs are the upstream-selected Psiphon helper and Lyrebird
+(a Tor pluggable-transport helper, not a second Psiphon implementation).
+The old standalone Windows manager is removed, its source-build command is
+retired, and legacy desktop settings remain inert for compatibility. Windows
+Core pins and normal desktop runtime behavior are unchanged.
 
-The completed implementation, pinned source revision, reproducible build
-instructions, license, and provenance remain in the repository for a future
-reactivation review. `npm run fetch:psiphon` is a developer-only source-build
-command and is not required by normal builds or release packaging. No Psiphon
-traffic success is claimed.
+Upstream supplies its own Psiphon bootstrap defaults; missing standalone sponsor
+credentials are not an established blocker. Official Auto and Direct/DE Chain
+proxies passed native Android HTTPS tests using the system trust store; CDN did
+not pass. Installed-app routing/lifecycle and other modes remain unverified.
+Privacy activation stays unavailable, and no new candidate is built. See
+`PHASE_2_COMPLETION_REPORT.md` for the current audit and exact acceptance gaps.
+Historical standalone reports are not instructions to reactivate that design.
 
 ## Android usage
 
@@ -165,7 +168,7 @@ After both platform builds complete:
 npm run package:release
 ```
 
-This creates Windows x64 installers, portable files, architecture-specific Android packages, checksums, and `Aethon-VPN-v2.1.1-all-platforms.zip` under `release`.
+This creates Windows x64 installers, portable files, architecture-specific Android packages, checksums, and `Aethon-VPN-v2.2.0-all-platforms.zip` under `release`.
 
 ## Verification
 

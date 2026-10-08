@@ -1,4 +1,8 @@
 <resources>
+    <!-- dev.017 CHANGE 1: dark header colors that match the dark page background. -->
+    <color name="header_background">#0B1119</color>
+    <color name="header_foreground">#E8EEF7</color>
+    <color name="header_accent">#6BA7FF</color>
     <color name="blue_950">#E6F0FF</color>
     <color name="blue_900">#CFE2FF</color>
     <color name="blue_800">#9CC4FF</color>
@@ -9,11 +13,16 @@
     <color name="blue_50">#15283D</color>
     <color name="surface">#111923</color>
     <color name="background">#0B1119</color>
+    <!-- dev.017 CHANGE 1: darker than the dark header/body so the status bar stays distinct. -->
+    <color name="status_bar_scrim">#060B12</color>
     <color name="text">#E8EEF7</color>
     <color name="muted">#A5B3C5</color>
     <color name="border">#29384A</color>
     <color name="green">#42D39A</color>
     <color name="green_soft">#163A2E</color>
+    <!-- dev.020 CHANGE 9: the Home TIME value accent in dark mode - a lighter equivalent of
+         the light theme's blue-violet so contrast on the dark surface stays strong. -->
+    <color name="time_accent">#A99DF2</color>
     <color name="red">#FF7890</color>
     <color name="amber">#FFC36B</color>
     <color name="hero_start">#0A3468</color>

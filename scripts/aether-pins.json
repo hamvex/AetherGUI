@@ -1,72 +1,60 @@
 {
   "_comment": [
-    "Pinned upstream digests for the Aether core (PROMPT.md PHASE 6).",
-    "",
-    "The release archives and their .sha256 companions live at the same base URL, so",
-    "verifying an archive against the checksum file beside it proves only that the transfer",
-    "was intact - anyone able to replace the release can replace both. These values are",
-    "committed here so the expected digest comes from this repository at review time rather",
-    "than from the server being verified.",
-    "",
-    "Provenance, recorded in security-evidence/logs/upstream-provenance.txt: 'archives' are",
-    "the asset digests GitHub itself reports through the releases API for tag v1.9.0",
-    "(published 2026-09-04T17:17:48Z), which is a different source from the release's own",
-    ".sha256 files. 'binary' is the SHA-256 of the executable extracted from the archive.",
-    "",
-    "For the Windows zip that value is what src-tauri/src/process.rs pins as AETHER_SHA256 and",
-    "refuses to launch without, and it has been verified against the bytes on disk. The three",
-    "Android values were established the same way and are not independent of 'archives': each",
-    "was obtained by extracting an archive whose digest had already matched the API-sourced pin",
-    "above, so it inherits that archive's trust rather than asserting anything new. They are",
-    "recorded so the .so actually copied into the APK can be checked at build time without a",
-    "second download, and so the shipped native payload has a reviewable expected digest at all",
-    "- android/app/src/main/jniLibs/**/*.so is .gitignore'd, so before this it had none.",
-    "Verified 2026-09-02: all three shipped jniLibs .so files are byte-identical to the binary",
-    "inside the matching pinned archive (security-evidence/logs/phase6-android-native.txt).",
-    "",
-    "Both platforms are now on v1.9.0. Windows moved from v1.8.0 to v1.9.0 on 2026-09-10 so",
-    "the warp-in-warp endpoints the GUI caches can be handed back to the core through",
-    "AETHER_WIW_PEERS, which v1.8.0 has no equivalent for; the Windows digests below were",
-    "re-derived from a fresh download and cross-checked against the releases API on that date.",
-    "'androidVersion' and its separate digest maps are kept because scripts/",
-    "fetch-android-assets.ps1 reads them, and because they let one platform move ahead of the",
-    "other again without disturbing the payload of the one that stays. While the two versions",
-    "agree, the android* maps below duplicate the Android entries in 'archives' and 'binary';",
-    "if they ever disagree, the android* maps are the authority for Android.",
-    "Updating either core means changing its version and every digest in one reviewed commit.",
-    "Building against any other version requires the caller to supply the digest",
-    "explicitly via AETHER_EXPECTED_SHA256; the fetch scripts will not fall back to the",
-    "server's own checksum file.",
-    "",
-    "This is data rather than a .ps1 so it needs no execution policy to read and can be",
-    "consumed by the release manifest and SBOM tooling as well as by the fetch scripts."
+    "Each platform owns its version, source commit, download URL, archive and payload hashes.",
+    "Archives are pinned against official GitHub release asset metadata; companion checksums",
+    "are additional transfer checks, not an independent trust anchor. Payload hashes inherit",
+    "the verified archive provenance and are checked at packaging and before Android launch.",
+    "Android v2.1.0 was freshly downloaded and verified on 2026-09-27 for all three ABIs.",
+    "Android upgraded to official v2.3.0 on 2026-10-06 (dev.034 mission): archives freshly",
+    "downloaded from the official v2.3.0 release and verified against the release SHA256SUMS",
+    "(038748745244828ea41a808958f16a1c25053dc61db977c95ceb2d3a0b2f7970 for arm64,",
+    "9e9c59b188ff235053ae22b9f007f31de3e9bc71c8252ef73b0d626b85b64dae for armv7,",
+    "9acd35dc7bafd4bbf0f4bd8337cb26c4efe6ab0d84ec01d1a0a9fa68168b09c1 for x86_64) and the",
+    "GitHub asset digests; extracted payloads re-verified against the archive contents and",
+    "the embedded 'aether 2.3.0' version string; ELF class/machine/linker and the absence of",
+    "libc++_shared.so checked per ABI. The v2.3.0 pt/ helpers are byte-identical to the",
+    "previously verified v2.1.0-era helper payloads for every ABI.",
+    "Windows upgraded to v2.1.0 on 2026-10-03 (Windows v2.1.2 transformation mission) and to",
+    "v2.3.0 on 2026-10-04 (dev.030 mission): archive downloaded from the official release and",
+    "verified against the release SHA256SUMS (0cc32dd2...), payload and pt/ helper digests",
+    "recorded below. Changing either platform requires updating its complete metadata",
+    "together. No fetcher may silently substitute the other platform's version or trust a",
+    "server checksum alone. NOTE: upstream never published v2.2.0; v2.3.0 is the direct",
+    "successor of v2.1.0 (verified against the official tag list on 2026-10-04)."
   ],
-  "version": "v1.9.0",
-  "published": "2026-09-04T17:17:48Z",
+  "schemaVersion": 2,
   "repository": "https://github.com/CluvexStudio/Aether",
-  "archives": {
-    "aether-windows-x86_64.zip": "5c64be2f2967469c53abdbec82599cb3c2ef005b8ef8efed79ba235d4ed3eb8d",
-    "aether-android-armv7.tar.gz": "d49ee19423a33d905fb4fef3f163d2e3c88e5223940e0f03dbe6324bb2c7dcdb",
-    "aether-android-arm64.tar.gz": "a5a488b8cf05b3e83c28ca35cef78334130411c8df5314850e816b900e9d6cb9",
-    "aether-android-x86_64.tar.gz": "0c4dfcea54b5a39c0a3a52473d1fb9c2ff5c4ed92de5d240f84f18f54425f961"
+  "windows": {
+    "version": "v2.3.0",
+    "published": "2026-10-04T14:11:53Z",
+    "sourceCommit": "6175b67df370ab856bcee07fe85b524031903956",
+    "downloadBaseUrl": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0",
+    "archives": {
+      "aether-windows-x86_64.zip": "0cc32dd2d7573f91d2e55d4f427bfe4c6f6252342494e1b410d61b12d1e4dc79"
+    },
+    "binary": {
+      "aether-windows-x86_64.zip": "4834bec4fa3b108275cac1b765d83aadf6b2fcae76ea74b00bfa3935f238e0c1"
+    },
+    "pt": {
+      "psiphon-tunnel-core.exe": "a6fc6094e169b61eed5fb51f7267a8ee2c648765c3e1c9a6cd88affe63ab4f29",
+      "lyrebird.exe": "7ccde802e4b9e9967255a63ae51cefb72418f99f15cdd7d50f8f4cb96e1105c7"
+    }
   },
-  "binary": {
-    "aether-windows-x86_64.zip": "ee400806bf73fe16e655e6478eb7442c2c4e0576c4c8ce1913ac474e846b36cd",
-    "aether-android-armv7.tar.gz": "e93d13c270f6636195a6262ec642235d75b2e6a15fe9e5640978b5483407da6a",
-    "aether-android-arm64.tar.gz": "892d4fa467b32dd447791e08f518238ceeb0ab16c702d302077851565d0b8829",
-    "aether-android-x86_64.tar.gz": "eb2bf174dbea1095a890f9e1f358dbcb5aa62fc00c039e8becc89f0f212e7327"
-  },
-  "androidVersion": "v1.9.0",
-  "androidPublished": "2026-09-04T17:17:48Z",
-  "androidArchives": {
-    "aether-android-armv7.tar.gz": "d49ee19423a33d905fb4fef3f163d2e3c88e5223940e0f03dbe6324bb2c7dcdb",
-    "aether-android-arm64.tar.gz": "a5a488b8cf05b3e83c28ca35cef78334130411c8df5314850e816b900e9d6cb9",
-    "aether-android-x86_64.tar.gz": "0c4dfcea54b5a39c0a3a52473d1fb9c2ff5c4ed92de5d240f84f18f54425f961"
-  },
-  "androidBinary": {
-    "aether-android-armv7.tar.gz": "e93d13c270f6636195a6262ec642235d75b2e6a15fe9e5640978b5483407da6a",
-    "aether-android-arm64.tar.gz": "892d4fa467b32dd447791e08f518238ceeb0ab16c702d302077851565d0b8829",
-    "aether-android-x86_64.tar.gz": "eb2bf174dbea1095a890f9e1f358dbcb5aa62fc00c039e8becc89f0f212e7327"
+  "android": {
+    "version": "v2.3.0",
+    "published": "2026-10-04T14:11:53Z",
+    "sourceCommit": "6175b67df370ab856bcee07fe85b524031903956",
+    "downloadBaseUrl": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0",
+    "archives": {
+      "aether-android-armv7.tar.gz": "9e9c59b188ff235053ae22b9f007f31de3e9bc71c8252ef73b0d626b85b64dae",
+      "aether-android-arm64.tar.gz": "038748745244828ea41a808958f16a1c25053dc61db977c95ceb2d3a0b2f7970",
+      "aether-android-x86_64.tar.gz": "9acd35dc7bafd4bbf0f4bd8337cb26c4efe6ab0d84ec01d1a0a9fa68168b09c1"
+    },
+    "binary": {
+      "aether-android-armv7.tar.gz": "d8f3865a33366831aef881685f6c2d6e85c934c70fd18c38aa920ba140bb7bfb",
+      "aether-android-arm64.tar.gz": "2b44db73249eab204416c4e4977151db47aee487e1b96bae3c7e729f2812680e",
+      "aether-android-x86_64.tar.gz": "46735a4808500a21b5f95af340c6977cb0c7dad264fa57427903a9aaed2161f3"
+    }
   },
   "hev_socks5_tunnel": {
     "_comment": [

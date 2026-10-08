@@ -1,0 +1,62 @@
+{
+  "arm64-v8a/libaether.so": {
+    "archiveSHA256": "038748745244828ea41a808958f16a1c25053dc61db977c95ceb2d3a0b2f7970",
+    "bytes": 18905984,
+    "elfClass": 2,
+    "elfMachine": 183,
+    "sha256": "2b44db73249eab204416c4e4977151db47aee487e1b96bae3c7e729f2812680e",
+    "source": "fresh official unmodified Aether v2.3.0 archive",
+    "sourceCommit": "6175b67df370ab856bcee07fe85b524031903956",
+    "url": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0/aether-android-arm64.tar.gz"
+  },
+  "arm64-v8a/libhev-socks5-tunnel.so": {
+    "androidApi": 26,
+    "bytes": 343784,
+    "elfClass": 2,
+    "elfMachine": 183,
+    "ndk": "27.2.12479018",
+    "sha256": "6eb00a2ca1098c4253957b1d0de730e75c0bbf6db209415161b1052d451691a2",
+    "source": "verified HEV 2.16.0 pinned-source build A carried forward byte-identical (provenance work/phase1-20260927)",
+    "sourceCommit": "0a05221275a51a884d93328c55fc2fbc9e9b6974"
+  },
+  "armeabi-v7a/libaether.so": {
+    "archiveSHA256": "9e9c59b188ff235053ae22b9f007f31de3e9bc71c8252ef73b0d626b85b64dae",
+    "bytes": 13381636,
+    "elfClass": 1,
+    "elfMachine": 40,
+    "sha256": "d8f3865a33366831aef881685f6c2d6e85c934c70fd18c38aa920ba140bb7bfb",
+    "source": "fresh official unmodified Aether v2.3.0 archive",
+    "sourceCommit": "6175b67df370ab856bcee07fe85b524031903956",
+    "url": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0/aether-android-armv7.tar.gz"
+  },
+  "armeabi-v7a/libhev-socks5-tunnel.so": {
+    "androidApi": 26,
+    "bytes": 234344,
+    "elfClass": 1,
+    "elfMachine": 40,
+    "ndk": "27.2.12479018",
+    "sha256": "ffbf062eef55f94d6466974da00c4e754737796095aada017ed90979d7111173",
+    "source": "verified HEV 2.16.0 pinned-source build A carried forward byte-identical (provenance work/phase1-20260927)",
+    "sourceCommit": "0a05221275a51a884d93328c55fc2fbc9e9b6974"
+  },
+  "x86_64/libaether.so": {
+    "archiveSHA256": "9acd35dc7bafd4bbf0f4bd8337cb26c4efe6ab0d84ec01d1a0a9fa68168b09c1",
+    "bytes": 20849248,
+    "elfClass": 2,
+    "elfMachine": 62,
+    "sha256": "46735a4808500a21b5f95af340c6977cb0c7dad264fa57427903a9aaed2161f3",
+    "source": "fresh official unmodified Aether v2.3.0 archive",
+    "sourceCommit": "6175b67df370ab856bcee07fe85b524031903956",
+    "url": "https://github.com/CluvexStudio/Aether/releases/download/v2.3.0/aether-android-x86_64.tar.gz"
+  },
+  "x86_64/libhev-socks5-tunnel.so": {
+    "androidApi": 26,
+    "bytes": 344872,
+    "elfClass": 2,
+    "elfMachine": 62,
+    "ndk": "27.2.12479018",
+    "sha256": "f867cb5b011e07c2fc9c482ba6f625c8d25b4b14f19e0c28c37695924eea00d5",
+    "source": "verified HEV 2.16.0 pinned-source build A carried forward byte-identical (provenance work/phase1-20260927)",
+    "sourceCommit": "0a05221275a51a884d93328c55fc2fbc9e9b6974"
+  }
+}

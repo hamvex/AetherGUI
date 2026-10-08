@@ -1,0 +1,83 @@
+import java.nio.file.Files
+import java.nio.file.StandardOpenOption
+import java.security.MessageDigest
+
+def workspace = rootProject.projectDir.parentFile.canonicalFile
+def evidence = new File(workspace, 'native-inputs/android')
+def sha256 = { File path ->
+    def digest = MessageDigest.getInstance('SHA-256')
+    path.withInputStream { stream ->
+        byte[] buffer = new byte[65536]
+        int count
+        while ((count = stream.read(buffer)) != -1) digest.update(buffer, 0, count)
+    }
+    digest.digest().encodeHex().toString()
+}
+def parseVerified = { File path, String expected ->
+    if (!path.isFile() || sha256(path) != expected) throw new GradleException("Approved native manifest missing or changed: ${path.name}")
+    new groovy.json.JsonSlurper().parse(path)
+}
+def approved = parseVerified(new File(evidence, 'NATIVE_INPUTS.json'),
+    'c8d91f3f1fd2691933675dcdeb11111f26cdb0612c02e7c2e10410e1ac44853a')
+if (approved.coreSourceCommit != '6175b67df370ab856bcee07fe85b524031903956' ||
+    approved.hevSourceCommit != '0a05221275a51a884d93328c55fc2fbc9e9b6974' ||
+    approved.selectedHevBuild != 'a') throw new GradleException('Unexpected approved native source')
+def nativeManifest = parseVerified(new File(evidence, 'verified-native-inputs.json'), approved.nativeManifestSHA256)
+def helperManifest = parseVerified(new File(evidence, 'verified-helper-inputs.json'), approved.helperManifestSHA256)
+def payloads = []
+nativeManifest.each { relative, metadata ->
+    payloads.add([relative: relative, source: new File(evidence, "verified-jni/${relative}"),
+                  sha256: metadata.sha256, bytes: metadata.bytes, elfClass: metadata.elfClass,
+                  elfMachine: metadata.elfMachine, elfType: 3])
+}
+helperManifest.each { relative, metadata ->
+    def components = relative.split('/')
+    payloads.add([relative: "${components[0]}/lib${components[1]}.so", source: new File(evidence, "verified-helpers/${components[0]}/${components[1]}"),
+                  sha256: metadata.sha256, bytes: metadata.bytes, elfClass: metadata.elf.elfClass,
+                  elfMachine: metadata.elf.elfMachine, elfType: 2])
+}
+if (payloads.size() != 12) throw new GradleException('Incomplete approved native payload set')
+def nativeDirectory = layout.buildDirectory.dir('verified-jni')
+def abiLabels = ['arm64-v8a':'ARM64', 'armeabi-v7a':'ARMV7', 'x86_64':'X86_64']
+def libraryLabels = ['libhev-socks5-tunnel.so':'HEV', 'libpsiphon-tunnel-core.so':'PSIPHON', 'liblyrebird.so':'LYREBIRD']
+payloads.each { payload ->
+    def components = payload.relative.split('/')
+    if (libraryLabels.containsKey(components[1])) {
+        android.defaultConfig.buildConfigField 'String', "${libraryLabels[components[1]]}_${abiLabels[components[0]]}_SHA256", '"' + payload.sha256 + '"'
+    }
+}
+tasks.register('prepareVerifiedNativeInputs') {
+    outputs.upToDateWhen { false }
+    doLast {
+        payloads.each { payload ->
+            if (!payload.source.canonicalPath.startsWith(evidence.canonicalPath + File.separator)) throw new GradleException('Native source escapes approved evidence')
+            if (!payload.source.isFile() || payload.source.length() != payload.bytes || sha256(payload.source) != payload.sha256)
+                throw new GradleException("Approved native payload missing or changed: ${payload.relative}")
+            byte[] header = new byte[20]
+            payload.source.withInputStream { stream -> if (stream.read(header) != 20) throw new GradleException('Truncated ELF') }
+            if (header[0] != 127 || header[1] != 69 || header[2] != 76 || header[3] != 70 || header[5] != 1 ||
+                header[4] != payload.elfClass || ((header[16] & 255) | ((header[17] & 255) << 8)) != payload.elfType ||
+                ((header[18] & 255) | ((header[19] & 255) << 8)) != payload.elfMachine) throw new GradleException('Approved ELF mismatch')
+        }
+        payloads.each { payload ->
+            def destination = new File(nativeDirectory.get().asFile, payload.relative)
+            if (!destination.exists()) {
+                Files.createDirectories(destination.parentFile.toPath())
+                payload.source.withInputStream { input ->
+                    Files.newOutputStream(destination.toPath(), StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).withCloseable { output -> input.transferTo(output) }
+                }
+            }
+            if (sha256(destination) != payload.sha256) throw new GradleException("Staged native payload changed; refusing overwrite: ${payload.relative}")
+        }
+        def actual = fileTree(nativeDirectory).files.collect { nativeDirectory.get().asFile.toPath().relativize(it.toPath()).toString().replace('\\', '/') }.toSet()
+        if (actual != payloads.collect { it.relative.toString() }.toSet()) throw new GradleException('Unexpected staged native file')
+    }
+}
+tasks.named('verifyAetherPayloads').configure { dependsOn 'prepareVerifiedNativeInputs' }
+tasks.withType(Test).configureEach {
+    dependsOn 'prepareVerifiedNativeInputs'
+    systemProperty 'aethon.nativeInputs', nativeDirectory.get().asFile.absolutePath
+    def temporary = layout.buildDirectory.dir('test-tmp').get().asFile
+    systemProperty 'java.io.tmpdir', temporary.absolutePath
+    doFirst { temporary.mkdirs() }
+}

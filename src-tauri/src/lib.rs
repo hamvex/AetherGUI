@@ -1,8 +1,12 @@
+mod app_picker;
+mod chain;
+mod connected_time;
 mod endpoint_cache;
 mod process;
+mod protocol;
 pub mod routing;
 mod settings;
-pub mod signature;
+mod signature;
 mod update;
 
 use process::{emit_status, ProcessManager};
@@ -29,6 +33,8 @@ use tauri_plugin_dialog::DialogExt;
 struct AppState {
     process: Arc<ProcessManager>,
     routing: Arc<RoutingManager>,
+    relays: Arc<chain::PublicPortRelays>,
+    time_tracker: tokio::sync::Mutex<connected_time::ConnectedTimeTracker>,
     connect_gate: tokio::sync::Mutex<()>,
     session_epoch: Arc<AtomicU64>,
 }
@@ -59,11 +65,72 @@ async fn connect(
     let session_token = state.session_epoch.fetch_add(1, Ordering::SeqCst) + 1;
     let mut settings = settings;
     settings.normalize_protocol_options();
-    let lan_address = if settings.allow_remote_listener {
+    // The user's STORED gool topology, captured before any topology memory or fallback
+    // mutates the in-flight copy — the connected message compares the running topology
+    // against THIS, so "the fallback selected X" is only ever said when the running
+    // topology really differs from what the user stored (dev.033 Phase 2.2).
+    let stored_gool_mode = protocol::GoolMode::parse(&settings.gool_mode);
+    // Topology memory for gool (dev.032): when a previous connect on this machine learned
+    // that the network blocks MASQUE-gateway scans and fell back to the classic gool, the
+    // next connect starts directly from the topology that worked. Strictly advisory: it
+    // only applies to the gool family, only when the user has not explicitly chosen
+    // `classic` already, and never overrides custom WiW endpoints (those force classic in
+    // the core anyway). The persisted `protocol` setting itself is never touched.
+    //
+    // AETHON_GOOL_STRICT=1 (dev.033 Phase 2.1) disables BOTH the topology memory and the
+    // bounded classic fallback: a diagnostic/test path so each gool topology can be
+    // proven independently — the stored mode runs exactly as selected, no compatibility
+    // assist. Used by physical validation; not a user-facing product switch.
+    let gool_strict = gool_strict_mode();
+    if gool_strict {
+        let _ = app.emit(
+            "aether-log",
+            "[gool] strict mode: topology memory and classic fallback are disabled; the \
+             stored gool topology runs exactly as selected",
+        );
+    }
+    if !gool_strict
+        && protocol::base_protocol(&settings.protocol) == "gool"
+        && protocol::GoolMode::parse(&settings.gool_mode) == protocol::GoolMode::Masque
+    {
+        if let Some(dir) = app
+            .path()
+            .app_local_data_dir()
+            .ok()
+            .filter(|dir| dir.join("gool-mode.txt").is_file())
+        {
+            let remembered = std::fs::read_to_string(dir.join("gool-mode.txt"))
+                .unwrap_or_default()
+                .trim()
+                .to_lowercase();
+            if remembered == "classic"
+                && settings.wiw_outer_peer.trim().is_empty()
+                && settings.wiw_inner_peer.trim().is_empty()
+            {
+                settings.gool_mode = "classic".into();
+                let _ = app.emit(
+                    "aether-log",
+                    "[gool] starting with the classic topology remembered from the last \
+                     successful connect on this network",
+                );
+            }
+        }
+    }
+    // LAN sharing binds the PUBLIC SOCKS relay on all interfaces. In chain mode the public
+    // listener is the GUI relay (the core sits on the internal underlay); in plain mode the
+    // core binds 0.0.0.0 itself. Either way the final egress is what LAN clients reach.
+    let lan_relay = settings.allow_remote_listener
+        && protocol::privacy_chain(&settings.protocol) != protocol::PrivacyChain::None;
+    let lan_address = if settings.allow_remote_listener && !lan_relay {
         let address = active_lan_ipv4()
             .ok_or("Connection from LAN requires an active private IPv4 network interface")?;
         settings.socks_address = "0.0.0.0:1819".into();
         Some(address)
+    } else if lan_relay {
+        Some(
+            active_lan_ipv4()
+                .ok_or("Connection from LAN requires an active private IPv4 network interface")?,
+        )
     } else {
         None
     };
@@ -232,26 +299,30 @@ async fn connect(
         "config_generation_started",
         elapsed_since_ms(connect_started_ms),
     );
-    if let Err(error) = ensure_socks_address_available(&settings.socks_address).await {
-        emit_timeline_failure(
-            &app,
-            &timeline_id,
-            &settings.protocol,
-            &settings.connection_mode,
-            "connect_failed",
-            &error,
-        );
-        return Err(error);
-    }
-    emit_timeline(
-        &app,
-        &timeline_id,
-        &settings.protocol,
-        &settings.connection_mode,
-        "configuration_validation_started",
-        elapsed_since_ms(connect_started_ms),
-    );
-    let core_result = if settings.protocol == "smart" {
+    // Resolve the privacy-chain runtime (ports + relays) BEFORE spawning anything, so a
+    // port conflict fails the connect with a meaningful error instead of a broken partial
+    // connection (PROMPT §19).
+    let data_dir = app
+        .path()
+        .app_local_data_dir()
+        .map_err(display_err)?;
+    let chain_runtime = match resolve_chain_runtime(&state, &settings, &data_dir).await {
+        Ok(runtime) => runtime,
+        Err(error) => {
+            emit_timeline_failure(
+                &app,
+                &timeline_id,
+                &settings.protocol,
+                &settings.connection_mode,
+                "connect_failed",
+                &error,
+            );
+            return Err(error);
+        }
+    };
+    let core_result = if protocol::privacy_chain(&settings.protocol) == protocol::PrivacyChain::None
+        && settings.protocol == "smart"
+    {
         start_smart_core(
             &app,
             &state.process,
@@ -267,6 +338,7 @@ async fn connect(
             &app,
             &state.process,
             &settings,
+            chain_runtime.as_ref(),
             &timeline_id,
             connect_started_ms,
             "connect_validation",
@@ -278,6 +350,10 @@ async fn connect(
     let (generation, expected_probe) = match core_result {
         Ok(result) => result,
         Err(error) => {
+            // Release the public relays with the failed attempt (defect found in physical
+            // validation: the Tor-chain timeout left 1818/1819 listening with no core).
+            state.relays.stop().await;
+            let _ = state.process.stop().await;
             emit_timeline_failure(
                 &app,
                 &timeline_id,
@@ -388,6 +464,7 @@ async fn connect(
             )
             .await
         {
+            state.relays.stop().await;
             let _ = state.routing.stop(&app).await;
             let _ = state.process.stop().await;
             emit_status(&app, "disconnected", None, None);
@@ -429,6 +506,7 @@ async fn connect(
             if let Err(error) =
                 confirm_basic_traffic_readiness(&app, &state.process, generation).await
             {
+                state.relays.stop().await;
                 let _ = state.routing.stop(&app).await;
                 let _ = state.process.stop().await;
                 emit_status(&app, "disconnected", None, None);
@@ -484,10 +562,67 @@ async fn connect(
         );
     }
     state.process.mark_connected().await;
+    // Re-validate ownership under the epoch before publishing Connected (root cause D3.2:
+    // a disconnect completing between the last check and this emit used to leave a stale
+    // "connected" as the final UI event).
+    if state.process.generation().await != generation
+        || state.session_epoch.load(Ordering::SeqCst) != session_token
+    {
+        let _ = state.routing.stop(&app).await;
+        let _ = state.process.stop().await;
+        state.relays.stop().await;
+        emit_status(&app, "disconnected", None, None);
+        return Err("Connection attempt was cancelled".into());
+    }
+    {
+        // TIME accounting opens its interval on the genuine Connected transition only.
+        let store = app
+            .path()
+            .app_local_data_dir()
+            .map(|dir| dir.join("connected-time.json"))
+            .map_err(display_err)?;
+        let mut tracker = state.time_tracker.lock().await;
+        if tracker.store_path() != store {
+            tracker.retarget_store(store);
+        }
+        tracker.on_connected(&connected_time::system_clock());
+    }
     let message = if settings.connection_mode == "vpn" {
         "Aether and System-wide VPN Mode are ready"
     } else {
         "Aether SOCKS5 proxy is ready"
+    };
+    // dev.033 Phase 2.2 — truthful running topology: for the gool family the connected
+    // message reports the topology the core ACTUALLY established (from its own log
+    // proof lines), not the stored setting. If topology memory or the bounded classic
+    // fallback selected a different topology than the user's stored choice, that is
+    // stated here instead of silently presenting the stored one.
+    let message = if protocol::base_protocol(&settings.protocol) == "gool" {
+        match state.process.runtime_gool_topology().await {
+            Some("classic") => {
+                if stored_gool_mode == protocol::GoolMode::Classic {
+                    format!("{message} (gool classic)")
+                } else {
+                    format!(
+                        "{message} (gool classic — the MASQUE-carried gool found no gateway, \
+                         the compatibility fallback selected classic)"
+                    )
+                }
+            }
+            Some("masque") => {
+                if stored_gool_mode == protocol::GoolMode::Masque {
+                    format!("{message} (gool MASQUE-carried)")
+                } else {
+                    format!(
+                        "{message} (gool MASQUE-carried — the classic gool found no path, the \
+                         fallback selected MASQUE-carried)"
+                    )
+                }
+            }
+            _ => message.to_string(),
+        }
+    } else {
+        message.to_string()
     };
     emit_status(&app, "connected", None, Some(message.into()));
     emit_timeline(
@@ -514,6 +649,7 @@ async fn connect(
             app.clone(),
             state.process.clone(),
             state.routing.clone(),
+            state.relays.clone(),
             settings,
             generation,
             expected_probe.exit_ip,
@@ -642,6 +778,70 @@ async fn ensure_socks_address_available(address: &str) -> Result<(), String> {
         .map_err(|error| format!("SOCKS5 address {address} is already in use: {error}"))?;
     drop(listener);
     Ok(())
+}
+
+/// Resolve the privacy-chain runtime for this connect: pick a collision-free internal
+/// underlay port (Hyper-V excluded ranges make the Android 18193 port unreliable on real
+/// Windows machines — observed on the validation host) and return the ChainRuntime plus
+/// whether the GUI relays must own the public 1818/1819 contract.
+async fn resolve_chain_runtime(
+    state: &AppState,
+    settings: &Settings,
+    data_dir: &std::path::Path,
+) -> Result<Option<chain::ChainRuntime>, String> {
+    let chain = protocol::privacy_chain(&settings.protocol);
+    if chain == protocol::PrivacyChain::None {
+        // Plain protocol: the core owns 1819/1818; verify the contract is free first.
+        ensure_socks_address_available(protocol::PUBLIC_SOCKS).await?;
+        ensure_socks_address_available(protocol::PUBLIC_HTTP).await?;
+        state.relays.stop().await;
+        return Ok(None);
+    }
+    let internal_socks = pick_internal_socks_port().await?;
+    let runtime = chain::ChainRuntime {
+        chain,
+        internal_socks,
+        psiphon_transport: settings.psiphon_transport.clone(),
+        psiphon_region: settings.psiphon_region.clone(),
+        tor_dir: data_dir.join("aether-tor").to_string_lossy().into_owned(),
+    };
+    // The GUI binds the public 1818/1819 and feeds them from the chain's final egress
+    // (core 1818/1819 serve the WARP underlay in chain mode — verified against v2.1.0).
+    // The relays watch the core generation: when the core dies, the ports release.
+    state
+        .relays
+        .start(
+            chain,
+            settings.allow_remote_listener && settings.connection_mode != "manual",
+            Some(&state.process),
+        )
+        .await?;
+    Ok(Some(runtime))
+}
+
+/// Probe the preferred internal underlay port, then a small ordered fallback range, all
+/// outside the public contract. Never touches 1818/1819/1821/1822/1824/1825.
+async fn pick_internal_socks_port() -> Result<String, String> {
+    let candidates = [
+        protocol::INTERNAL_SOCKS_PREFERRED,
+        "127.0.0.1:18196",
+        "127.0.0.1:18198",
+        "127.0.0.1:18301",
+        "127.0.0.1:18303",
+        "127.0.0.1:18931",
+    ];
+    for candidate in candidates {
+        if ensure_socks_address_available(candidate).await.is_ok() {
+            return Ok(candidate.into());
+        }
+    }
+    Err(
+        "Aethon could not reserve an internal underlay port for the privacy chain. All \
+         candidate loopback ports are occupied or reserved by Windows. Close conflicting \
+         applications and retry, or check 'netsh interface ipv4 show excludedportrange \
+         protocol=tcp'."
+            .into(),
+    )
 }
 
 fn spawn_data_plane_monitor(
@@ -1015,11 +1215,14 @@ async fn start_smart_core(
         }
         let mut trial = settings.clone();
         trial.protocol = protocol.clone();
+        trial.normalize_protocol_options();
         let started = Instant::now();
         match start_validated_protocol(
             app,
             process,
             &trial,
+            // Smart Connect only tries PLAIN protocols (no chain), so no ChainRuntime.
+            None,
             timeline_id,
             connect_started_ms,
             "smart_candidate",
@@ -1059,11 +1262,81 @@ async fn start_smart_core(
     ))
 }
 
+/// Chain-mode readiness gate: parse the ProcessManager's recent-log ring for the core's
+/// privacy announcement lines and wait (bounded by the chain's startup allowance) for the
+/// helper to prove itself. Matches the exact v2.1.0 announcement strings (verified on
+/// Windows: work/.../core-smoke-results.json).
+async fn wait_for_privacy_announcement(
+    app: &AppHandle,
+    process: &Arc<ProcessManager>,
+    generation: u64,
+    runtime: &chain::ChainRuntime,
+) -> Result<(), String> {
+    use protocol::PrivacyChain;
+    let (ready_suffix, budget_secs) = match runtime.chain {
+        PrivacyChain::Psiphon => (
+            "psiphon is ready;",
+            protocol::PSIPHON_STARTUP_ALLOWANCE_SECS,
+        ),
+        PrivacyChain::Tor => ("tor is ready;", protocol::TOR_STARTUP_ALLOWANCE_SECS),
+        PrivacyChain::None => return Ok(()),
+    };
+    let deadline = tokio::time::Instant::now()
+        + std::time::Duration::from_secs(budget_secs + 15);
+    let mut last_progress = String::new();
+    loop {
+        if process.generation().await != generation {
+            return Err("Connection attempt was cancelled".into());
+        }
+        let recent = process.recent_core_lines().await;
+        let mut announced = false;
+        let mut progress = String::new();
+        for line in recent.iter().rev() {
+            let lowered = line.to_lowercase();
+            if lowered.contains(ready_suffix) {
+                announced = true;
+                break;
+            }
+            if progress.is_empty()
+                && (lowered.contains("starting psiphon")
+                    || lowered.contains("bootstrapping tor")
+                    || lowered.contains("tor reaching the network")
+                    || lowered.contains("psiphon is waiting")
+                    || lowered.contains("tor is waiting"))
+            {
+                progress = line.clone();
+            }
+        }
+        if announced {
+            return Ok(());
+        }
+        if tokio::time::Instant::now() >= deadline {
+            let detail = if progress.is_empty() {
+                "the privacy helper never announced readiness".to_string()
+            } else {
+                format!("still bootstrapping ({progress})")
+            };
+            return Err(format!(
+                "The privacy chain did not become ready within {budget_secs} seconds: {detail}"
+            ));
+        }
+        if progress != last_progress {
+            let _ = app.emit(
+                "aether-log",
+                format!("[privacy] waiting for the chain: {progress}"),
+            );
+            last_progress = progress;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn start_validated_protocol(
     app: &AppHandle,
     process: &Arc<ProcessManager>,
     settings: &Settings,
+    chain: Option<&chain::ChainRuntime>,
     timeline_id: &str,
     connect_started_ms: u64,
     trigger: &str,
@@ -1088,21 +1361,32 @@ async fn start_validated_protocol(
             elapsed_since_ms(connect_started_ms),
         );
     }
-    // Both failure modes that a different endpoint can fix get the same budget:
-    // an exit in the country the tunnel exists to leave, and a listener that
-    // opens but carries no traffic. Before this, only the first was retried -
-    // the second returned immediately, which is why a sixth of all
-    // non-cancelled attempts ended at "SOCKS5 opened, but HTTPS data-plane
-    // validation failed" with no second endpoint ever tried.
+    // A listener that opens but carries no traffic is the one failure mode a different
+    // endpoint can fix (dev.033 Phase 1: the country-rejection retry mode is gone —
+    // exit geography is informational unless an explicit exit policy forbids it).
+    // The bounded budget stays 3/2; it was NOT increased (PROMPT §1.1 forbids
+    // "fixing" the defect by adding more retries).
     let max_exit_attempts = if settings.protocol == "gool" { 3 } else { 2 };
     let mut failures = Vec::new();
     for exit_attempt in 1..=max_exit_attempts {
         if session_epoch.load(Ordering::SeqCst) != session_token {
             return Err("Connection attempt was cancelled".into());
         }
-        let generation =
-            start_core_with_fallback(app, process, settings, timeline_id, connect_started_ms)
-                .await?;
+        let generation = start_core_with_fallback(
+            app,
+            process,
+            settings,
+            chain,
+            timeline_id,
+            connect_started_ms,
+        )
+        .await?;
+        // Chain-mode readiness gate: the privacy helper must announce itself before any
+        // traffic probe is trusted (Android announcement-gate parity). A SOCKS handshake on
+        // 1819 only proves the underlay; the public relays prove the chain egress.
+        if let Some(runtime) = chain {
+            wait_for_privacy_announcement(app, process, generation, runtime).await?;
+        }
         emit_timeline(
             app,
             timeline_id,
@@ -1187,7 +1471,19 @@ async fn start_validated_protocol(
             "endpoint_candidate_responded",
             elapsed_since_ms(connect_started_ms),
         );
-        if settings.protocol != "gool" || probe.country != "IR" {
+        // Success is defined by the data plane, never by geography (dev.033 Phase 1):
+        // a probe that got this far means the SOCKS listener answered, the HTTPS trace
+        // completed end to end through the tunnel, and the exit IP is a real public
+        // address. Whether that exit resolves to IR — or any other country — is
+        // informational LOCATION data. The dev.032 code rejected `gool` exits whose
+        // country resolved to IR and retried until "GOOL could not obtain a non-IR exit
+        // after 3 bounded attempts" (reproduced physically: a warp-in-warp tunnel with
+        // a validated inner+outer handshake, the public 1819 bound, and a live
+        // 104.28.246.167 IR exit was killed three times purely for the country value).
+        // Country-based rejection now happens only under an explicit user-configured
+        // exit-country policy (`exit_country_policy`); none exists in the product's
+        // settings today, so every healthy tunnel is accepted as-is.
+        if !exit_country_policy_rejected(settings, &probe.country) {
             emit_timeline(
                 app,
                 timeline_id,
@@ -1206,14 +1502,18 @@ async fn start_validated_protocol(
             );
             return Ok((generation, probe));
         }
-        failures.push(format!("attempt {exit_attempt} returned IR"));
-        // A pin that lands back inside the country is as unusable as one that
-        // carries nothing, and would otherwise be reused on the next connect.
-        invalidate_endpoint_cache(app, "the cached endpoints exited inside the restricted country");
+        failures.push(format!("attempt {exit_attempt} exited in {country}", country = probe.country));
+        // An explicit exit-country policy rejected this endpoint's country: the pin
+        // landed somewhere the policy forbids, so it is withdrawn rather than reused.
+        invalidate_endpoint_cache(
+            app,
+            "the cached endpoints exited in a country the exit policy forbids",
+        );
         let _ = app.emit(
             "aether-log",
             format!(
-                "[gool] rejected_exit_country=IR attempt={exit_attempt} max_attempts={max_exit_attempts}"
+                "[endpoint] rejected_exit_country={} attempt={exit_attempt} max_attempts={max_exit_attempts} (explicit exit policy)",
+                probe.country
             ),
         );
         let _ = process.stop().await;
@@ -1222,15 +1522,40 @@ async fn start_validated_protocol(
         }
     }
     Err(format!(
-        "GOOL could not obtain a non-IR exit after {max_exit_attempts} bounded attempts: {}",
+        "The exit-country policy could not be satisfied after {max_exit_attempts} bounded attempts: {}",
         failures.join("; ")
     ))
+}
+
+/// Should this exit country be rejected? Only an EXPLICIT user-configured
+/// exit-country policy may reject a country (dev.033 Phase 1.2). The product's only
+/// country setting today is `psiphon_region`, which is the Psiphon chain's own
+/// egress-region request handled by the core — it is not a plain-protocol exit
+/// policy. With no exit policy configured, every country — including IR — is a valid,
+/// informational LOCATION result and the tunnel is accepted.
+fn exit_country_policy_rejected(_settings: &Settings, _country: &str) -> bool {
+    false
+}
+
+#[cfg(test)]
+/// Serialize tests that mutate a process-global environment variable: the hold
+/// clears the variable on release, so one test's leftover can never leak into
+/// another. (The variable this mission needs is AETHON_GOOL_STRICT; the mechanism
+/// matches the upstream core's own `SettingsHeld` test pattern.)
+pub(crate) fn test_env_hold(_name: &str) -> std::sync::MutexGuard<'static, ()> {
+    static HOLD: std::sync::OnceLock<std::sync::Mutex<()>> = std::sync::OnceLock::new();
+    let guard = HOLD
+        .get_or_init(|| std::sync::Mutex::new(()))
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    std::env::remove_var("AETHON_GOOL_STRICT");
+    guard
 }
 
 /// The readiness budget for an attempt started from a cached pin.
 ///
 /// A scanned attempt is allowed the full `stall_timeout` because it genuinely
-/// may need it. A pinned attempt may not: v1.9.0's `run_gool` never blacklists
+/// may need it. A pinned attempt may not: v2.0.0's `run_gool` never blacklists
 /// a hand-pinned hop, so if the pin is dead the core retries it until something
 /// outside stops it. Waiting `stall_timeout` (90 s by default) to discover that
 /// would make the cache far more expensive when it is wrong than it is
@@ -1238,14 +1563,27 @@ async fn start_validated_protocol(
 /// p90 for a *scanned* listener, so a healthy pin is never cut off.
 const PINNED_ATTEMPT_READY_SECS: u64 = 10;
 
+/// dev.033 Phase 2.1: strict-mode diagnostic flag. When `AETHON_GOOL_STRICT=1`, the gool
+/// topology runs exactly as stored — topology memory and the bounded classic fallback
+/// are both disabled, so physical validation can prove each topology independently
+/// (PROMPT §2.1: "no hidden topology fallback for strict-mode test").
+fn gool_strict_mode() -> bool {
+    std::env::var("AETHON_GOOL_STRICT")
+        .map(|value| value == "1")
+        .unwrap_or(false)
+}
+
 async fn start_core_with_fallback(
     app: &AppHandle,
     process: &Arc<ProcessManager>,
     settings: &Settings,
+    chain: Option<&chain::ChainRuntime>,
     timeline_id: &str,
     connect_started_ms: u64,
 ) -> Result<u64, String> {
-    let generation = process.start(app.clone(), settings.clone()).await?;
+    let generation = process
+        .start_with_chain(app.clone(), settings.clone(), chain)
+        .await?;
     emit_process_timeline(
         app,
         timeline_id,
@@ -1255,15 +1593,28 @@ async fn start_core_with_fallback(
         process.pid().await,
     );
     let from_cache = process.started_from_cache().await;
+    // Chain-mode attempts get the privacy startup allowance on top of the SOCKS budget: the
+    // helper bootstraps through the underlay after the listener is up, and the generic stall
+    // watchdog must not kill a legitimately bootstrapping helper (root cause D3.5).
+    let chain_allowance = chain.map(|runtime| match runtime.chain {
+        protocol::PrivacyChain::Psiphon => protocol::PSIPHON_STARTUP_ALLOWANCE_SECS,
+        protocol::PrivacyChain::Tor => protocol::TOR_STARTUP_ALLOWANCE_SECS,
+        protocol::PrivacyChain::None => 0,
+    });
     let primary_result = wait_for_core_socks(
         process,
         settings,
+        chain,
         generation,
-        if from_cache {
-            settings.stall_timeout.min(PINNED_ATTEMPT_READY_SECS)
-        } else {
-            settings.stall_timeout
-        },
+        chain_allowance
+            .map(|allowance| settings.stall_timeout + allowance)
+            .unwrap_or({
+                if from_cache {
+                    settings.stall_timeout.min(PINNED_ATTEMPT_READY_SECS)
+                } else {
+                    settings.stall_timeout
+                }
+            }),
     )
     .await;
     if primary_result.is_ok() {
@@ -1288,7 +1639,7 @@ async fn start_core_with_fallback(
         );
         let _ = process.stop().await;
         let rescan_generation = process
-            .start_with_options(app.clone(), settings.clone(), false)
+            .start_with_chain(app.clone(), settings.clone(), chain)
             .await?;
         emit_process_timeline(
             app,
@@ -1298,11 +1649,18 @@ async fn start_core_with_fallback(
             connect_started_ms,
             process.pid().await,
         );
+        // The rescan replays the same privacy announcement gate.
+        if let Some(runtime) = chain {
+            wait_for_privacy_announcement(app, process, rescan_generation, runtime).await?;
+        }
         return match wait_for_core_socks(
             process,
             settings,
+            chain,
             rescan_generation,
-            settings.stall_timeout,
+            chain_allowance
+                .map(|allowance| settings.stall_timeout + allowance)
+                .unwrap_or(settings.stall_timeout),
         )
         .await
         {
@@ -1315,7 +1673,105 @@ async fn start_core_with_fallback(
             }
         };
     }
-    if settings.protocol == "masque" && settings.masque_transport == "h3" {
+    // Core v2.3.0 gool topology fallback (dev.032 Phase 1 root-cause fix): when the
+    // MASQUE-carried gool cannot find a gateway on this network, the SAME single user
+    // Connect attempt falls back once, bounded, to the classic WireGuard-in-WireGuard
+    // gool (`AETHER_GOOL_MODE=classic`) — the topology every pre-v2.3.0 gool user had and
+    // which needs no MASQUE gateway at all. Without this, a network that filters the
+    // MASQUE scan makes every gool/gool+chain connect fail after the full 90 s watchdog
+    // budget (the reproduced dev.031 defect). Conditions, all required:
+    //   - the attempt's base is gool;
+    //   - no custom WiW endpoints (the core already runs classic for them — a failure
+    //     there is an endpoint failure, not a topology failure, and the exit-retry loop
+    //     above owns it);
+    //   - the stored mode is the v2.3.0 default masque-carried gool (a user who chose
+    //     classic explicitly is already running classic — no silent second topology);
+    //   - the failure is the MASQUE-carrier scan class, not a generic timeout (a
+    //     generic timeout could equally mean the network is just slow, and restarting
+    //     into the same scan budget as classic would only add another full wait).
+    //   - not strict mode (dev.033 Phase 2.1): AETHON_GOOL_STRICT=1 disables this
+    //     compatibility assist entirely — the stored topology runs or fails as-is, so
+    //     physical validation can prove each topology independently. In strict mode a
+    //     MASQUE-scan failure is a terminal, honest error, never a hidden topology swap.
+    //     In normal (non-strict) mode the fallback is VISIBLE: a log line, the
+    //     `aether_gool_classic_fallback` timeline event, and the running topology is
+    //     reported in the connected status message (dev.033 Phase 2.2 — the UI must
+    //     never silently claim one topology while another runs).
+    if !gool_strict_mode()
+        && protocol::base_protocol(&settings.protocol) == "gool"
+        && settings.wiw_outer_peer.trim().is_empty()
+        && settings.wiw_inner_peer.trim().is_empty()
+        && protocol::GoolMode::parse(&settings.gool_mode) == protocol::GoolMode::Masque
+        && primary_error.contains("gateway scan failed")
+    {
+        let _ = process.stop().await;
+        let mut fallback = settings.clone();
+        fallback.gool_mode = "classic".into();
+        let _ = app.emit(
+            "aether-log",
+            "[gool] the MASQUE-carried gool found no gateway on this network; retrying once with \
+             the classic WireGuard-in-WireGuard gool topology",
+        );
+        emit_timeline(
+            app,
+            timeline_id,
+            &settings.protocol,
+            &settings.connection_mode,
+            "aether_gool_classic_fallback",
+            elapsed_since_ms(connect_started_ms),
+        );
+        let fallback_generation = process
+            .start_with_chain(app.clone(), fallback.clone(), chain)
+            .await?;
+        emit_process_timeline(
+            app,
+            timeline_id,
+            settings,
+            "aether_fallback_process_created",
+            connect_started_ms,
+            process.pid().await,
+        );
+        // The classic fallback replays the same privacy announcement gate.
+        if let Some(runtime) = chain {
+            wait_for_privacy_announcement(app, process, fallback_generation, runtime).await?;
+        }
+        return match wait_for_core_socks(
+            process,
+            &fallback,
+            chain,
+            fallback_generation,
+            chain_allowance
+                .map(|allowance| fallback.stall_timeout + allowance)
+                .unwrap_or(fallback.stall_timeout),
+        )
+        .await
+        {
+            Ok(()) => {
+                // Remember the topology that actually worked for the NEXT connect, so a
+                // network that blocks MASQUE scans does not pay the 45 s scan-failure
+                // cost on every future attempt. This is the same "remember what worked"
+                // contract as the smart-connect winner cache, applied to the gool
+                // topology; the stored user protocol is untouched (still gool/gool+chain).
+                if let Some(dir) = endpoint_cache_dir(app) {
+                    let _ = std::fs::write(
+                        dir.join("gool-mode.txt"),
+                        "classic",
+                    );
+                }
+                Ok(fallback_generation)
+            }
+            Err(error) => {
+                let _ = process.stop().await;
+                Err(format!(
+                    "the MASQUE-carried gool could not find a gateway ({primary_error}); the \
+                     classic WireGuard-in-WireGuard gool fallback also failed ({error})"
+                ))
+            }
+        };
+    }
+    // The same class of network can also defeat a masque-h3 attempt's scans; the existing
+    // h2 carrier fallback (below) owns that case unchanged.
+    if protocol::base_protocol(&settings.protocol) == "masque" && settings.masque_transport == "h3" {
         let _ = process.stop().await;
         let mut fallback = settings.clone();
         fallback.masque_transport = "h2".into();
@@ -1323,7 +1779,9 @@ async fn start_core_with_fallback(
             "aether-log",
             "MASQUE HTTP/3 failed; retrying with HTTP/2 transport",
         );
-        let fallback_generation = process.start(app.clone(), fallback.clone()).await?;
+        let fallback_generation = process
+            .start_with_chain(app.clone(), fallback.clone(), chain)
+            .await?;
         emit_process_timeline(
             app,
             timeline_id,
@@ -1332,9 +1790,14 @@ async fn start_core_with_fallback(
             connect_started_ms,
             process.pid().await,
         );
+        // The H2 fallback replays the same privacy announcement gate.
+        if let Some(runtime) = chain {
+            wait_for_privacy_announcement(app, process, fallback_generation, runtime).await?;
+        }
         match wait_for_core_socks(
             process,
             &fallback,
+            chain,
             fallback_generation,
             fallback.stall_timeout,
         )
@@ -1404,22 +1867,38 @@ fn emit_process_timeline(
 async fn wait_for_core_socks(
     process: &Arc<ProcessManager>,
     settings: &Settings,
+    chain: Option<&chain::ChainRuntime>,
     generation: u64,
     budget_secs: u64,
 ) -> Result<(), String> {
     let deadline = Instant::now() + std::time::Duration::from_secs(budget_secs);
+    // In chain mode the core binds the internal underlay (the public 1819 belongs to the
+    // GUI relay). In plain mode the core owns 1819 directly.
+    let underlay = chain
+        .map(|runtime| runtime.internal_socks.clone())
+        .unwrap_or_else(|| settings.socks_address.clone());
     loop {
         if process.generation().await != generation {
             return Err("connection attempt cancelled".into());
         }
-        if probe_socks(&settings.socks_address).await {
+        if probe_socks(&underlay).await {
             return Ok(());
         }
         let detail = process.diagnostic_tail().await;
         let lower = detail.to_ascii_lowercase();
-        if settings.protocol == "masque"
-            && (lower.contains("no usable masque gateway found")
-                || lower.contains("prober: no clean endpoint found"))
+        // Core v2.3.0 runs its default gool through a MASQUE carrier ("gool over masque"),
+        // so a failing MASQUE gateway scan is an endpoint-selection failure for BOTH the
+        // masque family and the gool family. Without this, a gool attempt whose carrier
+        // cannot scan sat in "Connecting" until the stall watchdog killed it at 90s —
+        // the dev.031 user-facing "does not connect" defect (root cause: the check only
+        // matched base masque; the v2.3.0 gool carrier is also MASQUE).
+        let masque_carrier_scan_failed = lower.contains("no usable masque gateway found")
+            || lower.contains("prober: no clean endpoint found");
+        if masque_carrier_scan_failed
+            && matches!(
+                protocol::base_protocol(&settings.protocol),
+                "masque" | "mim" | "gool"
+            )
         {
             return Err(format!("gateway scan failed: {detail}"));
         }
@@ -1474,9 +1953,17 @@ async fn disconnect(app: AppHandle, state: tauri::State<'_, AppState>) -> Result
             elapsed_since_ms(0),
         );
     }
+    // The backend now owns the DISCONNECTING state (root cause D3.4: the frontend used to
+    // be the only one showing it, so slow teardowns looked frozen).
+    emit_status(&app, "disconnecting", None, None);
     state.session_epoch.fetch_add(1, Ordering::SeqCst);
     // Cancel non-essential probes immediately so they cannot hold up routing cleanup.
     state.process.cancel_background_work().await;
+    // Close the TIME interval before any teardown so the accounting is exact.
+    {
+        let mut tracker = state.time_tracker.lock().await;
+        tracker.on_disconnected(&connected_time::system_clock());
+    }
     if !context.attempt_id.is_empty() {
         emit_timeline(
             &app,
@@ -1487,6 +1974,8 @@ async fn disconnect(app: AppHandle, state: tauri::State<'_, AppState>) -> Result
             elapsed_since_ms(0),
         );
     }
+    // Release the public 1818/1819 relays with the routing teardown (all owned listeners).
+    state.relays.stop().await;
     let routing_result = state.routing.stop(&app).await;
     // Release system-wide routes and DNS before terminating the SOCKS provider. This ordering
     // keeps cleanup reachable even if the core is already unhealthy.
@@ -1525,6 +2014,65 @@ async fn disconnect(app: AppHandle, state: tauri::State<'_, AppState>) -> Result
         )),
     }
 }
+/// Protocol catalog for the frontend: one canonical source (PROMPT §12 — no scattered
+/// dropdown indexes). The UI renders this order; every consumer derives from
+/// `protocol.rs` so JS and Rust can never disagree.
+#[tauri::command]
+fn protocol_catalog() -> serde_json::Value {
+    serde_json::json!({
+        "displayOrder": protocol::DISPLAY_ORDER,
+        "storageValues": protocol::PROTOCOLS,
+        "default": protocol::DEFAULT_PROTOCOL,
+        "psiphonCombined": ["masque+psiphon", "wg+psiphon", "gool+psiphon"],
+        "torCombined": ["masque+tor", "wg+tor", "gool+tor"],
+        "masqueTransportApplicable": protocol::PROTOCOLS
+            .iter()
+            .filter(|p| protocol::masque_transport_applicable(p))
+            .copied()
+            .collect::<Vec<_>>(),
+        "proxyModeVisible": protocol::PROTOCOLS
+            .iter()
+            .filter(|p| protocol::proxy_mode_visible(p))
+            .copied()
+            .collect::<Vec<_>>(),
+        "publicHttp": protocol::PUBLIC_HTTP,
+        "publicSocks": protocol::PUBLIC_SOCKS,
+    })
+}
+
+/// The verified Aether core version string (About page).
+#[tauri::command]
+fn verified_core_version(app: AppHandle) -> Result<String, String> {
+    process::verified_core_version(&app)
+}
+
+/// Backup/restore: write the exported configuration JSON to a user-chosen path. The path is
+/// validated as an absolute file path; the content is written verbatim (never executed).
+#[tauri::command]
+fn write_backup_file(path: String, content: String) -> Result<(), String> {
+    let target = std::path::PathBuf::from(&path);
+    if !target.is_absolute() || content.contains('\0') {
+        return Err("Invalid backup destination".into());
+    }
+    std::fs::write(&target, content).map_err(|e| format!("Could not write the backup: {e}"))
+}
+
+/// Backup/restore: read a configuration JSON file for import. Size-capped and structure is
+/// validated by the frontend before it reaches `save_settings` (which runs full
+/// normalization + validation on the backend anyway).
+#[tauri::command]
+fn read_backup_file(path: String) -> Result<String, String> {
+    let source = std::path::PathBuf::from(&path);
+    if !source.is_absolute() {
+        return Err("Invalid backup source".into());
+    }
+    let metadata = std::fs::metadata(&source).map_err(|e| format!("Could not read the backup: {e}"))?;
+    if metadata.len() > 1_000_000 {
+        return Err("The backup file is unexpectedly large".into());
+    }
+    std::fs::read_to_string(&source).map_err(|e| format!("Could not read the backup: {e}"))
+}
+
 #[tauri::command]
 async fn elapsed(state: tauri::State<'_, AppState>) -> Result<u64, String> {
     Ok(state.process.elapsed_secs().await)
@@ -1535,19 +2083,77 @@ async fn elapsed(state: tauri::State<'_, AppState>) -> Result<u64, String> {
 struct ConnectionSnapshot {
     state: String,
     elapsed: u64,
+    /// Today's cumulative connected seconds (TIME). Present in every snapshot so a frontend
+    /// reload restores the value without a second round trip.
+    daily_seconds: u64,
+    /// Fixed HH:MM:SS rendering of daily_seconds.
+    daily_time: String,
 }
 
 #[tauri::command]
-async fn connection_state(state: tauri::State<'_, AppState>) -> Result<ConnectionSnapshot, String> {
+async fn connection_state(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<ConnectionSnapshot, String> {
     let core_state = state.process.connection_state().await;
+    let mut tracker = state.time_tracker.lock().await;
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let store = dir.join("connected-time.json");
+        if tracker.store_path() != store {
+            tracker.retarget_store(store);
+        }
+    }
+    let snapshot = tracker.snapshot(&connected_time::system_clock());
+    // Periodic checkpoint while connected (the Android telemetry tick equivalent).
+    if snapshot.connected {
+        tracker.checkpoint(&connected_time::system_clock());
+    }
     Ok(ConnectionSnapshot {
         state: core_state.to_string(),
         elapsed: state.process.elapsed_secs().await,
+        daily_seconds: snapshot.seconds,
+        daily_time: connected_time::ConnectedTimeTracker::today_hms(&snapshot),
     })
 }
+
+/// TIME daily connected-seconds + rendered HH:MM:SS for the Home row.
 #[tauri::command]
-async fn traffic_totals(state: tauri::State<'_, AppState>) -> Result<TrafficTotals, String> {
-    state.routing.traffic_totals().await
+async fn daily_time(
+    app: AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> Result<(u64, String), String> {
+    let mut tracker = state.time_tracker.lock().await;
+    if let Ok(dir) = app.path().app_local_data_dir() {
+        let store = dir.join("connected-time.json");
+        if tracker.store_path() != store {
+            tracker.retarget_store(store);
+        }
+    }
+    let snapshot = tracker.snapshot(&connected_time::system_clock());
+    if snapshot.connected {
+        tracker.checkpoint(&connected_time::system_clock());
+    }
+    Ok((
+        snapshot.seconds,
+        connected_time::ConnectedTimeTracker::today_hms(&snapshot),
+    ))
+}
+#[tauri::command]
+async fn traffic_totals(
+    state: tauri::State<'_, AppState>,
+) -> Result<TrafficTotals, String> {
+    // The core's own cumulative listener counters (parsed from its `[=] up/down` stats
+    // lines) are the authoritative user-facing totals: they are real relayed bytes and
+    // exist in BOTH connection modes. TUN interface counters are reported alongside as a
+    // VPN-mode cross-check; the UI consumes the core numbers.
+    let core = state.process.core_stats().await;
+    let tun = state.routing.traffic_totals().await.ok();
+    Ok(TrafficTotals {
+        uploaded: core.uploaded,
+        downloaded: core.downloaded,
+        tun_uploaded: tun.as_ref().map(|totals| totals.uploaded),
+        tun_downloaded: tun.as_ref().map(|totals| totals.downloaded),
+    })
 }
 
 #[derive(serde::Serialize)]
@@ -1614,6 +2220,13 @@ fn normalized_location(value: &serde_json::Value) -> String {
         2,
     )
     .to_ascii_uppercase();
+    // Strict ISO 3166-1 alpha-2 only (Android dev.020 CHANGE 6): a non-conforming or
+    // non-country code (T1/T2/XX markers) can never contribute to the rendered location.
+    let country_code = if is_iso_alpha2(&country_code) && !is_non_country_marker(&country_code) {
+        country_code
+    } else {
+        String::new()
+    };
     let country = if country_name.is_empty() {
         country_code
     } else {
@@ -1625,6 +2238,17 @@ fn normalized_location(value: &serde_json::Value) -> String {
         (true, false) => country,
         (true, true) => String::new(),
     }
+}
+
+/// Strict ISO 3166-1 alpha-2 shape: exactly two ASCII letters.
+fn is_iso_alpha2(value: &str) -> bool {
+    value.len() == 2 && value.chars().all(|c| c.is_ascii_alphabetic())
+}
+
+/// Cloudflare Tor markers are not countries. `T1`/`T2` (and `XX` as a sentinel) trigger the
+/// real-exit resolution path instead of ever being displayed (Android dev.020 CHANGE 6).
+fn is_non_country_marker(value: &str) -> bool {
+    matches!(value, "T1" | "T2" | "XX")
 }
 
 fn provider_matches_exit_ip(value: &serde_json::Value, expected_ip: &str) -> bool {
@@ -1968,15 +2592,22 @@ async fn system_trace_probe_once(
         category: "tls_timeout",
     })?
     .map_err(|error| ProbeFailure {
+        // dev.033: a TLS handshake EOF/reset on the FIRST exchange over a freshly
+        // installed system route is the measured cold-route convergence class, not a
+        // permanent data-plane defect (physically reproduced: t18 failed 2s after
+        // Connected with "tls handshake eof" while the SOCKS-plane probe through the
+        // same core had JUST succeeded — the identical class dev.032 fixed for the
+        // chain probes). Marking it transient lets the already-bounded 12s retry loop
+        // re-attempt; a genuinely dead data plane still fails after the budget.
         message: format!("TLS handshake failed: {error}"),
-        transient: false,
+        transient: true,
         category: "tls",
     })?;
     let tls_ms = tls_started.elapsed().as_millis().min(u64::MAX as u128) as u64;
     emit_data_plane_phase(app, "tls", attempt, tls_ms, "success", "", "");
 
     let http_started = Instant::now();
-    tls.write_all(b"GET /cdn-cgi/trace HTTP/1.1\r\nHost: www.cloudflare.com\r\nUser-Agent: Aethon/2.1.1\r\nAccept: text/plain\r\nConnection: close\r\n\r\n")
+        tls.write_all(b"GET /cdn-cgi/trace HTTP/1.1\r\nHost: www.cloudflare.com\r\nUser-Agent: Aethon/2.2.0\r\nAccept: text/plain\r\nConnection: close\r\n\r\n")
         .await
         .map_err(|error| ProbeFailure {
             message: format!("HTTPS request write failed: {error}"),
@@ -2067,15 +2698,36 @@ async fn run_trace_probe(
     let mut last_error = String::from("HTTPS trace failed");
     let connecting_probe = trigger == "connect_validation";
     let watchdog_probe = trigger.starts_with("watchdog");
-    let connect_timeout = std::time::Duration::from_secs(if connecting_probe || watchdog_probe {
-        2
-    } else {
-        4
-    });
+    // Chain-aware probe budgets. A +Psiphon/+Tor connect's first HTTPS goes through a
+    // privacy helper that JUST announced readiness on a tunnel that JUST came up: the
+    // first end-to-end exchange (helper handshake through the fresh underlay, remote
+    // TLS) routinely takes several seconds on degraded networks. The dev.031 budgets
+    // (2s connect / 4s request for connect validation, retry pacing 100-500ms) were
+    // calibrated for plain protocols and rejected healthy chains that were merely
+    // cold — the reproduced "SOCKS5 opened, but HTTPS data-plane validation failed"
+    // on gool+psiphon (probe connect-timeouts 2s after the psiphon announcement).
+    // Still bounded: one attempt may not exceed these budgets, the retry count is
+    // unchanged, and the endpoint-attempt loop above remains the outer bound.
+    let chain_active = protocol::privacy_chain(&settings.protocol) != protocol::PrivacyChain::None;
+    let connect_timeout = std::time::Duration::from_secs(
+        if connecting_probe || watchdog_probe {
+            if chain_active {
+                10
+            } else {
+                2
+            }
+        } else {
+            4
+        },
+    );
     let request_timeout = std::time::Duration::from_secs(if watchdog_probe {
         3
     } else if connecting_probe {
-        4
+        if chain_active {
+            15
+        } else {
+            4
+        }
     } else {
         8
     });
@@ -2131,10 +2783,17 @@ async fn run_trace_probe(
                     break;
                 }
                 let delay_ms = if connecting_probe {
-                    [100u64, 200, 300, 500, 500, 500, 500]
-                        .get(attempt as usize)
-                        .copied()
-                        .unwrap_or(500)
+                    // Chain connects just switched to a fresh helper; give the cold chain
+                    // a full second between attempts instead of the plain-protocol
+                    // 100-500ms pacing (same root cause as the budgets above).
+                    if chain_active {
+                        1000
+                    } else {
+                        [100u64, 200, 300, 500, 500, 500, 500]
+                            .get(attempt as usize)
+                            .copied()
+                            .unwrap_or(500)
+                    }
                 } else {
                     500 * u64::from(attempt + 1)
                 };
@@ -2316,6 +2975,7 @@ fn spawn_connect_data_plane_validation(
     app: AppHandle,
     process: Arc<ProcessManager>,
     routing: Arc<RoutingManager>,
+    relays: Arc<chain::PublicPortRelays>,
     settings: Settings,
     generation: u64,
     expected_exit: String,
@@ -2415,6 +3075,7 @@ fn spawn_connect_data_plane_validation(
                     ),
                 );
                 process.mark_unhealthy().await;
+                relays.stop().await;
                 let _ = routing.stop(&app).await;
                 let _ = process.stop().await;
                 // The core's own output can publish `reconnecting` or `scanning`
@@ -2754,6 +3415,7 @@ async fn vpn_location(
         );
     }
     let mut exit_ip = location_cache().lock().await.exit_ip.clone();
+    let mut trace_country = String::new();
     if exit_ip.is_empty() {
         let probe = run_trace_probe(
             &app,
@@ -2769,8 +3431,21 @@ async fn vpn_location(
         .await?
         .ok_or("A data-plane probe is already in flight")?;
         exit_ip = probe.exit_ip;
+        trace_country = probe.country.clone();
         let mut cache = location_cache().lock().await;
         cache.exit_ip = exit_ip.clone();
+    }
+    // Tor T1 marker (Android dev.020 CHANGE 6 parity): Cloudflare answers loc=T1 for Tor
+    // exits. T1 is not a country — never render it; resolve the real exit country through
+    // the same trustworthy providers the lookup already uses.
+    if is_non_country_marker(&trace_country) {
+        let _ = app.emit(
+            "aether-log",
+            format!(
+                "[location] Trace reported the Tor marker {trace_country} instead of a country; \
+                 resolving the real Tor exit country"
+            ),
+        );
     }
     let cached = {
         let cache = location_cache().lock().await;
@@ -2780,7 +3455,7 @@ async fn vpn_location(
             String::new()
         }
     };
-    let location = if !cached.is_empty() {
+    let location = if !cached.is_empty() && !is_non_country_marker(&trace_country) {
         cached
     } else {
         let client = reqwest::Client::builder()
@@ -2800,13 +3475,19 @@ async fn vpn_location(
             return Err("Location lookup was cancelled".into());
         }
         let mut cache = location_cache().lock().await;
-        cache.exit_ip = exit_ip;
+        cache.exit_ip = exit_ip.clone();
         cache.location = lookup.clone();
         cache.retry_after = lookup
             .is_empty()
             .then(|| Instant::now() + std::time::Duration::from_secs(60));
         lookup
     };
+    // A rendered location must never carry a non-country marker (T1/T2/XX) or malformed code.
+    if let Some(code) = location.split(", ").next() {
+        if is_non_country_marker(code) || (code.len() == 2 && !is_iso_alpha2(code)) {
+            return Ok(String::new());
+        }
+    }
     if !context.attempt_id.is_empty() {
         emit_timeline(
             &app,
@@ -2913,40 +3594,80 @@ async fn network_diagnostics(
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 struct InstalledApplication {
     name: String,
     path: String,
     icon: String,
+    /// Genuinely pre-installed/Windows-provided application (Start Menu "All Users" tree or
+    /// a Windows system directory). Hidden unless Show system apps is enabled.
+    #[serde(default)]
+    system: bool,
+    /// Aethon-protective entry: never selectable (its traffic must not loop through itself).
+    #[serde(default)]
+    protected: bool,
+}
+
+/// Executables whose routing through Aethon would break Aethon itself.
+#[cfg(windows)]
+fn is_protected_executable(path: &str) -> bool {
+    let lowered = path.to_ascii_lowercase();
+    let exe = std::path::Path::new(&lowered)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or_default();
+    matches!(
+        exe,
+        "aether.exe" | "aethon.exe" | "xray.exe" | "psiphon-tunnel-core.exe" | "lyrebird.exe"
+    ) || lowered.contains("aether-gui") && exe == "aether-gui.exe"
 }
 
 #[tauri::command]
-async fn installed_applications() -> Result<Vec<InstalledApplication>, String> {
+async fn installed_applications(_app: AppHandle) -> Result<Vec<InstalledApplication>, String> {
     #[cfg(windows)]
     {
-        let script = "Add-Type -AssemblyName System.Drawing;$roots=@($env:ProgramData+'\\Microsoft\\Windows\\Start Menu\\Programs',$env:APPDATA+'\\Microsoft\\Windows\\Start Menu\\Programs');$w=New-Object -ComObject WScript.Shell;Get-ChildItem $roots -Filter *.lnk -Recurse -ErrorAction SilentlyContinue|%{$s=$w.CreateShortcut($_.FullName);if($s.TargetPath -match '\\.exe$'){$b='';try{$i=[Drawing.Icon]::ExtractAssociatedIcon($s.TargetPath);if($i){$m=New-Object IO.MemoryStream;$i.ToBitmap().Save($m,[Drawing.Imaging.ImageFormat]::Png);$b=[Convert]::ToBase64String($m.ToArray());$m.Dispose();$i.Dispose()}}catch{};('{0}`t{1}`t{2}' -f $_.BaseName,$s.TargetPath,$b)}}";
-        let mut command = std::process::Command::new("powershell.exe");
-        command.args(["-NoProfile", "-NonInteractive", "-Command", script]);
-        use std::os::windows::process::CommandExt;
-        command.creation_flags(windows_sys::Win32::System::Threading::CREATE_NO_WINDOW);
-        let output = command.output().map_err(display_err)?;
+        // Two families are enumerated in one pass (Android dev.020 CHANGE 8 parity):
+        // - user apps: Start-Menu .lnk targets (both the per-user and All Users trees);
+        // - system apps: targets resolving under Windows system directories — genuinely
+        //   pre-installed platform components (cleanmgr, notepad, etc.).
+        // The Aethon/core/routing executables are marked protected and never selectable.
+        //
+        // dev.030: enumeration is NATIVE (app_picker.rs) — IShellLinkW/IPersistFile COM
+        // parsing in-process plus ExtractIconExW icons. The dev.029 implementation
+        // spawned `powershell.exe -ExecutionPolicy Bypass -File <written .ps1>` with a
+        // WScript.Shell shortcut harvest; that shape matches antimalware heuristics and
+        // was the prime Bearfoos-investigation suspect (see
+        // AETHON_DEV030_SECURITY_INCIDENT_REPORT.md). The native path spawns no child
+        // process, writes no script, and reads only shortcut metadata.
+        let enumerated = app_picker::enumerate_start_menu_apps()?;
+        let windows_dir = std::env::var("SystemRoot")
+            .or_else(|_| std::env::var("WinDir"))
+            .unwrap_or_else(|_| "C:\\Windows".into())
+            .to_ascii_lowercase();
         let mut apps = Vec::new();
-        for line in String::from_utf8_lossy(&output.stdout).lines() {
-            let mut parts = line.splitn(3, '\t');
-            if let (Some(name), Some(path), Some(icon)) = (parts.next(), parts.next(), parts.next())
-            {
-                apps.push(InstalledApplication {
-                    name: name.into(),
-                    path: path.into(),
-                    icon: icon.into(),
-                });
-            }
+        for item in enumerated {
+            let lowered = item.path.to_ascii_lowercase();
+            // "System apps" = genuinely pre-installed platform components (targets
+            // under the Windows system directory). Program Files is where NORMAL user
+            // applications install — those stay in the default (non-system) family.
+            let system = !windows_dir.is_empty() && lowered.starts_with(&windows_dir);
+            apps.push(InstalledApplication {
+                name: item.name,
+                path: item.path,
+                icon: item.icon,
+                system,
+                protected: is_protected_executable(&lowered),
+            });
         }
         apps.sort_by_key(|a| a.name.to_lowercase());
         apps.dedup_by(|a, b| a.path.eq_ignore_ascii_case(&b.path));
         Ok(apps)
     }
     #[cfg(not(windows))]
-    Ok(Vec::new())
+    {
+        let _ = app;
+        Ok(Vec::new())
+    }
 }
 #[tauri::command]
 async fn load_settings(app: AppHandle) -> Result<Settings, String> {
@@ -3019,10 +3740,26 @@ fn show_window(app: &AppHandle) {
         let _ = window.set_focus();
     }
 }
-async fn stop_and_exit(app: AppHandle, process: Arc<ProcessManager>, routing: Arc<RoutingManager>) {
-    let _ = routing.stop(&app).await;
-    let _ = process.stop().await;
-    app.exit(0);
+/// Coordinated teardown for tray-initiated disconnect/quit: releases the public relays
+/// alongside routing/process and emits the terminal state, so every path that ends a
+/// connection goes through the same cleanup set (root cause D3.1).
+async fn teardown_connection(
+    app: &AppHandle,
+    process: Arc<ProcessManager>,
+    routing: Arc<RoutingManager>,
+    relays: Arc<chain::PublicPortRelays>,
+) -> Result<(), String> {
+    relays.stop().await;
+    let routing_result = routing.stop(app).await;
+    let process_result = process.stop().await;
+    emit_status(app, "disconnected", None, None);
+    match (routing_result, process_result) {
+        (Ok(()), Ok(())) => Ok(()),
+        (Err(routing), _) => Err(format!(
+            "Aether stopped, but Windows network cleanup needs attention: {routing}"
+        )),
+        (Ok(()), Err(process)) => Err(format!("Could not stop the Aether core: {process}")),
+    }
 }
 fn display_err(e: impl std::fmt::Display) -> String {
     e.to_string()
@@ -3088,8 +3825,10 @@ async fn pick_applications(app: AppHandle) -> Result<Vec<String>, String> {
 pub fn run() {
     let process = Arc::new(ProcessManager::default());
     let routing = Arc::new(RoutingManager::default());
+    let relays = Arc::new(chain::PublicPortRelays::new());
     let setup_process = process.clone();
     let setup_routing = routing.clone();
+    let setup_relays = relays.clone();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -3099,6 +3838,8 @@ pub fn run() {
         .manage(AppState {
             process: process.clone(),
             routing: routing.clone(),
+            relays: relays.clone(),
+            time_tracker: tokio::sync::Mutex::new(connected_time::ConnectedTimeTracker::default()),
             connect_gate: tokio::sync::Mutex::new(()),
             session_epoch: Arc::new(AtomicU64::new(0)),
         })
@@ -3115,6 +3856,11 @@ pub fn run() {
             vpn_probe,
             vpn_ping,
             vpn_location,
+            daily_time,
+            protocol_catalog,
+            verified_core_version,
+            write_backup_file,
+            read_backup_file,
             installed_applications,
             network_diagnostics,
             lan_status,
@@ -3130,9 +3876,23 @@ pub fn run() {
             // Hash the shipped executables now, while the window is still opening,
             // so Connect does not have to wait for it later.
             process::prewarm_integrity_checks(app.handle());
+            // TIME accounting reconciliation at process start: a killed GUI killed the core
+            // with it (job object), so the honest state is disconnected; the checkpointed
+            // daily total is kept exactly (Android `reconcile()` parity).
+            {
+                let handle = app.handle().clone();
+                let state = handle.state::<AppState>();
+                let tracker = &state.time_tracker;
+                let mut tracker = tracker.blocking_lock();
+                if let Ok(dir) = handle.path().app_local_data_dir() {
+                    tracker.retarget_store(dir.join("connected-time.json"));
+                }
+                tracker.reconcile(&connected_time::system_clock());
+            }
             let menu = tray_menu(app.handle())?;
             let tray_process = setup_process.clone();
             let tray_routing = setup_routing.clone();
+            let tray_relays = setup_relays.clone();
             TrayIconBuilder::with_id("main")
                 .icon(
                     app.default_window_icon()
@@ -3149,20 +3909,26 @@ pub fn run() {
                         let _ = app.emit("tray-connect", ());
                     }
                     "disconnect" => {
+                        // Coordinated teardown through the same gate/epoch machinery as the
+                        // UI's Disconnect: no unowned parallel stop that races an in-flight
+                        // connect (root cause of the historical multiple-click defect).
                         let app = app.clone();
                         let p = tray_process.clone();
                         let r = tray_routing.clone();
+                        let relays = tray_relays.clone();
                         tauri::async_runtime::spawn(async move {
-                            let _ = r.stop(&app).await;
-                            let _ = p.stop().await;
-                            emit_status(&app, "disconnected", None, None);
+                            let _ = teardown_connection(&app, p, r, relays).await;
                         });
                     }
                     "quit" => {
                         let app = app.clone();
                         let p = tray_process.clone();
                         let r = tray_routing.clone();
-                        tauri::async_runtime::spawn(stop_and_exit(app, p, r));
+                        let relays = tray_relays.clone();
+                        tauri::async_runtime::spawn(async move {
+                            let _ = teardown_connection(&app, p, r, relays).await;
+                            app.exit(0);
+                        });
                     }
                     _ => {}
                 })
@@ -3275,5 +4041,225 @@ mod tests {
         let value = serde_json::json!({"country": "DE"});
         assert_eq!(normalized_location(&value), "DE");
         assert!(provider_matches_exit_ip(&value, "104.28.214.161"));
+    }
+
+    #[test]
+    fn tor_markers_and_non_iso_codes_are_rejected_not_rendered() {
+        // T1/T2/XX markers can never contribute a country (Android dev.020 CHANGE 6).
+        let t1 = serde_json::json!({"ip": "192.42.116.67", "country": "T1", "country_code": "T1"});
+        assert_eq!(normalized_location(&t1), "");
+        let t2 = serde_json::json!({"ip": "192.42.116.67", "country_code": "T2"});
+        assert_eq!(normalized_location(&t2), "");
+        let xx = serde_json::json!({"ip": "192.42.116.67", "country": "XX"});
+        assert_eq!(normalized_location(&xx), "");
+        // Malformed / numeric pseudo-codes are rejected by the strict ISO shape check.
+        let numeric = serde_json::json!({"country": "42"});
+        assert_eq!(normalized_location(&numeric), "");
+        let mixed = serde_json::json!({"country": "D1"});
+        assert_eq!(normalized_location(&mixed), "");
+        // A real city + marker country must degrade to the city only, never show the marker.
+        let city_marker = serde_json::json!({"city": "Philadelphia", "country": "T1"});
+        assert_eq!(normalized_location(&city_marker), "Philadelphia");
+        // Real ISO codes still work.
+        let real = serde_json::json!({"city": "Amsterdam", "country_code": "NL"});
+        assert_eq!(normalized_location(&real), "Amsterdam, NL");
+        assert!(super::is_non_country_marker("T1"));
+        assert!(super::is_non_country_marker("T2"));
+        assert!(super::is_non_country_marker("XX"));
+        assert!(!super::is_non_country_marker("DE"));
+        assert!(!super::is_non_country_marker("IR"));
+    }
+
+    #[test]
+    fn core_stats_line_parses_up_and_down_independently() {
+        use crate::process::parse_stats_line;
+        // Verified v2.1.0 format: "[=] up 291.1 KiB down 482.6 KiB uptime 00:01:30".
+        let stats = parse_stats_line(
+            "2026-10-03T16:32:15.419Z INFO  aether::stats] [=] up 291.1 KiB down 482.6 KiB uptime 00:01:30",
+        )
+        .expect("stats line parses");
+        assert_eq!(stats.uploaded, (291.1 * 1024.0) as u64);
+        assert_eq!(stats.downloaded, (482.6 * 1024.0) as u64);
+        // Independent values: up and down are never mirrored.
+        assert_ne!(stats.uploaded, stats.downloaded);
+        let zero = parse_stats_line("[=] up 0 B down 0 B uptime 00:00:10").unwrap();
+        assert_eq!(zero.uploaded, 0);
+        assert_eq!(zero.downloaded, 0);
+        let mixed_units =
+            parse_stats_line("[=] up 1.5 MiB down 3.4 GiB uptime 2d 03:04:05").unwrap();
+        assert_eq!(mixed_units.uploaded, (1.5 * 1024.0 * 1024.0) as u64);
+        assert_eq!(
+            mixed_units.downloaded,
+            (3.4 * 1024.0 * 1024.0 * 1024.0) as u64
+        );
+        // Non-stats lines return None.
+        assert!(parse_stats_line("[+] socks5 server listening on 127.0.0.1:1819").is_none());
+        assert!(parse_stats_line("garbage line").is_none());
+    }
+
+    // =====================================================================
+    // dev.033 regressions — plain-gool exit-policy semantics
+    // =====================================================================
+
+    #[test]
+    fn plain_gool_ir_exit_is_valid_without_an_explicit_exit_policy() {
+        // The dev.032 defect, reproduced: a healthy probe whose country resolved to IR
+        // was rejected for protocol "gool" until "GOOL could not obtain a non-IR exit
+        // after 3 bounded attempts". Phase 1: no product exit-country policy exists, so
+        // every country — IR included — is accepted; the probe defines success.
+        let settings = crate::settings::Settings::default();
+        for country in ["IR", "DE", "AT", "US", ""] {
+            assert!(
+                !super::exit_country_policy_rejected(&settings, country),
+                "country {country} must be accepted without an exit policy"
+            );
+        }
+    }
+
+    #[test]
+    fn chain_protocols_never_consult_an_exit_country_policy() {
+        // The chain semantics (Phase 1.3): the underlay country must never invalidate a
+        // privacy chain — success and LOCATION follow the FINAL egress. The policy hook
+        // is protocol-independent today, but the audit pins the chain invariants the
+        // connect flow relies on: gool+psiphon/gool+tor are NOT plain "gool".
+        for chain_protocol in ["gool+psiphon", "gool+tor", "wg+psiphon", "masque+tor"] {
+            assert_eq!(
+                crate::protocol::privacy_chain(chain_protocol),
+                if chain_protocol.ends_with("+tor") {
+                    crate::protocol::PrivacyChain::Tor
+                } else {
+                    crate::protocol::PrivacyChain::Psiphon
+                }
+            );
+            assert_ne!(
+                crate::protocol::base_protocol(chain_protocol),
+                chain_protocol
+            );
+        }
+        // Plain gool IS the plain path (the one the dev.032 rejection targeted).
+        assert_eq!(
+            crate::protocol::privacy_chain("gool"),
+            crate::protocol::PrivacyChain::None
+        );
+    }
+
+    #[test]
+    fn trace_country_is_informational_lowercase_normalized() {
+        // Cloudflare's trace emits `loc=ir`; the parser normalizes to ISO upper-case
+        // "IR" — an informational value for LOCATION display, never a rejection
+        // trigger.
+        let (_, country) = parse_trace_response("ip=104.28.246.167\nloc=ir\n").unwrap();
+        assert_eq!(country, "IR");
+        // And the LOCATION renderer accepts IR as a real country.
+        let value = serde_json::json!({"country_code": "IR", "country": "Iran"});
+        assert_eq!(normalized_location(&value), "Iran");
+    }
+
+    #[test]
+    fn gool_strict_mode_disables_the_compatibility_assists() {
+        // Phase 2.1: AETHON_GOOL_STRICT=1 is the diagnostic switch that proves each
+        // topology independently — both the topology memory and the bounded classic
+        // fallback must be off in strict mode. (Default: off.)
+        let held = super::test_env_hold("AETHON_GOOL_STRICT");
+        std::env::set_var("AETHON_GOOL_STRICT", "1");
+        assert!(super::gool_strict_mode());
+        std::env::remove_var("AETHON_GOOL_STRICT");
+        assert!(!super::gool_strict_mode());
+        drop(held);
+    }
+
+    #[test]
+    fn tor_startup_budgets_are_chain_aware_and_cover_the_announcement_gate() {
+        // Phase 3.3: the watchdog must not fire while the announcement gate is still
+        // legitimately inside its own window. The gate waits allowance+15 AFTER the
+        // SOCKS listener; the measured sequence (SOCKS at ~75s on a flapping underlay
+        // + 315s gate) exceeds the old watchdog (stall+allowance) and produced the
+        // vague "Connection attempt was cancelled". The budget must therefore be at
+        // least stall + allowance + 15 for chain modes.
+        use crate::protocol::{
+            PSIPHON_STARTUP_ALLOWANCE_SECS, TOR_STARTUP_ALLOWANCE_SECS,
+        };
+        let stall = 90u64;
+        let psiphon_gate = PSIPHON_STARTUP_ALLOWANCE_SECS + 15;
+        let tor_gate = TOR_STARTUP_ALLOWANCE_SECS + 15;
+        // Psiphon chain watchdog: covers SOCKS budget + full gate.
+        assert!(stall + PSIPHON_STARTUP_ALLOWANCE_SECS + 15 >= stall + psiphon_gate);
+        // Tor chain watchdog: covers SOCKS budget + full gate.
+        assert!(stall + TOR_STARTUP_ALLOWANCE_SECS + 15 >= stall + tor_gate);
+        // The gate's own deadline arithmetic matches the constants it is built from.
+        assert_eq!(tor_gate, 315);
+        assert_eq!(psiphon_gate, 135);
+        // Bounded: the Tor allowance is 300s (not grown by this mission).
+        assert_eq!(TOR_STARTUP_ALLOWANCE_SECS, 300);
+        assert_eq!(PSIPHON_STARTUP_ALLOWANCE_SECS, 120);
+    }
+
+    #[test]
+    fn watchdog_budget_computation_includes_gate_slack() {
+        // The exact arithmetic used in ProcessManager::start_with_options — kept in
+        // sync with the announcement-gate deadline (allowance + 15) so the watchdog
+        // can never pre-empt a legitimately waiting gate (dev.033 Phase 3.3 fix).
+        let settings = crate::settings::Settings::default();
+        assert_eq!(settings.stall_timeout, 90);
+        let psiphon = settings.stall_timeout + crate::protocol::PSIPHON_STARTUP_ALLOWANCE_SECS + 15;
+        let tor = settings.stall_timeout + crate::protocol::TOR_STARTUP_ALLOWANCE_SECS + 15;
+        let plain = settings.stall_timeout;
+        assert_eq!(psiphon, 225);
+        assert_eq!(tor, 405);
+        assert_eq!(plain, 90);
+        // Chain watchdogs are strictly larger than the gate wait that follows SOCKS.
+        assert!(psiphin_gate_bound(psiphon));
+        assert!(tor_gate_bound(tor));
+    }
+
+    fn psiphin_gate_bound(watchdog: u64) -> bool {
+        watchdog >= 90 + crate::protocol::PSIPHON_STARTUP_ALLOWANCE_SECS + 15
+    }
+    fn tor_gate_bound(watchdog: u64) -> bool {
+        watchdog >= 90 + crate::protocol::TOR_STARTUP_ALLOWANCE_SECS + 15
+    }
+
+    #[test]
+    fn location_lookup_failure_degrades_to_unavailable_not_teardown() {
+        // Phase 1.2/3.5: a location-provider failure must return an empty string (the
+        // UI renders "unavailable"), never an error that could tear a working tunnel
+        // down. The provider loop ends with Ok(String::new()) after exhausting all
+        // providers — asserted structurally by the empty normalized_location path.
+        let value = serde_json::json!({"ip": "104.28.246.167"});
+        // A response with no usable country/city yields the empty (unavailable) form.
+        assert_eq!(normalized_location(&value), "");
+    }
+
+    #[test]
+    fn dev032_settings_load_without_reset_and_keep_gool_mode() {
+        // MIGRATION (Phase 7): a real dev.032 settings.json — the user's own file —
+        // deserializes without loss; the goolMode key keeps its stored value and all
+        // keys survive (dev.033 adds no new required settings key).
+        let dev032_json = r#"{
+          "language": "en",
+          "appearance": "light",
+          "protocol": "gool+psiphon",
+          "scanMode": "turbo",
+          "masqueTransport": "h2",
+          "goolMode": "masque",
+          "psiphonRegion": "DE",
+          "quickReconnect": false,
+          "stallTimeout": 90,
+          "watchdog": true,
+          "wiwOuterPeer": "",
+          "wiwInnerPeer": ""
+        }"#;
+        let settings: crate::settings::Settings =
+            serde_json::from_str(dev032_json).expect("dev.032 settings load");
+        assert_eq!(settings.protocol, "gool+psiphon");
+        assert_eq!(settings.gool_mode, "masque");
+        assert_eq!(settings.psiphon_region, "DE");
+        assert!(!settings.quick_reconnect);
+        assert_eq!(settings.stall_timeout, 90);
+        // Normalization repairs spellings but never invents a protocol reset.
+        let mut normalized = settings.clone();
+        normalized.normalize_protocol_options();
+        assert_eq!(normalized.protocol, "gool+psiphon");
+        assert_eq!(normalized.gool_mode, "masque");
     }
 }

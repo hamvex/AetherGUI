@@ -1,7 +1,8 @@
 $ErrorActionPreference = "Stop"
 
-$pins = Get-Content -LiteralPath (Join-Path $PSScriptRoot "aether-pins.json") -Raw | ConvertFrom-Json
-$aetherVersion = if ($env:AETHER_CORE_VERSION) { $env:AETHER_CORE_VERSION } else { $pins.androidVersion }
+$pins = (Get-Content -LiteralPath (Join-Path $PSScriptRoot "aether-pins.json") -Raw | ConvertFrom-Json).android
+$aetherVersion = if ($env:AETHER_CORE_VERSION) { $env:AETHER_CORE_VERSION } else { $pins.version }
+if ($aetherVersion -ne $pins.version) { throw "Aether $aetherVersion is not pinned for Android; update its complete platform metadata first." }
 $hevVersion = "2.16.0"
 $hevCommit = "0a05221275a51a884d93328c55fc2fbc9e9b6974"
 $ndkVersion = "27.2.12479018"
@@ -74,7 +75,7 @@ try {
         $abiDir = Join-Path $destination $target.Abi
         New-Item -ItemType Directory -Force $abiDir | Out-Null
         $archive = Join-Path $temp $target.Archive
-        $base = "https://github.com/CluvexStudio/Aether/releases/download/$aetherVersion"
+        $base = $pins.downloadBaseUrl
         $cacheArchive = if ($env:AETHER_ASSET_CACHE) { Join-Path $env:AETHER_ASSET_CACHE $target.Archive } else { $null }
         if ($cacheArchive -and (Test-Path -LiteralPath $cacheArchive -PathType Leaf)) {
             Copy-Item -LiteralPath $cacheArchive -Destination $archive
@@ -85,8 +86,8 @@ try {
         # Pinned in this repository rather than read from beside the archive it verifies:
         # the archive and its .sha256 share one base URL and one trust boundary. See
         # scripts/aether-pins.json.
-        if ($aetherVersion -eq $pins.androidVersion) {
-            $expected = $pins.androidArchives.($target.Archive)
+        if ($aetherVersion -eq $pins.version) {
+            $expected = $pins.archives.($target.Archive)
             if (-not $expected) { throw "$($target.Archive) is not pinned in scripts/aether-pins.json." }
         }
         else {
@@ -112,7 +113,7 @@ try {
         # Verifying the archive proves the transfer; it does not prove that what tar handed back
         # and what lands in jniLibs are the same bytes. jniLibs/**/*.so is .gitignore'd, so the
         # copied library is otherwise the one shipped input with no reviewable expected digest.
-        $expectedBinary = $pins.androidBinary.($target.Archive)
+        $expectedBinary = $pins.binary.($target.Archive)
         if (-not $expectedBinary) { throw "$($target.Archive) has no extracted-binary digest in scripts/aether-pins.json." }
         if ($expectedBinary -notmatch '^[a-fA-F0-9]{64}$') { throw "Invalid pinned Aether binary digest for $($target.Abi)." }
         $extracted = Get-Sha256 $core.FullName
